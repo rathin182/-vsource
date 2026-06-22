@@ -65,14 +65,11 @@ export default function AllocatedLeadsPage() {
       }
       const data = await res.json();
       const dd = data[0]?.users || "[]"
-      console.log(data, "dataa", dd, "helloo");
       setCounselors(data[0]?.users || []);
       // setCounselorFilter(
       //   data.find((item: any) => item.name === counselorFilter).id
       // )
     } catch (error: any) {
-      console.log(error.message);
-
       toast.error("Failed to load counselors");
     }
   }

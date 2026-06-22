@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader, PageTransition } from "@/slids/components/common/PageHeader";
 import { Card, CardContent } from "@/slids/components/ui/card";
 import { Button } from "@/slids/components/ui/button";
@@ -19,22 +19,91 @@ import { useRouter } from "next/navigation";
 
 export default function StudentsPage() {
   const router = useRouter();
-  const [list, setList] = useState<Student[]>(seed);
+  const [list, setList] = useState<Student[]>([]);
   const [q, setQ] = useState("");
   const [sel, setSel] = useState<Student | null>(null);
   const [open, setOpen] = useState(false);
   const empty = { name: "", email: "", phone: "", dob: "", country: "USA", program: "MS Computer Science", intake: "Fall 2026", status: "Active" };
   const [form, setForm] = useState(empty);
 
-  const filtered = list.filter((s) => s.name.toLowerCase().includes(q.toLowerCase()));
+  const allStudent = async () => {
+    try {
+      const response = await fetch('/api/student', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await response.json();
 
-  const add = () => {
-    if (!form.name || !form.email) return toast.error("Name and email are required");
-    const s: Student = { id: `ST${Date.now()}`, ...form, progress: 20 };
-    setList([s, ...list]);
-    setOpen(false); setForm(empty);
-    toast.success("Student added");
+      setList(data.data || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
   };
+
+  const createStudent = async () => {
+    try {
+      if (!form.name || !form.email) {
+        return toast.error(
+          "Name and email are required"
+        );
+      }
+
+      const response = await fetch(
+        "/api/student",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify(form),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return toast.error(
+          data.message
+        );
+      }
+
+      await allStudent();
+
+      setOpen(false);
+      setForm(empty);
+
+      toast.success(
+        "Student created"
+      );
+    } catch (error) {
+      console.error(error);
+
+      toast.error(
+        "Failed to create student"
+      );
+    }
+  };
+
+  const filtered = list.filter((s: any) =>
+    s.studentName
+      ?.toLowerCase()
+      .includes(q.toLowerCase())
+  );
+
+  // const add = () => {
+  //   if (!form.name || !form.email) return toast.error("Name and email are required");
+  //   const s: Student = { id: `ST${Date.now()}`, ...form, progress: 20 };
+  //   setList([s, ...list]);
+  //   setOpen(false); setForm(empty);
+  //   toast.success("Student added");
+  // };
+
+  useEffect(() => {
+    allStudent();
+  }, []);
 
   return (
     <PageTransition>
@@ -62,7 +131,7 @@ export default function StudentsPage() {
                   <div className="grid gap-1.5"><Label>Intake</Label><Input value={form.intake} onChange={(e) => setForm({ ...form, intake: e.target.value })} /></div>
                 </div>
               </div>
-              <DialogFooter><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={add}>Create</Button></DialogFooter>
+              <DialogFooter><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={createStudent}>Create</Button></DialogFooter>
             </DialogContent>
           </Dialog>
         </>}
@@ -74,31 +143,82 @@ export default function StudentsPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((s) => (
-          <Card key={s.id} className="hover:shadow-md transition-all cursor-pointer hover:-translate-y-0.5 duration-200" onClick={() => setSel(s)}>
+        {filtered.map((s: any) => (
+          <Card
+            key={s.id}
+            className="cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+            onClick={() => setSel(s)}
+          >
             <CardContent className="p-5">
               <div className="flex items-start gap-3">
                 <Avatar className="size-12">
                   <AvatarFallback className="bg-[image:var(--gradient-primary)] text-white font-semibold">
-                    {s.name.split(" ").map((p) => p[0]).join("")}
+                    {(s.studentName || "NA")
+                      .split(" ")
+                      .map((p: string) => p[0])
+                      .join("")
+                      .toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
+
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold truncate">{s.name}</div>
-                  <div className="text-xs text-muted-foreground truncate">{s.id} · {s.intake}</div>
+                  <div className="font-semibold truncate">
+                    {s.studentName}
+                  </div>
+
+                  <div className="text-xs text-muted-foreground truncate">
+                    {s.studentNumber}
+                  </div>
                 </div>
-                <Badge variant="outline" className="text-[10px]">{s.status}</Badge>
+
+                <Badge
+                  variant="outline"
+                  className="text-[10px] capitalize"
+                >
+                  {s.status}
+                </Badge>
               </div>
+
               <div className="mt-4 space-y-2 text-xs text-muted-foreground">
-                <div className="flex items-center gap-2"><GraduationCap className="size-3.5" /> {s.program}</div>
-                <div className="flex items-center gap-2"><Mail className="size-3.5" /> {s.email}</div>
-              </div>
-              <div className="mt-4">
-                <div className="flex justify-between text-[11px] mb-1">
-                  <span className="text-muted-foreground">Profile completeness</span>
-                  <span className="font-medium">{s.progress}%</span>
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="size-3.5" />
+                  {s.preferredCourse || "Not Selected"}
                 </div>
-                <Progress value={s.progress} className="h-1.5" />
+
+                <div className="flex items-center gap-2">
+                  <Mail className="size-3.5" />
+                  {s.emailId || "No Email"}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Phone className="size-3.5" />
+                  {s.mobileNumber || "No Phone"}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">
+                    Branch:
+                  </span>
+                  {s.branch?.name || "N/A"}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">
+                    Counselor:
+                  </span>
+                  {s.counselor?.name || "Unassigned"}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">
+                    Country:
+                  </span>
+                  {s.preferredCountry || "N/A"}
+                </div>
+              </div>
+
+              <div className="mt-4 border-t pt-3 text-[11px] text-muted-foreground">
+                Lead No: {s.lead?.leadNumber || "N/A"}
               </div>
             </CardContent>
           </Card>
@@ -106,60 +226,243 @@ export default function StudentsPage() {
       </div>
 
       <Sheet open={!!sel} onOpenChange={(v) => !v && setSel(null)}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-          {sel && (
-            <div>
-              <SheetHeader>
-                <div className="flex items-center gap-3">
-                  <Avatar className="size-14"><AvatarFallback className="bg-[image:var(--gradient-primary)] text-white font-bold">{sel.name.split(" ").map((p) => p[0]).join("")}</AvatarFallback></Avatar>
-                    <div>
-                      <div className="flex gap-3 mb-2">
-                        <SheetTitle>{sel.name}</SheetTitle>
-                        <div>
-                          <Button size="sm" variant="outline" onClick={() => router.push(`/students/${sel.id}`)}>View More</Button>
-                        </div>
-                      </div>
-                      <SheetDescription>{sel.id} · {sel.country} · {sel.intake}</SheetDescription>
-                    </div>
-                </div>
-              </SheetHeader>
-              <div className="px-4 mt-6">
-                <Tabs defaultValue="overview">
-                  <TabsList className="w-full">
-                    <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
-                    <TabsTrigger value="academics" className="flex-1">Academics</TabsTrigger>
-                    <TabsTrigger value="docs" className="flex-1">Documents</TabsTrigger>
-                    <TabsTrigger value="timeline" className="flex-1">Timeline</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="overview" className="space-y-3 mt-4">
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="rounded-lg border border-border p-3"><div className="text-[11px] text-muted-foreground">Email</div><div className="flex items-center gap-1.5 mt-1"><Mail className="size-3.5" />{sel.email}</div></div>
-                      <div className="rounded-lg border border-border p-3"><div className="text-[11px] text-muted-foreground">Phone</div><div className="flex items-center gap-1.5 mt-1"><Phone className="size-3.5" />{sel.phone}</div></div>
-                      <div className="rounded-lg border border-border p-3"><div className="text-[11px] text-muted-foreground">DOB</div><div className="mt-1">{sel.dob}</div></div>
-                      <div className="rounded-lg border border-border p-3"><div className="text-[11px] text-muted-foreground">Program</div><div className="mt-1">{sel.program}</div></div>
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="academics" className="space-y-2 mt-4">
-                    {[{ l: "10th Grade", v: "CBSE · 92%" }, { l: "12th Grade", v: "State Board · 88%" }, { l: "Bachelors", v: "B.Tech CSE · 8.4 CGPA" }, { l: "IELTS", v: "7.5 Overall" }].map((r) => (
-                      <div key={r.l} className="flex justify-between items-center rounded-lg border border-border p-3 text-sm"><span className="text-muted-foreground flex items-center gap-2"><Award className="size-4" />{r.l}</span><span className="font-medium">{r.v}</span></div>
-                    ))}
-                  </TabsContent>
-                  <TabsContent value="docs" className="mt-4 grid grid-cols-2 gap-3">
-                    {["Passport", "Transcripts", "SOP", "LOR-1", "LOR-2", "IELTS Scorecard"].map((d) => (
-                      <div key={d} className="rounded-lg border border-dashed border-border p-4 text-center text-xs hover:border-primary transition-colors cursor-pointer"><FileText className="size-5 mx-auto mb-1.5 text-primary" />{d}</div>
-                    ))}
-                  </TabsContent>
-                  <TabsContent value="timeline" className="space-y-2 mt-4 text-sm">
-                    {["Inquiry received", "Counselor assigned", "Documents uploaded", "University shortlist confirmed", "Application submitted", "Offer received"].map((t, i) => (
-                      <div key={i} className="flex gap-3"><div className="size-2 rounded-full bg-primary mt-2" /><div className="flex-1"><div className="font-medium">{t}</div><div className="text-[11px] text-muted-foreground">{i + 1} weeks ago</div></div></div>
-                    ))}
-                  </TabsContent>
-                </Tabs>
+  <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+    {sel && (
+      <div>
+        <SheetHeader>
+          <div className="flex items-center gap-3">
+            <Avatar className="size-14">
+              <AvatarFallback className="bg-[image:var(--gradient-primary)] text-white font-bold">
+                {(sel.studentName || "NA")
+                  .split(" ")
+                  .map((p: string) => p[0])
+                  .join("")
+                  .toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+
+            <div className="flex-1">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <SheetTitle>
+                  {sel.studentName}
+                </SheetTitle>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    router.push(`/students/${sel.id}`)
+                  }
+                >
+                  View More
+                </Button>
               </div>
+
+              <SheetDescription>
+                {sel.studentNumber} ·{" "}
+                {sel.preferredCountry || "N/A"} ·{" "}
+                {sel.status}
+              </SheetDescription>
             </div>
-          )}
-        </SheetContent>
-      </Sheet>
+          </div>
+        </SheetHeader>
+
+        <div className="px-4 mt-6">
+          <Tabs defaultValue="overview">
+            <TabsList className="w-full">
+              <TabsTrigger
+                value="overview"
+                className="flex-1"
+              >
+                Overview
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="academic"
+                className="flex-1"
+              >
+                Academic
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="lead"
+                className="flex-1"
+              >
+                Lead
+              </TabsTrigger>
+
+              <TabsTrigger
+                value="timeline"
+                className="flex-1"
+              >
+                Timeline
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent
+              value="overview"
+              className="space-y-3 mt-4"
+            >
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-lg border border-border p-3">
+                  <div className="text-[11px] text-muted-foreground">
+                    Email
+                  </div>
+
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Mail className="size-3.5" />
+                    {sel.emailId || "N/A"}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border p-3">
+                  <div className="text-[11px] text-muted-foreground">
+                    Phone
+                  </div>
+
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Phone className="size-3.5" />
+                    {sel.mobileNumber || "N/A"}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border p-3">
+                  <div className="text-[11px] text-muted-foreground">
+                    Branch
+                  </div>
+
+                  <div className="mt-1">
+                    {sel.branch?.name}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border p-3">
+                  <div className="text-[11px] text-muted-foreground">
+                    Counselor
+                  </div>
+
+                  <div className="mt-1">
+                    {sel.counselor?.name ||
+                      "Unassigned"}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border p-3">
+                  <div className="text-[11px] text-muted-foreground">
+                    Country
+                  </div>
+
+                  <div className="mt-1">
+                    {sel.preferredCountry ||
+                      "N/A"}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border p-3">
+                  <div className="text-[11px] text-muted-foreground">
+                    Status
+                  </div>
+
+                  <div className="mt-1 capitalize">
+                    {sel.status}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent
+              value="academic"
+              className="space-y-2 mt-4"
+            >
+              <div className="flex justify-between items-center rounded-lg border border-border p-3 text-sm">
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <GraduationCap className="size-4" />
+                  Preferred Country
+                </span>
+
+                <span className="font-medium">
+                  {sel.preferredCountry ||
+                    "N/A"}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center rounded-lg border border-border p-3 text-sm">
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Award className="size-4" />
+                  Student Number
+                </span>
+
+                <span className="font-medium">
+                  {sel.studentNumber}
+                </span>
+              </div>
+            </TabsContent>
+
+            <TabsContent
+              value="lead"
+              className="space-y-3 mt-4"
+            >
+              <div className="rounded-lg border border-border p-3">
+                <div className="text-xs text-muted-foreground">
+                  Lead Number
+                </div>
+
+                <div className="font-medium mt-1">
+                  {sel.lead?.leadNumber}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border p-3">
+                <div className="text-xs text-muted-foreground">
+                  Source
+                </div>
+
+                <div className="font-medium mt-1">
+                  {sel.lead?.source}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent
+              value="timeline"
+              className="space-y-3 mt-4"
+            >
+              <div className="flex gap-3">
+                <div className="size-2 rounded-full bg-primary mt-2" />
+
+                <div>
+                  <div className="font-medium">
+                    Student Created
+                  </div>
+
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(
+                      sel.createdAt
+                    ).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="size-2 rounded-full bg-primary mt-2" />
+
+                <div>
+                  <div className="font-medium">
+                    Timeline Entries
+                  </div>
+
+                  <div className="text-xs text-muted-foreground">
+                    {sel._count?.timeline || 0}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    )}
+  </SheetContent>
+</Sheet>
     </PageTransition>
   );
 }

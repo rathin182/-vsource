@@ -11,16 +11,31 @@ import { useRouter } from "next/navigation";
 import StudentData from "@/slids/modules/internal-student/Studentdetails";
 
 export default function Page() {
-    const router = useRouter();
+  const router = useRouter();
   const params = useParams();
-
+  const [student, setStudent] = useState({});
   const selectedStudentId = params.students as string;
 
-  const selectedStudent = seed.find((s) => s.id === selectedStudentId);
+  const studentfetch = async () => {
+    const res = await fetch(`/api/student/${selectedStudentId}`, {
+      method: "GET",
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return toast.error(data.message);
+    }
+    setStudent(data);
+  };
+
+  useEffect(() => {
+    studentfetch();
+  }, [selectedStudentId]);
 
   return (
     <div className="w-full h-screen -m-5">
-      <StudentData student={selectedStudent} />
+      <StudentData student={student} />
     </div>
   );
 }

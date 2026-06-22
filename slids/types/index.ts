@@ -125,16 +125,46 @@ export interface Course {
 
 export interface Student {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
-  dob: string;
-  country: string;
-  program: string;
-  intake: string;
+
+  studentNumber: string;
+
+  leadId: string;
+  branchId: string;
+  counselorId?: string | null;
+
+  studentName: string;
+  mobileNumber?: string | null;
+  emailId?: string | null;
+
+  preferredCountry?: string | null;
+  preferredCourse?: string | null;
+
   status: string;
-  progress: number;
-  avatar?: string;
+
+  createdAt: string;
+  updatedAt: string;
+
+  branch?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+
+  counselor?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+
+  lead?: {
+    id: string;
+    leadNumber: string;
+    source: string;
+  };
+
+  _count?: {
+    timeline: number;
+  };
 }
 
 export interface University {
