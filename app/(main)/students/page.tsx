@@ -15,8 +15,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/slids/components/ui/
 import { students as seed } from "@/slids/data/mock";
 import type { Student } from "@/slids/types";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export default function StudentsPage() {
+  const router = useRouter();
   const [list, setList] = useState<Student[]>(seed);
   const [q, setQ] = useState("");
   const [sel, setSel] = useState<Student | null>(null);
@@ -106,14 +108,19 @@ export default function StudentsPage() {
       <Sheet open={!!sel} onOpenChange={(v) => !v && setSel(null)}>
         <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
           {sel && (
-            <>
+            <div>
               <SheetHeader>
                 <div className="flex items-center gap-3">
                   <Avatar className="size-14"><AvatarFallback className="bg-[image:var(--gradient-primary)] text-white font-bold">{sel.name.split(" ").map((p) => p[0]).join("")}</AvatarFallback></Avatar>
-                  <div>
-                    <SheetTitle>{sel.name}</SheetTitle>
-                    <SheetDescription>{sel.id} · {sel.country} · {sel.intake}</SheetDescription>
-                  </div>
+                    <div>
+                      <div className="flex gap-3 mb-2">
+                        <SheetTitle>{sel.name}</SheetTitle>
+                        <div>
+                          <Button size="sm" variant="outline" onClick={() => router.push(`/students/${sel.id}`)}>View More</Button>
+                        </div>
+                      </div>
+                      <SheetDescription>{sel.id} · {sel.country} · {sel.intake}</SheetDescription>
+                    </div>
                 </div>
               </SheetHeader>
               <div className="px-4 mt-6">
@@ -143,13 +150,13 @@ export default function StudentsPage() {
                     ))}
                   </TabsContent>
                   <TabsContent value="timeline" className="space-y-2 mt-4 text-sm">
-                    {["Inquiry received","Counselor assigned","Documents uploaded","University shortlist confirmed","Application submitted","Offer received"].map((t, i) => (
-                      <div key={i} className="flex gap-3"><div className="size-2 rounded-full bg-primary mt-2"/><div className="flex-1"><div className="font-medium">{t}</div><div className="text-[11px] text-muted-foreground">{i + 1} weeks ago</div></div></div>
+                    {["Inquiry received", "Counselor assigned", "Documents uploaded", "University shortlist confirmed", "Application submitted", "Offer received"].map((t, i) => (
+                      <div key={i} className="flex gap-3"><div className="size-2 rounded-full bg-primary mt-2" /><div className="flex-1"><div className="font-medium">{t}</div><div className="text-[11px] text-muted-foreground">{i + 1} weeks ago</div></div></div>
                     ))}
                   </TabsContent>
                 </Tabs>
               </div>
-            </>
+            </div>
           )}
         </SheetContent>
       </Sheet>
