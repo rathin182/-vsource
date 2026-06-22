@@ -6,22 +6,37 @@ import { useAuth } from "@/slids/store";
 
 export default function RootPage() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  // const { isAuthenticated } = useAuth();
+  const [authenticated, setAuthenticated] = useState(true);
   const [hydrated, setHydrated] = useState(false);
 
+  const logdata = async () => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "GET",
+      });
+
+      if (res.ok) {
+        setAuthenticated(res.ok);
+      }
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    }
+  };
+
   useEffect(() => {
+    logdata();
     setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (hydrated) {
-      if (isAuthenticated) {
-        router.replace("/dashboard");
-      } else {
-        router.replace("/login");
-      }
+    if (authenticated) {
+
+      router.replace("/dashboard");
+    } else {
+      router.replace("/login");
     }
-  }, [hydrated, isAuthenticated, router]);
+  }, [authenticated]);
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background">

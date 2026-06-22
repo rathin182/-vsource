@@ -32,9 +32,7 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider>
-          <DashboardShell>
           {children}
-          </DashboardShell>
         </ThemeProvider>
       </body>
     </html>

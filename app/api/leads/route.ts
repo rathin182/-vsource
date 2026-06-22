@@ -14,7 +14,7 @@ import {
   buildMeta,
 } from "@/lib/api-helpers";
 import { LeadCreateSchema } from "@/lib/schemas";
-import { LeadStatus, LeadType } from "@/generated/prisma/enums";
+import { LeadStatus, LeadType } from "@/lib/generated/prisma/enums";
 import { getAuthorizedUser } from "@/lib/rbac";
 import { MODULES, PERMISSIONS } from "@/lib/module-codes";
 
@@ -79,7 +79,6 @@ export async function GET(req: NextRequest) {
       }),
       db.lead.count({ where }),
     ]);
-
     return ok(leads, undefined, buildMeta(total, page, limit));
   } catch (err) {
     return handleError(err);
@@ -93,8 +92,6 @@ export async function POST(req: NextRequest) {
       MODULES.MASTER_LEADS,
       PERMISSIONS.CREATE,
     );
-
-    console.log("currentUser", currentUser);
 
     const body = LeadCreateSchema.parse(await req.json());
     const lastLead = await db.lead.findFirst({

@@ -4,33 +4,47 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/slids/store";
 import { Toaster } from "@/slids/components/ui/sonner";
+import DashboardShell from '@/slids/layouts/DashboardShell'
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const [hydrated, setHydrated] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+
+  const logdata = async () => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "GET",
+      });
+
+      if (res.ok) {
+        setAuthenticated(res.ok);
+      }
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+    }
+  };
 
   useEffect(() => {
-    setHydrated(true);
+    logdata();
   }, []);
 
+
   useEffect(() => {
-    if (hydrated && !isAuthenticated) {
+    if (authenticated) {
+
+      router.replace("/dashboard");
+    } else {
       router.replace("/login");
     }
-  }, [hydrated, isAuthenticated, router]);
-
-  if (!hydrated || !isAuthenticated) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-background">
-        <div className="size-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
-  }
+  }, [authenticated]);
 
   return (
     <>
-      {children}
+      <DashboardShell>
+        {children}
+      </DashboardShell>
       <Toaster richColors position="top-right" />
     </>
   );

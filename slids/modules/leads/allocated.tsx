@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader, PageTransition } from "@/slids/components/common/PageHeader";
 import { Card, CardContent } from "@/slids/components/ui/card";
 import { Button } from "@/slids/components/ui/button";
@@ -34,37 +34,188 @@ import { Search, ChevronRight, Eye } from "lucide-react";
 import { leads as seedLeads } from "@/slids/data/leads";
 import type { Lead } from "@/slids/types";
 import { toast } from "sonner";
+import { Skeleton } from "@/slids/components/ui/skeleton";
 
 export default function AllocatedLeadsPage() {
   const [counselorFilter, setCounselorFilter] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
   const [branchFilter, setBranchFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [reassignLead, setReassignLead] = useState<Lead | null>(null);
   const [reassignCounselor, setReassignCounselor] = useState("");
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [branchCount, setBranchCount] = useState(1);
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [counselors, setCounselors] = useState<any[]>([]);
 
-  const counselors = Array.from(new Set(seedLeads.map((item) => item.counselor)));
-  const branches = Array.from(new Set(seedLeads.map((item) => item.branch)));
+
+  // const counselors = Array.from(new Set(seedLeads.map((item) => item.counselor)));
+  // const branches = Array.from(new Set(seedLeads.map((item) => item.branch)));
   const statuses = Array.from(new Set(seedLeads.map((item) => item.status)));
 
-  const allocatedLeads = useMemo(() => {
-    return seedLeads
-      .filter((lead) => !!lead.allocationDate)
-      .map((lead) => ({
-        ...lead,
-        nextFollowup: lead.nextFollowup || new Date(Date.now() + 2 * 86400000).toISOString(),
-      }));
+  const fetchCounsellor = async () => {
+    try {
+      const res = await fetch(`/api/counsellors`, { credentials: "include", });
+      if (!res.ok) {
+        toast.error("Counsellor not found");
+      }
+      const data = await res.json();
+      const dd = data[0]?.users || "[]"
+      console.log(data, "dataa", dd, "helloo");
+      setCounselors(data[0]?.users || []);
+      // setCounselorFilter(
+      //   data.find((item: any) => item.name === counselorFilter).id
+      // )
+    } catch (error: any) {
+      console.log(error.message);
+
+      toast.error("Failed to load counselors");
+    }
+  }
+
+
+
+  const fetchBranches = async () => {
+    try {
+      setIsLoading(true);
+
+      const params = new URLSearchParams();
+
+      params.append("page", page.toString());
+      params.append("limit", "10");
+
+      if (query) {
+        params.append("search", query);
+      }
+
+      const res = await fetch(
+        `/api/branches?${params.toString()}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      const data = await res.json();
+
+      setBranches(data.data);
+      setBranchCount(data.meta.totalPages);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to load branches");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchLeads = async () => {
+    try {
+      setIsLoading(true);
+
+      const params = new URLSearchParams();
+
+      params.append("page", page.toString());
+      params.append("limit", "10");
+
+      if (query) {
+        params.append("search", query);
+      }
+
+      if (
+        statusFilter &&
+        statusFilter !== "all"
+      ) {
+        params.append(
+          "status",
+          statusFilter
+        );
+      }
+
+      if (
+        branchFilter &&
+        branchFilter !== "all"
+      ) {
+        params.append(
+          "branchId",
+          branchFilter
+        );
+      }
+
+      if (
+        counselorFilter &&
+        counselorFilter !== "all"
+      ) {
+        params.append(
+          "assignedCounselorId",
+          counselorFilter
+        );
+      }
+
+      const res = await fetch(
+        `/api/leads?${params.toString()}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      const data = await res.json();
+
+      setLeads(data.data);
+      // setTotalPages(data.meta.totalPages);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to load leads");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBranches();
+    fetchCounsellor();
+    fetchLeads();
   }, []);
 
-  const filteredLeads = useMemo(() => {
-    return allocatedLeads.filter((lead) => {
-      const counselorMatch =
-        counselorFilter === "all" || !counselorFilter || lead.counselor === counselorFilter;
-      const branchMatch = branchFilter === "all" || !branchFilter || lead.branch === branchFilter;
-      const statusMatch = statusFilter === "all" || !statusFilter || lead.status === statusFilter;
-      return counselorMatch && branchMatch && statusMatch;
-    });
-  }, [allocatedLeads, counselorFilter, branchFilter, statusFilter]);
+
+  const filteredLeads = leads.filter((lead) => {
+    const counselorMatch =
+      counselorFilter === "all" ||
+      !counselorFilter ||
+      lead.counselors?.some(
+        (c: any) =>
+          c.counselor.id === counselorFilter
+      );
+
+    const branchMatch =
+      branchFilter === "all" ||
+      !branchFilter ||
+      lead.branch?.id === branchFilter;
+
+    const statusMatch =
+      statusFilter === "all" ||
+      !statusFilter ||
+      lead.status === statusFilter;
+
+    return (
+      counselorMatch &&
+      branchMatch &&
+      statusMatch
+    );
+  });
+
+  // const filteredLeads = useMemo(() => {
+  //   return allocatedLeads.filter((lead) => {
+  //     const counselorMatch =
+  //       counselorFilter === "all" || !counselorFilter || lead.counselor === counselorFilter;
+  //     const branchMatch = branchFilter === "all" || !branchFilter || lead.branch === branchFilter;
+  //     const statusMatch = statusFilter === "all" || !statusFilter || lead.status === statusFilter;
+  //     return counselorMatch && branchMatch && statusMatch;
+  //   });
+
+  // }, [allocatedLeads, counselorFilter, branchFilter, statusFilter]);
 
   const handleReassign = () => {
     if (!reassignLead || !reassignCounselor) {
@@ -87,17 +238,28 @@ export default function AllocatedLeadsPage() {
         <CardContent className="grid gap-4 lg:grid-cols-3">
           <div className="grid gap-2">
             <Label>Filter by Counselor</Label>
-            <Select value={counselorFilter} onValueChange={setCounselorFilter}>
+            <Select
+              value={counselorFilter}
+              onValueChange={setCounselorFilter}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="All counselors" />
               </SelectTrigger>
+
               <SelectContent>
                 <SelectGroup>
                   <SelectLabel>Counselor</SelectLabel>
-                  <SelectItem value="all">All</SelectItem>
-                  {counselors.map((name) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
+
+                  <SelectItem value="all">
+                    All
+                  </SelectItem>
+
+                  {counselors.map((item) => (
+                    <SelectItem
+                      key={item.id}
+                      value={item.id}
+                    >
+                      {item.name}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -113,10 +275,17 @@ export default function AllocatedLeadsPage() {
               <SelectContent>
                 <SelectGroup>
                   <SelectLabel>Branch</SelectLabel>
-                  <SelectItem value="all">All</SelectItem>
-                  {branches.map((name) => (
-                    <SelectItem key={name} value={name}>
-                      {name}
+
+                  <SelectItem value="all">
+                    Any Branch
+                  </SelectItem>
+
+                  {branches.map((item) => (
+                    <SelectItem
+                      key={item.id}
+                      value={item.id}
+                    >
+                      {item.name}
                     </SelectItem>
                   ))}
                 </SelectGroup>
@@ -161,85 +330,211 @@ export default function AllocatedLeadsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredLeads.length === 0 ? (
+              {isLoading ? (
+                Array.from({ length: 6 }).map((_, index) => (
+                  <tr
+                    key={index}
+                    className="border-b border-border"
+                  >
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-4 w-32" />
+                    </td>
+
+                    <td className="px-4 py-4 hidden md:table-cell">
+                      <Skeleton className="h-4 w-40" />
+                    </td>
+
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-4 w-28" />
+                    </td>
+
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-4 w-20" />
+                    </td>
+
+                    <td className="px-4 py-4 hidden lg:table-cell">
+                      <Skeleton className="h-4 w-24" />
+                    </td>
+
+                    <td className="px-4 py-4">
+                      <Skeleton className="h-7 w-20 rounded-full" />
+                    </td>
+
+                    <td className="px-4 py-4 hidden xl:table-cell">
+                      <Skeleton className="h-4 w-24" />
+                    </td>
+
+                    <td className="px-4 py-4">
+                      <div className="flex gap-2">
+                        <Skeleton className="h-8 w-8 rounded-md" />
+                        <Skeleton className="h-8 w-8 rounded-md" />
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : filteredLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-sm text-muted-foreground">
+                  <td
+                    colSpan={8}
+                    className="py-12 text-center text-sm text-muted-foreground"
+                  >
                     No allocated leads match the filter.
                   </td>
                 </tr>
               ) : (
-                filteredLeads.map((lead) => (
-                  <tr key={lead.id} className="border-b border-border hover:bg-secondary/30">
-                    <td className="px-4 py-4 font-medium">{lead.name}</td>
-                    <td className="px-4 py-4 hidden md:table-cell">{lead.counselor}</td>
-                    <td className="px-4 py-4">{lead.branch}</td>
-                    <td className="px-4 py-4">{lead.country}</td>
+                filteredLeads.map((lead: any) => (
+                  <tr
+                    key={lead.id}
+                    className="border-b border-border hover:bg-secondary/30"
+                  >
+                    <td className="px-4 py-4 font-medium">
+                      {lead.studentName}
+                    </td>
+
+                    <td className="px-4 py-4 hidden md:table-cell">
+                      {lead.counselors?.length > 0
+                        ? lead.counselors
+                          .map(
+                            (c: any) =>
+                              c.counselor?.name
+                          )
+                          .join(", ")
+                        : "Unassigned"}
+                    </td>
+
+                    <td className="px-4 py-4">
+                      {lead.branch?.name}
+                    </td>
+
+                    <td className="px-4 py-4">
+                      {lead.preferredCountry}
+                    </td>
+
                     <td className="px-4 py-4 hidden lg:table-cell">
-                      {lead.allocationDate
-                        ? new Date(lead.allocationDate).toLocaleDateString()
+                      {new Date(
+                        lead.createdAt
+                      ).toLocaleDateString()}
+                    </td>
+
+                    <td className="px-4 py-4">
+                      {lead.status}
+                    </td>
+
+                    <td className="px-4 py-4 hidden xl:table-cell">
+                      {lead.nextFollowup
+                        ? new Date(
+                          lead.nextFollowup
+                        ).toLocaleDateString()
                         : "—"}
                     </td>
-                    <td className="px-4 py-4">{lead.status}</td>
-                    <td className="px-4 py-4 hidden xl:table-cell">
-                      {lead.nextFollowup ? new Date(lead.nextFollowup).toLocaleDateString() : "—"}
-                    </td>
+
                     <td className="px-4 py-4 space-x-1 whitespace-nowrap">
                       <Button
                         size="icon"
                         variant="ghost"
                         className="size-8"
-                        onClick={() => setSelectedLead(lead)}
+                        onClick={() =>
+                          setSelectedLead(lead)
+                        }
                       >
                         <Eye className="size-4" />
                       </Button>
+
                       <Dialog
-                        open={reassignLead?.id === lead.id}
-                        onOpenChange={(open) => setReassignLead(open ? lead : null)}
+                        open={
+                          reassignLead?.id === lead.id
+                        }
+                        onOpenChange={(open) =>
+                          setReassignLead(
+                            open ? lead : null
+                          )
+                        }
                       >
                         <DialogTrigger asChild>
-                          <Button size="icon" variant="ghost" className="size-8">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="size-8"
+                          >
                             <ChevronRight className="size-4" />
                           </Button>
                         </DialogTrigger>
+
                         <DialogContent>
                           <DialogHeader>
-                            <DialogTitle>Reassign Counselor</DialogTitle>
+                            <DialogTitle>
+                              Reassign Counselor
+                            </DialogTitle>
                           </DialogHeader>
+
                           <div className="grid gap-4 py-2">
                             <div className="grid gap-2">
-                              <Label>Current Student</Label>
-                              <Input value={lead.name} disabled />
+                              <Label>
+                                Current Student
+                              </Label>
+
+                              <Input
+                                value={
+                                  lead.studentName
+                                }
+                                disabled
+                              />
                             </div>
+
                             <div className="grid gap-2">
-                              <Label>Assign Counselor</Label>
+                              <Label>
+                                Assign Counselor
+                              </Label>
+
                               <Select
-                                value={reassignCounselor}
-                                onValueChange={setReassignCounselor}
+                                value={
+                                  reassignCounselor
+                                }
+                                onValueChange={
+                                  setReassignCounselor
+                                }
                               >
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select counselor" />
                                 </SelectTrigger>
+
                                 <SelectContent>
                                   <SelectGroup>
-                                    {counselors.map((name) => (
-                                      <SelectItem key={name} value={name}>
-                                        {name}
-                                      </SelectItem>
-                                    ))}
+                                    {counselors.map(
+                                      (item: any) => (
+                                        <SelectItem
+                                          key={item.id}
+                                          value={
+                                            item.id
+                                          }
+                                        >
+                                          {item.name}
+                                        </SelectItem>
+                                      )
+                                    )}
                                   </SelectGroup>
                                 </SelectContent>
                               </Select>
                             </div>
                           </div>
+
                           <DialogFooter>
                             <Button
                               variant="outline"
-                              type="button"
-                              onClick={() => setReassignLead(null)}
+                              onClick={() =>
+                                setReassignLead(
+                                  null
+                                )
+                              }
                             >
                               Cancel
                             </Button>
-                            <Button type="button" onClick={handleReassign}>
+
+                            <Button
+                              onClick={
+                                handleReassign
+                              }
+                            >
                               Reassign
                             </Button>
                           </DialogFooter>
@@ -257,55 +552,120 @@ export default function AllocatedLeadsPage() {
       <Sheet open={!!selectedLead} onOpenChange={(open) => !open && setSelectedLead(null)}>
         <SheetContent>
           {selectedLead && (
-            <>
+            <div>
               <SheetHeader>
-                <SheetTitle>{selectedLead.name}</SheetTitle>
-                <SheetDescription>Assigned to {selectedLead.counselor}</SheetDescription>
+                <SheetTitle>
+                  {selectedLead.studentName}
+                </SheetTitle>
+
+                <SheetDescription>
+                  Assigned to{" "}
+                  {selectedLead.counselors?.length > 0
+                    ? selectedLead.counselors
+                      .map(
+                        (c: any) =>
+                          c.counselor?.name
+                      )
+                      .join(", ")
+                    : "Unassigned"}
+                </SheetDescription>
               </SheetHeader>
+
               <div className="space-y-4 px-4 py-3">
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Branch
                   </div>
-                  <div>{selectedLead.branch}</div>
+
+                  <div>
+                    {selectedLead.branch?.name}
+                  </div>
                 </div>
+
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Country
                   </div>
-                  <div>{selectedLead.country}</div>
+
+                  <div>
+                    {selectedLead.preferredCountry}
+                  </div>
                 </div>
+
+                <div className="grid gap-2">
+                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    Contact
+                  </div>
+
+                  <div>
+                    {selectedLead.mobileNumber}
+                  </div>
+
+                  <div>
+                    {selectedLead.emailId}
+                  </div>
+                </div>
+
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Allocation Date
                   </div>
+
                   <div>
                     {new Date(
-                      selectedLead.allocationDate || selectedLead.createdAt,
+                      selectedLead.createdAt
                     ).toLocaleDateString()}
                   </div>
                 </div>
+
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Next Followup
                   </div>
+
                   <div>
                     {selectedLead.nextFollowup
-                      ? new Date(selectedLead.nextFollowup).toLocaleDateString()
+                      ? new Date(
+                        selectedLead.nextFollowup
+                      ).toLocaleDateString()
                       : "Not set"}
                   </div>
                 </div>
+
+                <div className="grid gap-2">
+                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    Status
+                  </div>
+
+                  <Badge
+                    variant="outline"
+                    className="capitalize"
+                  >
+                    {selectedLead.status}
+                  </Badge>
+                </div>
+
                 <div className="rounded-2xl border border-border bg-background p-4">
-                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">
+                  <div className="mb-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Counselor Notes
                   </div>
+
                   <p className="text-sm text-muted-foreground">
-                    This lead is currently allocated to {selectedLead.counselor} and is being
-                    handled in the {selectedLead.branch} branch.
+                    This lead is currently allocated to{" "}
+                    {selectedLead.counselors?.length > 0
+                      ? selectedLead.counselors
+                        .map(
+                          (c: any) =>
+                            c.counselor?.name
+                        )
+                        .join(", ")
+                      : "Unassigned"}{" "}
+                    and is being handled in the{" "}
+                    {selectedLead.branch?.name} branch.
                   </p>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </SheetContent>
       </Sheet>

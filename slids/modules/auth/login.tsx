@@ -23,6 +23,7 @@ function LoginPage() {
 
 useEffect(() => {
   if (isAuthenticated) {
+    
     router.push("/dashboard");
   }
 }, [isAuthenticated, router]);

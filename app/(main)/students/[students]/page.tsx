@@ -18,10 +18,6 @@ export default function Page() {
 
   const selectedStudent = seed.find((s) => s.id === selectedStudentId);
 
-  useEffect(() => {
-    console.log(selectedStudent);
-  }, [selectedStudentId]);
-
   return (
     <div className="w-full h-screen -m-5">
       <StudentData student={selectedStudent} />

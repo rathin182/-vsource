@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { validateUser } from "@/lib/auth";
 import { generateToken } from "@/lib/jwt";
+import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
     try {
@@ -63,4 +64,19 @@ export async function POST(req: Request) {
             }
         );
     }
+}
+
+export async function GET() {
+    const token = (await cookies()).get("access_token")?.value;
+    
+    if (!token) {
+        return NextResponse.json(
+            { authenticated: false },
+            { status: 401 }
+        );
+    }
+
+    return NextResponse.json({
+        authenticated: true,
+    });
 }

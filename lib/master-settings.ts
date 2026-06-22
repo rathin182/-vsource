@@ -27,7 +27,7 @@ export const getCountries = async () => {
 
     return data?.data || [];
   } catch (error) {
-    console.log(error);
+    console.error(error);
   }
 };
 

@@ -157,7 +157,7 @@ export function Topbar() {
                 </Avatar>
                 <div className="hidden md:flex flex-col items-start leading-tight">
                   <span className="text-xs font-semibold">{user?.name}</span>
-                  <span className="text-[10px] text-muted-foreground capitalize">{user?.role}</span>
+                  <span className="text-[10px] text-muted-foreground capitalize">{user?.role?.name}</span>
                 </div>
               </button>
             </DropdownMenuTrigger>

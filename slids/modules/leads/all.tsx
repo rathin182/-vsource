@@ -48,7 +48,7 @@ const statusTabs: Array<LeadStatus | "all"> = [
 ];
 
 export default function AllLeadsPage() {
-    const router = useRouter();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<LeadStatus | "all">("all");
@@ -57,32 +57,156 @@ export default function AllLeadsPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Lead | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [branchCount, setBranchCount] = useState(1);
+
+  const fetchLeads = async () => {
+    try {
+      setIsLoading(true);
+
+      const params = new URLSearchParams();
+
+      params.append("page", page.toString());
+      params.append("limit", "10");
+
+      if (query) {
+        params.append("search", query);
+      }
+
+      if (status !== "all") {
+        params.append("status", status);
+      }
+
+      if (branch && branch !== "all") {
+        params.append("branchId", branch);
+      }
+
+      if (source && source !== "all") {
+        params.append("source", source);
+      }
+
+      const res = await fetch(
+        `/api/leads?${params.toString()}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      const data = await res.json();
+
+      setLeads(data.data);
+      setTotalPages(data.meta.totalPages);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to load leads");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      setIsLoading(true);
+
+      const params = new URLSearchParams();
+
+      params.append("page", page.toString());
+      params.append("limit", "10");
+
+      if (query) {
+        params.append("search", query);
+      }
+
+      const res = await fetch(
+        `/api/branches?${params.toString()}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      const data = await res.json();
+
+      setBranches(data.data);
+      setBranchCount(data.meta.totalPages);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to load branches");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setLeads(seedLeads);
-      setIsLoading(false);
-    }, 450);
-    return () => window.clearTimeout(timer);
+    fetchLeads();
+    fetchBranches();
   }, []);
+
+  // const filteredLeads = useMemo(() => {
+  //   return leads
+  //     .filter((item) => {
+  //       const queryValue = query.toLowerCase();
+  //       const matchQuery =
+  //         !queryValue ||
+  //         item.name.toLowerCase().includes(queryValue) ||
+  //         item.email.toLowerCase().includes(queryValue) ||
+  //         item.phone.includes(queryValue) ||
+  //         item.id.toLowerCase().includes(queryValue);
+  //       const matchStatus = status === "all" || item.status === status;
+  //       const matchBranch = branch === "all" || !branch || item.branch === branch;
+  //       const matchSource = source === "all" || !source || item.source === source;
+  //       return matchQuery && matchStatus && matchBranch && matchSource;
+  //     })
+  //     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  // }, [leads, query, status, branch, source]);
 
   const filteredLeads = useMemo(() => {
     return leads
       .filter((item) => {
         const queryValue = query.toLowerCase();
+
         const matchQuery =
           !queryValue ||
-          item.name.toLowerCase().includes(queryValue) ||
-          item.email.toLowerCase().includes(queryValue) ||
-          item.phone.includes(queryValue) ||
-          item.id.toLowerCase().includes(queryValue);
-        const matchStatus = status === "all" || item.status === status;
-        const matchBranch = branch === "all" || !branch || item.branch === branch;
-        const matchSource = source === "all" || !source || item.source === source;
-        return matchQuery && matchStatus && matchBranch && matchSource;
+          item.studentName
+            ?.toLowerCase()
+            .includes(queryValue) ||
+          item.emailId
+            ?.toLowerCase()
+            .includes(queryValue) ||
+          item.mobileNumber
+            ?.includes(queryValue) ||
+          item.leadNumber
+            ?.toLowerCase()
+            .includes(queryValue);
+
+        const matchStatus =
+          status === "all" ||
+          item.status === status;
+
+        const matchBranch =
+          branch === "all" ||
+          !branch ||
+          item.branch?.id === branch;
+
+        const matchSource =
+          source === "all" ||
+          !source ||
+          item.source === source;
+
+        return (
+          matchQuery &&
+          matchStatus &&
+          matchBranch &&
+          matchSource
+        );
       })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() -
+          new Date(a.createdAt).getTime()
+      );
   }, [leads, query, status, branch, source]);
+
 
   const pageSize = 10;
   const start = (page - 1) * pageSize;
@@ -118,7 +242,7 @@ export default function AllLeadsPage() {
 
       <Card className="mb-6">
         <CardContent className="grid gap-4 lg:grid-cols-[1.9fr_2.1fr] xl:grid-cols-[1.8fr_2.2fr] p-5">
-          <div className="relative">
+          <div className="relative flex items-center mt-5">
             <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-10"
@@ -152,17 +276,31 @@ export default function AllLeadsPage() {
             </div>
             <div className="grid gap-2">
               <Label>Branch</Label>
-              <Select value={branch} onValueChange={(value) => setBranch(value)}>
+              <Select
+                value={branch}
+                onValueChange={(value) => {
+                  setBranch(value);
+                  setPage(1);
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Any branch" />
                 </SelectTrigger>
+
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Branch</SelectLabel>
-                    <SelectItem value="all">Any</SelectItem>
-                    {uniqueBranches.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
+
+                    <SelectItem value="all">
+                      Any Branch
+                    </SelectItem>
+
+                    {branches.map((item) => (
+                      <SelectItem
+                        key={item.id}
+                        value={item.id}
+                      >
+                        {item.name}
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -193,133 +331,278 @@ export default function AllLeadsPage() {
       </Card>
 
       <div className="mb-4 flex flex-wrap gap-2">
-        {statusTabs.map((tab) => (
-          <Button
-            key={tab}
-            variant={tab === status ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => setStatus(tab)}
-          >
-            {tab === "all" ? "All Leads" : tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </Button>
-        ))}
+        {!isLoading &&
+          statusTabs.map((tab) => (
+            <Button
+              key={tab}
+              variant={tab === status ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setStatus(tab)}
+            >
+              {tab === "all"
+                ? "All Leads"
+                : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </Button>
+          ))}
       </div>
 
-      <Card>
-        <CardContent className="p-0">
+      {/* main card */}
+      <div>
+        <thead>
           {isLoading ? (
-            <div className="space-y-4 p-5">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <Skeleton key={index} className="h-12 rounded-xl" />
+            <tr className="bg-secondary/30">
+              {Array.from({ length: 12 }).map((_, index) => (
+                <th key={index} className="px-4 py-3">
+                  <Skeleton className="h-4 w-20" />
+                </th>
               ))}
-            </div>
+            </tr>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="bg-secondary/30 text-left text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                    <th className="px-4 py-3">Lead ID</th>
-                    <th className="px-4 py-3">Student Name</th>
-                    <th className="px-4 py-3">Mobile</th>
-                    <th className="px-4 py-3 hidden lg:table-cell">Email</th>
-                    <th className="px-4 py-3">Source</th>
-                    <th className="px-4 py-3 hidden lg:table-cell">Branch</th>
-                    <th className="px-4 py-3 hidden xl:table-cell">Counselor</th>
-                    <th className="px-4 py-3">Country</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 hidden xl:table-cell">Created Date</th>
-                    <th className="px-4 py-3 hidden xl:table-cell">Next Followup</th>
-                    <th className="px-4 py-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageLeads.length === 0 ? (
-                    <tr>
-                      <td colSpan={12} className="py-12 text-center text-sm text-muted-foreground">
-                        No leads match your filters.
-                      </td>
-                    </tr>
-                  ) : (
-                    pageLeads.map((lead) => (
-                      <tr key={lead.id} className="border-b border-border hover:bg-secondary/40">
-                        <td className="px-4 py-4 font-medium">{lead.id}</td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="size-8">
-                              <AvatarFallback>
-                                {lead.name
-                                  .split(" ")
-                                  .map((part) => part[0])
-                                  .join("")}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div>{lead.name}</div>
-                              <div className="text-muted-foreground text-xs">{lead.email}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">{lead.phone}</td>
-                        <td className="px-4 py-4 hidden lg:table-cell text-muted-foreground">
-                          {lead.email}
-                        </td>
-                        <td className="px-4 py-4">{lead.source}</td>
-                        <td className="px-4 py-4 hidden lg:table-cell">{lead.branch}</td>
-                        <td className="px-4 py-4 hidden xl:table-cell">{lead.counselor}</td>
-                        <td className="px-4 py-4">{lead.country}</td>
-                        <td className="px-4 py-4">
-                          <Badge
-                            variant="outline"
-                            className={`capitalize ${statusStyle[lead.status]}`}
-                          >
-                            {lead.status}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-4 hidden xl:table-cell">
-                          {new Date(lead.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-4 hidden xl:table-cell">
-                          {lead.nextFollowup
-                            ? new Date(lead.nextFollowup).toLocaleDateString()
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-4 space-x-1 whitespace-nowrap">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="size-8"
-                            onClick={() => setSelected(lead)}
-                          >
-                            <Eye className="size-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="size-8"
-                            onClick={() => toast.success("Edit route will be added soon")}
-                          >
-                            {" "}
-                            <Pencil className="size-4" />{" "}
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="size-8 text-destructive"
-                            onClick={() => removeLead(lead.id)}
-                          >
-                            {" "}
-                            <Trash2 className="size-4" />{" "}
-                          </Button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <tr className="bg-secondary/30 text-left text-xs uppercase tracking-[0.16em] text-muted-foreground">
+              <th className="px-4 py-3">Lead No</th>
+
+              <th className="px-4 py-3">
+                Student
+              </th>
+
+              <th className="px-4 py-3">
+                Mobile
+              </th>
+
+              <th className="px-4 py-3 hidden lg:table-cell">
+                Email
+              </th>
+
+              <th className="px-4 py-3">
+                Source
+              </th>
+
+              <th className="px-4 py-3 hidden lg:table-cell">
+                Branch
+              </th>
+
+              <th className="px-4 py-3 hidden xl:table-cell">
+                Counselor
+              </th>
+
+              <th className="px-4 py-3">
+                Country
+              </th>
+
+              <th className="px-4 py-3">
+                Status
+              </th>
+
+              <th className="px-4 py-3 hidden xl:table-cell">
+                Created
+              </th>
+
+              <th className="px-4 py-3 hidden xl:table-cell">
+                Follow-up
+              </th>
+
+              <th className="px-4 py-3">
+                Actions
+              </th>
+            </tr>
           )}
-        </CardContent>
-      </Card>
+        </thead>
+
+        <tbody>
+          {isLoading ? (
+            Array.from({ length: 5 }).map((_, index) => (
+              <tr key={index} className="border-b border-border">
+                <td className="px-4 py-4">
+                  <Skeleton className="h-4 w-20" />
+                </td>
+
+                <td className="px-4 py-4">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-8 w-8 rounded-full" />
+
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-40" />
+                    </div>
+                  </div>
+                </td>
+
+                <td className="px-4 py-4">
+                  <Skeleton className="h-4 w-24" />
+                </td>
+
+                <td className="px-4 py-4 hidden lg:table-cell">
+                  <Skeleton className="h-4 w-40" />
+                </td>
+
+                <td className="px-4 py-4">
+                  <Skeleton className="h-4 w-20" />
+                </td>
+
+                <td className="px-4 py-4 hidden lg:table-cell">
+                  <Skeleton className="h-4 w-28" />
+                </td>
+
+                <td className="px-4 py-4 hidden xl:table-cell">
+                  <Skeleton className="h-4 w-24" />
+                </td>
+
+                <td className="px-4 py-4">
+                  <Skeleton className="h-4 w-20" />
+                </td>
+
+                <td className="px-4 py-4">
+                  <Skeleton className="h-8 w-20 rounded-full" />
+                </td>
+
+                <td className="px-4 py-4 hidden xl:table-cell">
+                  <Skeleton className="h-4 w-24" />
+                </td>
+
+                <td className="px-4 py-4 hidden xl:table-cell">
+                  <Skeleton className="h-4 w-24" />
+                </td>
+
+                <td className="px-4 py-4">
+                  <div className="flex gap-2">
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                    <Skeleton className="h-8 w-8 rounded-md" />
+                  </div>
+                </td>
+              </tr>
+            ))
+          ) : filteredLeads.length === 0 ? (
+            <tr>
+              <td
+                colSpan={12}
+                className="py-12 text-center text-sm text-muted-foreground"
+              >
+                No leads found.
+              </td>
+            </tr>
+          ) : (
+            filteredLeads.map((lead) => (
+              <tr
+                key={lead.id}
+                className="border-b border-border hover:bg-secondary/40"
+              >
+                <td className="px-4 py-4 font-medium">
+                  {lead.leadNumber}
+                </td>
+
+                <td className="px-4 py-4">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="size-8">
+                      <AvatarFallback>
+                        {(lead.studentName ?? "NA")
+                          .split(" ")
+                          .map((part: string) => part[0])
+                          .join("")
+                          .toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    <div>
+                      <div>{lead.studentName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {lead.emailId}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+
+                <td className="px-4 py-4">
+                  {lead.mobileNumber}
+                </td>
+
+                <td className="px-4 py-4 hidden lg:table-cell text-muted-foreground">
+                  {lead.emailId}
+                </td>
+
+                <td className="px-4 py-4">
+                  {lead.source}
+                </td>
+
+                <td className="px-4 py-4 hidden lg:table-cell">
+                  {lead.branch?.name}
+                </td>
+
+                <td className="px-4 py-4 hidden xl:table-cell">
+                  {lead.counselors?.length > 0
+                    ? lead.counselors
+                      .map(
+                        (c: any) =>
+                          c.counselor?.name
+                      )
+                      .join(", ")
+                    : "—"}
+                </td>
+
+                <td className="px-4 py-4">
+                  {lead.preferredCountry}
+                </td>
+
+                <td className="px-4 py-4">
+                  <Badge
+                    variant="outline"
+                    className={`capitalize ${statusStyle[
+                      lead.status as LeadStatus
+                    ]
+                      }`}
+                  >
+                    {lead.status}
+                  </Badge>
+                </td>
+
+                <td className="px-4 py-4 hidden xl:table-cell">
+                  {new Date(
+                    lead.createdAt
+                  ).toLocaleDateString()}
+                </td>
+
+                <td className="px-4 py-4 hidden xl:table-cell">
+                  {lead.nextFollowup
+                    ? new Date(
+                      lead.nextFollowup
+                    ).toLocaleDateString()
+                    : "—"}
+                </td>
+
+                <td className="px-4 py-4 space-x-1 whitespace-nowrap">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-8"
+                    onClick={() => setSelected(lead)}
+                  >
+                    <Eye className="size-4" />
+                  </Button>
+
+                  {/* <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-8"
+                  >
+                    <Pencil className="size-4" />
+                  </Button> */}
+
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-8 text-destructive"
+                    onClick={() =>
+                      removeLead(lead.id)
+                    }
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground">
         <div>
@@ -348,48 +631,176 @@ export default function AllLeadsPage() {
         </div>
       </div>
 
-      <Sheet open={!!selected} onOpenChange={(value) => !value && setSelected(null)}>
-        <SheetContent className="w-full sm:max-w-md">
+      <Sheet
+        open={!!selected}
+        onOpenChange={(value) => !value && setSelected(null)}
+      >
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
           {selected && (
             <>
               <SheetHeader>
-                <SheetTitle>{selected.name}</SheetTitle>
-                <SheetDescription>{selected.id}</SheetDescription>
+                <SheetTitle>
+                  {selected.studentName}
+                </SheetTitle>
+
+                <SheetDescription>
+                  {selected.leadNumber}
+                </SheetDescription>
               </SheetHeader>
-              <div className="space-y-4 px-4 py-3">
+
+              <div className="space-y-5 px-4 py-4">
+                {/* Contact */}
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Contact
                   </div>
-                  <div>{selected.phone}</div>
-                  <div>{selected.email}</div>
+
+                  <div>{selected.mobileNumber}</div>
+
+                  <div>{selected.emailId}</div>
+
+                  <div>{selected.place}</div>
                 </div>
+
+                {/* Assignment */}
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Assignment
                   </div>
-                  <div>Branch: {selected.branch}</div>
-                  <div>Counselor: {selected.counselor}</div>
+
+                  <div>
+                    Branch: {selected.branch?.name}
+                  </div>
+
+                  <div>
+                    Counselor:{" "}
+                    {selected.counselors?.length
+                      ? selected.counselors
+                        .map(
+                          (c: any) =>
+                            c.counselor?.name
+                        )
+                        .join(", ")
+                      : "Not Assigned"}
+                  </div>
                 </div>
+
+                {/* Study Preference */}
+                <div className="grid gap-2">
+                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    Study Preference
+                  </div>
+
+                  <div>
+                    Country: {selected.preferredCountry}
+                  </div>
+
+                  <div>
+                    Course: {selected.preferredCourse}
+                  </div>
+
+                  <div>
+                    Intake: {selected.preferredIntake}
+                  </div>
+                </div>
+
+                {/* Academic */}
+                <div className="grid gap-2">
+                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    Academic
+                  </div>
+
+                  <div>
+                    10th: {selected.tenthPercentage}%
+                  </div>
+
+                  <div>
+                    12th: {selected.twelfthPercentage}%
+                  </div>
+
+                  <div>
+                    Degree: {selected.bachelorsCourse}
+                  </div>
+
+                  <div>
+                    University:{" "}
+                    {selected.bachelorsUniversityName}
+                  </div>
+                </div>
+
+                {/* English Test */}
+                <div className="grid gap-2">
+                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    English Test
+                  </div>
+
+                  <div>
+                    Test: {selected.englishTestType}
+                  </div>
+
+                  <div>
+                    Reading: {selected.readingScore}
+                  </div>
+
+                  <div>
+                    Writing: {selected.writingScore}
+                  </div>
+
+                  <div>
+                    Speaking: {selected.speakingScore}
+                  </div>
+
+                  <div>
+                    Listening: {selected.listeningScore}
+                  </div>
+                </div>
+
+                {/* Status */}
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Status
                   </div>
-                  <Badge variant="outline" className={`capitalize ${statusStyle[selected.status]}`}>
+
+                  <Badge
+                    variant="outline"
+                    className={`capitalize ${statusStyle[
+                      selected.status as LeadStatus
+                    ]
+                      }`}
+                  >
                     {selected.status}
                   </Badge>
                 </div>
-                <div className="rounded-2xl border border-border bg-background p-4">
+
+                {/* Notes */}
+                <div className="rounded-2xl border border-border p-4">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">
-                    Notes
+                    Lead Information
                   </div>
+
                   <p className="text-sm text-muted-foreground">
-                    Lead created on {new Date(selected.createdAt).toLocaleDateString()}. Next
-                    follow-up is scheduled for{" "}
+                    Created on{" "}
+                    {new Date(
+                      selected.createdAt
+                    ).toLocaleDateString()}
+                  </p>
+
+                  <p className="text-sm text-muted-foreground">
+                    Follow-up:{" "}
                     {selected.nextFollowup
-                      ? new Date(selected.nextFollowup).toLocaleDateString()
-                      : "TBD"}
-                    .
+                      ? new Date(
+                        selected.nextFollowup
+                      ).toLocaleDateString()
+                      : "Not Scheduled"}
+                  </p>
+
+                  <p className="text-sm text-muted-foreground">
+                    Passport: {selected.passport}
+                  </p>
+
+                  <p className="text-sm text-muted-foreground">
+                    Remarks:{" "}
+                    {selected.remarks ?? "No remarks"}
                   </p>
                 </div>
               </div>

@@ -182,8 +182,7 @@ export default function AddLeadPage() {
         description="Capture the full profile for a new enquiry and assign a counselor immediately."
       />
 
-      <Card>
-        <CardContent className="space-y-8">
+      <CardContent className="space-y-8  p-0">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3 rounded-3xl border border-border bg-background p-6">
               <div className="text-sm font-semibold">Personal Information</div>
@@ -561,7 +560,6 @@ export default function AddLeadPage() {
             </Button>
           </div>
         </CardContent>
-      </Card>
     </PageTransition>
   );
 }

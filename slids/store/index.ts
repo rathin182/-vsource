@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { authService } from "@/slids/services/auth.service";
 
 export type UserRole = "admin" | "counselor";
 
@@ -9,11 +10,13 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   avatar?: string;
+
 }
 
 interface AuthState {
   user: AuthUser | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
 }
@@ -29,23 +32,51 @@ const CREDS: Record<string, { password: string; user: AuthUser }> = {
   },
 };
 
-export const useAuth = create<AuthState>()(
-  persist(
-    (set) => ({
+export const useAuth = create<AuthState>()((set, get) => ({
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+
+  login: async (email, password) => {
+    try {
+      set({ isLoading: true });
+
+      const data = await authService.login(email, password);
+
+      set({
+        user: data.user,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+
+      return { ok: true, user: data.user };
+    } catch (error: any) {
+      set({ isLoading: false });
+
+      return {
+        ok: false,
+        error: error?.message ?? "Login failed",
+        user: null,
+      };
+    }
+  },
+
+  logout: async () => {
+    try {
+      set({ isLoading: true });
+
+      await authService.logout();
+    } catch (error) {
+      console.error(error);
+    }
+
+    set({
       user: null,
       isAuthenticated: false,
-      login: async (email, password) => {
-        await new Promise((r) => setTimeout(r, 600));
-        const entry = CREDS[email.toLowerCase()];
-        if (!entry || entry.password !== password) return { ok: false, error: "Invalid credentials" };
-        set({ user: entry.user, isAuthenticated: true });
-        return { ok: true };
-      },
-      logout: () => set({ user: null, isAuthenticated: false }),
-    }),
-    { name: "vsource-auth" }
-  )
-);
+      isLoading: false,
+    });
+  },
+}));
 
 interface UiState {
   sidebarCollapsed: boolean;
