@@ -28,12 +28,13 @@ enum LeadStatus {
   LOST
 }
 
-enum StudentStatus {
-  ACTIVE
-  ON_HOLD
+enum LeadStage {
+  INQUIRY
+  DOCUMENTS
+  APPLIED
+  OFFER
+  VISA
   ENROLLED
-  VISA_GRANTED
-  DOCUMENTS_PENDING
 }
 
 enum ApplicationStage {
@@ -100,55 +101,101 @@ enum IntakeSeason {
 }
 
 model User {
-  id    String @id @default(uuid())
-  name  String
-  email String @unique
+  id String @id @default(uuid())
+
+  name     String
+  email    String @unique
   password String
-  phone String
 
-  role   ROLES
-  status STATUS @default(ACTIVE)
+  branches Branch[]
 
-  lastLogin DateTime?
+  leadAssignments        LeadCounselor[]
+  leadCounselorsAssigned LeadCounselor[] @relation("LeadAssignedBy")
 
-  // User belongs to branches
-  branches Branch[] @relation("BranchUsers")
+  mbbsLeadAssignments        MbbsLeadCounselor[]
+  mbbsLeadCounselorsAssigned MbbsLeadCounselor[] @relation("MbbsLeadAssignedBy")
 
-  // User manages branches
-  managedBranches Branch[] @relation("BranchManager")
+  students Student[] @relation("CounselorStudents")
 
-  leads        Lead[]
-  students     Student[]
-  applications Application[]
-  remark       Remark[]
+  studentTimelines StudentTimeline[] @relation("StudentTimelineCreatedBy")
+
+  leadTimelinesCreated LeadTimeline[] @relation("LeadTimelineCreatedBy")
+  leadTimelinesUpdated LeadTimeline[] @relation("LeadTimelineUpdatedBy")
+
+  mbbsTimelinesCreated MbbsLeadTimeline[] @relation("MbbsTimelineCreatedBy")
+  mbbsTimelinesUpdated MbbsLeadTimeline[] @relation("MbbsTimelineUpdatedBy")
+
+  leadsCreated Lead[] @relation("LeadCreatedBy")
+  leadsUpdated Lead[] @relation("LeadUpdatedBy")
+
+  mbbsLeadsCreated MbbsLead[] @relation("MbbsLeadCreatedBy")
+  mbbsLeadsUpdated MbbsLead[] @relation("MbbsLeadUpdatedBy")
+
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("users")
+  remarks      Remark[]
+  applications Application[]
 }
 
-model Branch {
-  id   String @id @default(uuid())
-  name String
-  city String
+model Role {
+  id String @id @default(uuid())
 
-  managerId String?
-  manager   User?   @relation("BranchManager", fields: [managerId], references: [id])
+  name String @unique
 
-  users User[] @relation("BranchUsers")
+  description String?
 
-  staffCount    Int     @default(0)
-  studentsCount Int     @default(0)
-  revenue       Decimal @db.Decimal(12, 2)
+  isSystem Boolean @default(false)
 
-  leads    Lead[]
-  students Student[]
+  users User[]
+  lead  Lead[]
+
+  modulePermissions RoleModulePermission[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
 
-  @@map("branches")
+model RoleModulePermission {
+  roleId String
+
+  moduleId String
+
+  canCreate Boolean @default(false)
+
+  canRead Boolean @default(false)
+
+  canUpdate Boolean @default(false)
+
+  canDelete Boolean @default(false)
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, moduleId])
+}
+
+model Module {
+  id String @id @default(uuid())
+
+  name String
+
+  code String @unique
+
+  icon String?
+
+  sortOrder Int @default(0)
+
+  isActive Boolean @default(true)
+
+  modulePermissions RoleModulePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Lead {
@@ -161,98 +208,62 @@ model Lead {
   phone          String  @unique
   alternatePhone String?
 
-  dob            DateTime?
-  gender         Gender?
+  dob    DateTime?
+  gender Gender?
 
   // Academic Information
-  qualification  Qualification?
+  qualification Qualification?
 
-  percentage     Float?
-  passingYear    Int?
+  percentage  Float?
+  passingYear Int?
 
-  ieltsScore     Float?
-  pteScore       Float?
-  toeflScore     Float?
-  duolingoScore  Float?
+  ieltsScore    Float?
+  pteScore      Float?
+  toeflScore    Float?
+  duolingoScore Float?
+  leadStage     LeadStage @default(INQUIRY)
 
   // Study Preferences
   preferredCountry String?
   preferredCourse  String?
 
-  intakeSeason     IntakeSeason?
-  intakeYear       Int?
+  intakeSeason IntakeSeason?
+  intakeYear   Int?
 
-  budget           Decimal? @db.Decimal(12,2)
+  budget Decimal? @db.Decimal(12, 2)
 
   // Lead Information
-  source           String
-  referralSource   String?
+  source         String
+  referralSource String?
 
-  status           LeadStatus @default(NEW)
+  status LeadStatus @default(NEW)
 
-  country          String?
+  country String?
 
-  branchId         String
-  counselorId      String
+  branchId    String
+  counselorId String
 
-  branch           Branch @relation(fields: [branchId], references: [id])
-  counselor        User   @relation(fields: [counselorId], references: [id])
+  branch    Branch @relation(fields: [branchId], references: [id])
+  counselor Role   @relation(fields: [counselorId], references: [id])
+
+  createdById String?
+  updatedById String?
+
+  createdBy User? @relation("LeadCreatedBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("LeadUpdatedBy", fields: [updatedById], references: [id])
 
   // Notes
-  notes            String?
+  notes String?
 
   // Conversion
-  student          Student?
-
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  @@map("leads")
-}
-
-model Student {
-  id String @id
-
-  name  String
-  email String @unique
-  phone String @unique
-
-  dob DateTime
-
-  country String
-  program String
-  intake  String
-
-  admissionDate DateTime?
-
-  applicationType String?
-
-  passportNumber String? @unique
-
-  englishRequirement String?
-
-  currentStage StudentStage @default(LEAD_CREATED)
-
-  status   StudentStatus @default(ACTIVE)
-  progress Int           @default(0)
-
-  leadId      String? @unique
-  counselorId String?
-  branchId    String?
-
-  lead      Lead?   @relation(fields: [leadId], references: [id])
-  counselor User?   @relation(fields: [counselorId], references: [id])
-  branch    Branch? @relation(fields: [branchId], references: [id])
-
-  applications Application[]
-  loans        LoanInquiry[]
-  visaDetail   VisaDetail?
-  remarks      Remark[]
+  student    Student?
+  timelines  LeadTimeline[]
+  counselors LeadCounselor[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("students")
+  @@map("leads")
 }
 
 model VisaDetail {
@@ -344,6 +355,284 @@ model LoanInquiry {
   @@map("loan_inquiries")
 }
 
+model LeadCounselor {
+  id String @id @default(uuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  counselorId String
+  counselor   User   @relation(fields: [counselorId], references: [id])
+
+  assignedAt DateTime @default(now())
+
+  assignedById String?
+  assignedBy   User?   @relation("LeadAssignedBy", fields: [assignedById], references: [id])
+
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([leadId, counselorId])
+}
+
+model MbbsLeadCounselor {
+  id String @id @default(uuid())
+
+  mbbsLeadId String
+  mbbsLead   MbbsLead @relation(fields: [mbbsLeadId], references: [id], onDelete: Cascade)
+
+  counselorId String
+  counselor   User   @relation(fields: [counselorId], references: [id])
+
+  assignedAt DateTime @default(now())
+
+  assignedById String?
+  assignedBy   User?   @relation("MbbsLeadAssignedBy", fields: [assignedById], references: [id])
+
+  isPrimary Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([mbbsLeadId, counselorId])
+}
+
+model LeadTimeline {
+  id String @id @default(uuid())
+
+  leadId String
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  description  String
+  nextFollowup DateTime?
+
+  createdById String?
+  updatedById String?
+
+  createdBy User? @relation("LeadTimelineCreatedBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("LeadTimelineUpdatedBy", fields: [updatedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
+}
+
+model MbbsLeadTimeline {
+  id String @id @default(uuid())
+
+  mbbsLeadId String
+
+  mbbsLead MbbsLead @relation(fields: [mbbsLeadId], references: [id])
+
+  description  String
+  nextFollowup DateTime?
+
+  createdById String?
+  updatedById String?
+
+  createdBy User? @relation("MbbsTimelineCreatedBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("MbbsTimelineUpdatedBy", fields: [updatedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([mbbsLeadId])
+}
+
+enum MbbsLeadStatus {
+  new
+  contacted
+  qualified
+  admitted
+  enrolled
+  lost
+}
+
+model MbbsLead {
+  id String @id @default(uuid())
+
+  leadNumber String @unique
+
+  counsellingDate DateTime?
+
+  studentName String?
+  fatherName  String?
+
+  mobileNumber String?
+  emailId      String?
+
+  address String?
+
+  state String?
+  city  String?
+
+  passport           String?
+  passportExpireDate DateTime?
+
+  source String?
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  twelfthCollegeName String?
+  twelfthMarks       Float?
+
+  neetMarks Float?
+
+  timelines MbbsLeadTimeline[]
+
+  ept String?
+
+  listeningScore Float?
+  readingScore   Float?
+  writingScore   Float?
+  speakingScore  Float?
+
+  preferredCountry    String?
+  preferredIntake     String?
+  preferredUniversity String?
+  preferredCourse     String?
+
+  remarks String?
+
+  counselors MbbsLeadCounselor[]
+
+  status MbbsLeadStatus @default(new)
+
+  nextFollowup DateTime?
+
+  createdById String?
+  updatedById String?
+
+  createdBy User? @relation("MbbsLeadCreatedBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("MbbsLeadUpdatedBy", fields: [updatedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum StudentStatus {
+  active
+  visa_process
+  loan_process
+  admitted
+  enrolled
+  completed
+  dropped
+}
+
+model Student {
+  id String @id @default(uuid())
+
+  studentNumber String? @unique
+
+  leadId String @unique
+  lead   Lead   @relation(fields: [leadId], references: [id])
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  counselorId String?
+
+  counselor User? @relation("CounselorStudents", fields: [counselorId], references: [id])
+
+  timeline StudentTimeline[]
+
+  studentName  String
+  mobileNumber String?
+  emailId      String?
+
+  preferredCountry String?
+  preferredCourse  String?
+  status           StudentStatus @default(active)
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  visaDetail    VisaDetail?
+  remarks       Remark[]
+  applications  Application[]
+  loanInquiries LoanInquiry[]
+
+  @@index([branchId])
+  @@index([counselorId])
+}
+
+model Branch {
+  id String @id @default(uuid())
+
+  name String @unique
+  code String @unique
+
+  email String?
+  phone String?
+
+  city  String?
+  state String?
+
+  country String?
+  pincode String?
+
+  address String?
+
+  status Boolean @default(true)
+
+  users     User[]
+  leads     Lead[]
+  mbbsLeads MbbsLead[]
+  students  Student[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TimelineType {
+  note
+  followup
+  call
+  meeting
+
+  status_change
+
+  document
+  application
+  offer_letter
+
+  loan
+  visa
+
+  payment
+
+  system
+}
+
+model StudentTimeline {
+  id String @id @default(uuid())
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id])
+
+  type TimelineType
+
+  title String
+
+  description String? @db.Text
+
+  followupDate DateTime?
+
+  oldValue String?
+  newValue String?
+
+  createdById String?
+
+  createdBy User? @relation("StudentTimelineCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([studentId])
+  @@index([studentId, createdAt])
+}
 
 model Country {
   id String @id @default(uuid())
@@ -375,6 +664,38 @@ model Intake {
   updatedAt DateTime @updatedAt
 }
 
+model LeadSource {
+  id String @id @default(uuid())
+
+  name String @unique
+
+  status Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LeadDegree {
+  id String @id @default(uuid())
+
+  name String @unique
+
+  status Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model LeadUniversity {
+  id String @id @default(uuid())
+
+  name String @unique
+
+  status Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
 model University {
   id String @id @default(uuid())

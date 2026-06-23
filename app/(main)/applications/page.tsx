@@ -25,38 +25,95 @@ export default function ApplicationsPage() {
   const [apps, setApps] = useState<Application[]>([]);
   const [dragId, setDragId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState("today");
   const empty = { studentName: "", university: "", program: "MS Computer Science", intake: "Fall 2026", counselor: "Aditi Rao" };
   const [form, setForm] = useState(empty);
 
-const me = async () => {
-  try {
-    const response = await fetch(
-      "/api/auth/me"
+  const me = async () => {
+    try {
+      const response = await fetch(
+        "/api/auth/me"
+      );
+
+      const user = await response.json();
+      const role = user?.role?.id
+      const leadRes = await fetch(
+        `/api/leads/leadsforcounsoler?counselorId=${role}`
+      );
+
+
+      const leadData = await leadRes.json();
+
+      // const formatted = leadData.data.map((lead: any) => ({
+      //   id: lead.id,
+      //   stage: lead.leadStage,
+      //   studentName:
+      //     `${lead.firstName} ${lead.lastName ?? ""}`.trim(),
+      //   university:
+      //     lead.preferredCountry ?? "Not Selected",
+      //   program:
+      //     lead.preferredCourse ?? "Not Selected",
+      //   intake:
+      //     lead.intakeSeason ?? "N/A",
+      //   counselor:
+      //     lead.counselor?.name ?? "N/A",
+      // }));
+
+      const formatted = leadData.data.map((lead: any) => ({
+        id: lead.id,
+        stage: lead.leadStage,
+        studentName:
+          `${lead.firstName} ${lead.lastName ?? ""}`.trim(),
+        university:
+          lead.preferredCountry ?? "Not Selected",
+        program:
+          lead.preferredCourse ?? "Not Selected",
+        intake:
+          lead.intakeSeason ?? "N/A",
+        counselor:
+          lead.counselor?.name ?? "N/A",
+        createdAt: lead.createdAt,
+      }));
+      setApps(formatted || []);
+    } catch (error) {
+      console.error(
+        "Error fetching data:",
+        error
+      );
+    }
+  };
+
+
+
+  const moveTo = async (
+    id: string,
+    stage: ApplicationStage
+  ) => {
+    // Update UI immediately
+    setApps((prev) =>
+      prev.map((a) =>
+        a.id === id
+          ? { ...a, stage }
+          : a
+      )
     );
+    console.log(id, stage);
+    try {
+      await fetch(`/api/leads/leadsforcounsoler?id=${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          leadStage: stage,
+        }),
+      });
 
-    const user =
-      await response.json();
+      me()
 
-    const leadRes = await fetch(
-      `/api/leads?counselorId=${user.id}`
-    );
-
-    const leadData = await leadRes.json();
-console.log(leadData.data, "lead data");
-
-    setApps(leadData.data);
-  } catch (error) {
-    console.error(
-      "Error fetching data:",
-      error
-    );
-  }
-};
-  
-
-
-  const moveTo = (id: string, stage: ApplicationStage) => {
-    setApps((prev) => prev.map((a) => (a.id === id ? { ...a, stage } : a)));
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const add = () => {
@@ -65,6 +122,42 @@ console.log(leadData.data, "lead data");
     setOpen(false); setForm(empty);
     toast.success("Application created");
   };
+
+  const filteredApps = apps.filter((app) => {
+    const created = new Date(app.createdAt);
+
+    const today = new Date();
+
+    if (filter === "today") {
+      return (
+        created.toDateString() === today.toDateString()
+      );
+    }
+
+    if (filter === "yesterday") {
+      const yesterday = new Date();
+
+      yesterday.setDate(
+        yesterday.getDate() - 1
+      );
+
+      return (
+        created.toDateString() === yesterday.toDateString()
+      );
+    }
+
+    if (filter === "7days") {
+      const last7 = new Date();
+
+      last7.setDate(
+        last7.getDate() - 7
+      );
+
+      return created >= last7;
+    }
+
+    return true;
+  });
 
   useEffect(() => {
     me();
@@ -76,28 +169,53 @@ console.log(leadData.data, "lead data");
         title="Applications"
         description="Kanban pipeline from inquiry to enrollment."
         actions={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button size="sm"><Plus className="size-4 mr-1.5" /> New Application</Button></DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>New application</DialogTitle></DialogHeader>
-              <div className="grid gap-3 py-2">
-                <div className="grid gap-1.5"><Label>Student name</Label><Input value={form.studentName} onChange={(e) => setForm({ ...form, studentName: e.target.value })} /></div>
-                <div className="grid gap-1.5"><Label>University</Label><Input value={form.university} onChange={(e) => setForm({ ...form, university: e.target.value })} /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="grid gap-1.5"><Label>Program</Label><Input value={form.program} onChange={(e) => setForm({ ...form, program: e.target.value })} /></div>
-                  <div className="grid gap-1.5"><Label>Intake</Label><Input value={form.intake} onChange={(e) => setForm({ ...form, intake: e.target.value })} /></div>
+          <div>
+            <select
+              value={filter}
+              onChange={(e) =>
+                setFilter(e.target.value)
+              }
+              className="h-9 rounded-md border px-3 text-sm"
+            >
+              <option value="today">
+                Today
+              </option>
+
+              <option value="yesterday">
+                Yesterday
+              </option>
+
+              <option value="7days">
+                Last 7 Days
+              </option>
+
+              <option value="all">
+                All
+              </option>
+            </select>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild><Button size="sm"><Plus className="size-4 mr-1.5" /> New Application</Button></DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>New application</DialogTitle></DialogHeader>
+                <div className="grid gap-3 py-2">
+                  <div className="grid gap-1.5"><Label>Student name</Label><Input value={form.studentName} onChange={(e) => setForm({ ...form, studentName: e.target.value })} /></div>
+                  <div className="grid gap-1.5"><Label>University</Label><Input value={form.university} onChange={(e) => setForm({ ...form, university: e.target.value })} /></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-1.5"><Label>Program</Label><Input value={form.program} onChange={(e) => setForm({ ...form, program: e.target.value })} /></div>
+                    <div className="grid gap-1.5"><Label>Intake</Label><Input value={form.intake} onChange={(e) => setForm({ ...form, intake: e.target.value })} /></div>
+                  </div>
+                  <div className="grid gap-1.5"><Label>Counselor</Label><Input value={form.counselor} onChange={(e) => setForm({ ...form, counselor: e.target.value })} /></div>
                 </div>
-                <div className="grid gap-1.5"><Label>Counselor</Label><Input value={form.counselor} onChange={(e) => setForm({ ...form, counselor: e.target.value })} /></div>
-              </div>
-              <DialogFooter><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={add}>Create</Button></DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={add}>Create</Button></DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         }
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {STAGES.map((stage) => {
-          const items = apps.filter((a) => a.stage === stage.key);
+          const items = filteredApps.filter((a) => a.stage === stage.key.toUpperCase());
           return (
             <div
               key={stage.key}

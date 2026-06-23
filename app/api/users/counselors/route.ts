@@ -1,32 +1,33 @@
 // app/api/users/counselors/route.ts
 
-import { handleError } from "@/lib/api-helpers";
 import prisma from "@/lib/prisma";
-import { ok } from "assert";
-import { NextResponse } from "next/server";
+import { ok, handleError } from "@/lib/api-helpers";
 
 export async function GET() {
   try {
     const counselors = await prisma.user.findMany({
       where: {
         role: {
-          name: "Counsellor",
+          name: "COUNSELOR", // must match DB value exactly
         },
       },
       select: {
         id: true,
         name: true,
         email: true,
+        role: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
       orderBy: {
         name: "asc",
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      data: counselors,
-    });
+    return ok(counselors);
   } catch (error) {
     return handleError(error);
   }

@@ -13,7 +13,7 @@ import {
   parsePagination,
   buildMeta,
 } from "@/lib/api-helpers";
-import { LeadStatus, Gender, IntakeSeason, Qualification } from "@/lib/generated/prisma/enums";
+import { LeadStatus, Gender, IntakeSeason, Qualification, LeadStage } from "@/lib/generated/prisma/enums";
 import { getAuthorizedUser } from "@/lib/rbac";
 import { MODULES, PERMISSIONS } from "@/lib/module-codes";
 import { z } from "zod";
@@ -65,12 +65,6 @@ const LeadCreateSchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
-    // await getAuthorizedUser(
-    //   req,
-    //   MODULES.MASTER_LEADS,
-    //   PERMISSIONS.READ
-    // );
-
     const sp = req.nextUrl.searchParams;
 
     const { skip, take, page, limit } =
@@ -95,6 +89,9 @@ export async function GET(req: NextRequest) {
       sp.get("preferredCountry") ??
       undefined;
 
+    const leadStage =
+      sp.get("leadStage") as LeadStage | null;
+
     const from = sp.get("from")
       ? new Date(sp.get("from")!)
       : undefined;
@@ -114,6 +111,10 @@ export async function GET(req: NextRequest) {
 
       ...(status && {
         status,
+      }),
+
+      ...(leadStage && {
+        leadStage,
       }),
 
       ...(source && {
@@ -184,6 +185,7 @@ export async function GET(req: NextRequest) {
                 id: true,
                 name: true,
                 city: true,
+                state: true,
               },
             },
 
@@ -191,16 +193,30 @@ export async function GET(req: NextRequest) {
               select: {
                 id: true,
                 name: true,
-                email: true,
+                description: true,
+                users: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                  },
+                },
               },
             },
 
             student: {
               select: {
                 id: true,
-                name: true,
+                studentName: true,
+                emailId: true,
+                mobileNumber: true,
+                status: true,
               },
             },
+
+            timelines: true,
+
+            counselors: true,
           },
         }),
 
@@ -218,7 +234,9 @@ export async function GET(req: NextRequest) {
         limit
       )
     );
-  } catch (err) {
+  } catch (err: any) {
+    console.log(err.message);
+
     return handleError(err);
   }
 }
@@ -306,100 +324,98 @@ export async function POST(req: NextRequest) {
         payload.notes,
     });
 
-    const lead =
-      await db.lead.create({
-        data: {
-          firstName:
-            body.firstName,
+    const lead = await db.lead.create({
+      data: {
+        firstName:
+          body.firstName,
 
-          lastName:
-            body.lastName,
+        lastName:
+          body.lastName,
 
-          email:
-            body.email,
+        email:
+          body.email,
 
-          phone:
-            body.phone,
+        phone:
+          body.phone,
 
-          alternatePhone:
-            body.alternatePhone,
+        alternatePhone:
+          body.alternatePhone,
 
-          dob:
-            body.dob,
+        dob:
+          body.dob,
 
-          gender:
-            body.gender,
+        gender:
+          body.gender,
 
-          qualification:
-            body.qualification,
+        qualification:
+          body.qualification,
 
-          percentage:
-            body.percentage,
+        percentage:
+          body.percentage,
 
-          passingYear:
-            body.passingYear,
+        passingYear:
+          body.passingYear,
 
-          ieltsScore:
-            body.ieltsScore,
+        ieltsScore:
+          body.ieltsScore,
 
-          pteScore:
-            body.pteScore,
+        pteScore:
+          body.pteScore,
 
-          toeflScore:
-            body.toeflScore,
+        toeflScore:
+          body.toeflScore,
 
-          duolingoScore:
-            body.duolingoScore,
+        duolingoScore:
+          body.duolingoScore,
 
-          preferredCountry:
-            body.preferredCountry,
+        preferredCountry:
+          body.preferredCountry,
 
-          preferredCourse:
-            body.preferredCourse,
+        preferredCourse:
+          body.preferredCourse,
 
-          intakeSeason:
-            body.intakeSeason,
+        intakeSeason:
+          body.intakeSeason,
 
-          intakeYear:
-            body.intakeYear,
+        intakeYear:
+          body.intakeYear,
 
-          budget:
-            body.budget,
+        budget:
+          body.budget,
 
-          source:
-            body.source,
+        source:
+          body.source,
 
-          referralSource:
-            body.referralSource,
+        referralSource:
+          body.referralSource,
 
-          status:
-            body.status,
+        status:
+          body.status,
 
-          country:
-            body.country,
+        country:
+          body.country,
 
-          branchId:
-            body.branchId,
+        branchId:
+          body.branchId,
 
-          counselorId:
-            body.counselorId,
+        counselorId:
+          body.counselorId,
 
-          notes:
-            body.notes,
-        },
+        notes:
+          body.notes,
+      },
 
-        include: {
-          branch: true,
+      include: {
+        branch: true,
 
-          counselor: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
+        counselor: {
+          select: {
+            id: true,
+            name: true,
           },
         },
-      });
+      },
+    });
 
     return created(
       lead,

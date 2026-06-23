@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   LayoutDashboard,
@@ -30,11 +30,17 @@ import { cn } from "@/lib/utils";
 import logo from "@/assets/vsourcess.png";
 
 const items = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  {
+    to: "/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    roles: ["ADMIN"],
+  },
   {
     to: "/leads",
     label: "Leads",
     icon: Users,
+    roles: ["ADMIN", "RECEPTIONIST"],
     children: [
       { to: "/leads/all", label: "All Leads" },
       { to: "/leads/allocated", label: "Allocated" },
@@ -43,25 +49,126 @@ const items = [
       { to: "/leads/add", label: "Add Lead" },
     ],
   },
-  { to: "/course-finder", label: "Course Finder", icon: GraduationCap },
-  { to: "/students", label: "Students", icon: GraduationCap },
-  { to: "/applications", label: "Applications", icon: FileText },
-  { to: "/universities", label: "Universities", icon: Building2 },
-  // { to: "/coaching", label: "Coaching", icon: BookOpen },
-  { to: "/loans", label: "Education Loans", icon: Banknote },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
-  { to: "/promotional", label: "Promotional", icon: Megaphone },
-  { to: "/users", label: "User Management", icon: UserCog },
-  { to: "/roles", label: "Roles & Permissions", icon: ShieldCheck },
-  { to: "/master-settings", label: "Master Settings", icon: Settings2 },
-  { to: "/branches", label: "Branches", icon: MapPin },
-  { to: "/profile", label: "Profile", icon: User },
-  { to: "/settings", label: "Settings", icon: Settings },
+  {
+    to: "/students",
+    label: "Students",
+    icon: GraduationCap,
+    roles: ["ADMIN", "COUNSELOR"],
+  },
+  {
+    to: "/applications",
+    label: "Applications",
+    icon: FileText,
+    roles: ["ADMIN", "COUNSELOR"],
+  },
+  {
+    to: "/reports",
+    label: "Reports",
+    icon: BarChart3,
+    roles: ["ADMIN", "COUNSELOR"],
+  },
+  {
+    to: "/profile",
+    label: "Profile",
+    icon: User,
+    roles: ["ADMIN", "RECEPTIONIST", "COUNSELOR"],
+  },
+
+  // Admin only
+  {
+    to: "/universities",
+    label: "Universities",
+    icon: Building2,
+    roles: ["ADMIN"],
+  },
+  {
+    to: "/loans",
+    label: "Education Loans",
+    icon: Banknote,
+    roles: ["ADMIN"],
+  },
+  {
+    to: "/promotional",
+    label: "Promotional",
+    icon: Megaphone,
+    roles: ["ADMIN"],
+  },
+  {
+    to: "/users",
+    label: "User Management",
+    icon: UserCog,
+    roles: ["ADMIN"],
+  },
+  {
+    to: "/roles",
+    label: "Roles & Permissions",
+    icon: ShieldCheck,
+    roles: ["ADMIN"],
+  },
+  {
+    to: "/master-settings",
+    label: "Master Settings",
+    icon: Settings2,
+    roles: ["ADMIN"],
+  },
+  {
+    to: "/branches",
+    label: "Branches",
+    icon: MapPin,
+    roles: ["ADMIN"],
+  },
+  {
+    to: "/settings",
+    label: "Settings",
+    icon: Settings,
+    roles: ["ADMIN"],
+  },
 ] as const;
 
 export function Sidebar() {
   const { sidebarCollapsed, toggleSidebar } = useUi();
   const pathname = usePathname();
+
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch(
+          "/api/auth/me",
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            "Failed to fetch user"
+          );
+        }
+
+        const data =
+          await response.json();
+        console.log(data, "data");
+
+        setUser(data);
+      } catch (error) {
+        console.error(
+          "Error fetching user:",
+          error
+        );
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+  const role = user?.role?.name;
+
+  const filteredItems = items.filter((item) =>
+    item.roles.includes(role)
+  );
 
   // const { sidebarCollapsed, toggleSidebar } = useUi();
 
@@ -125,7 +232,7 @@ export function Sidebar() {
         </div>
 
         <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
-          {items.map((it) => {
+          {filteredItems.map((it) => {
             const active = pathname === it.to || pathname.startsWith(it.to + "/");
             const Icon = it.icon;
             const hasChildren = "children" in it;
