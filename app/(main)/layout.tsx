@@ -31,14 +31,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   }, []);
 
 
-  useEffect(() => {
-    if (isAuthenticated) {
+  // useEffect(() => {
+  //   if (isAuthenticated) {
 
-      router.replace("/dashboard");
-    } else {
-      router.replace("/login");
-    }
-  }, [isAuthenticated]);
+  //     router.replace("/dashboard");
+  //   } else {
+  //     router.replace("/login");
+  //   }
+  // }, [isAuthenticated]);
 
   return (
     <>

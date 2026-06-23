@@ -8,19 +8,13 @@ export async function GET() {
     const counselors = await prisma.user.findMany({
       where: {
         role: {
-          name: "COUNSELOR", // must match DB value exactly
+          name: "Counsellor", // must match DB value exactly
         },
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+      include: {
+        role: true,
+        branches: true,
+        
       },
       orderBy: {
         name: "asc",
