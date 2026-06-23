@@ -60,62 +60,109 @@ export default function AllLeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [branches, setBranches] = useState<any[]>([]);
-  const [branchCount, setBranchCount] = useState(1);
+  const [leadStage, setLeadStage] = useState("");
+  const [country, setCountry] = useState("");
+  const [counselor, setCounselor] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const statuses = leadStatuses;
 
   const fetchLeads = async () => {
-    try {
-      setIsLoading(true);
+  try {
+    setIsLoading(true);
 
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: "10",
-      });
+    const params = new URLSearchParams();
 
-      if (query.trim()) {
-        params.append("search", query);
-      }
+    params.append("page", page.toString());
+    params.append("limit", "10");
 
-      if (status !== "all") {
-        params.append("status", status);
-      }
+    if (query.trim()) {
+      params.append("search", query);
+    }
 
-      if (branch !== "all") {
-        params.append("branchId", branch);
-      }
+    if (status !== "all") {
+      params.append("status", status);
+    }
 
-      if (source !== "all") {
-        params.append("source", source);
-      }
+    if (branch !== "all") {
+      params.append("branchId", branch);
+    }
 
-      const response = await fetch(
-        `/api/leads?${params.toString()}`,
-        {
-          credentials: "include",
-        }
+    if (source !== "all") {
+      params.append("source", source);
+    }
+
+    if (country !== "all") {
+      params.append(
+        "preferredCountry",
+        country
       );
+    }
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch leads");
+    if (leadStage !== "all") {
+      params.append(
+        "leadStage",
+        leadStage
+      );
+    }
+
+    if (counselor !== "all") {
+      params.append(
+        "counselorId",
+        counselor
+      );
+    }
+
+    if (fromDate) {
+      params.append(
+        "from",
+        fromDate
+      );
+    }
+
+    if (toDate) {
+      params.append(
+        "to",
+        toDate
+      );
+    }
+
+    const response = await fetch(
+      `/api/leads?${params.toString()}`,
+      {
+        credentials: "include",
       }
+    );
 
-      const result = await response.json();
-      setLeads(result.data);
+    if (!response.ok) {
+      throw new Error(
+        "Failed to fetch leads"
+      );
+    }
 
-      setTotalPages(
-        result.meta?.totalPages ??
+    const result =
+      await response.json();
+console.log(result);
+
+    setLeads(result.data);
+
+    setTotalPages(
+      result.meta?.totalPages ??
         Math.ceil(
           result.meta.total /
-          result.meta.limit
+            result.meta.limit
         )
-      );
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to load leads");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    );
+  } catch (error) {
+    console.error(error);
+
+    toast.error(
+      "Failed to load leads"
+    );
+  } finally {
+    setIsLoading(false);
+  }
+};
   const fetchBranches = async () => {
     try {
       setIsLoading(true);
@@ -556,7 +603,7 @@ export default function AllLeadsPage() {
 
                 {/* Counselor */}
                 <td className="px-4 py-4 hidden xl:table-cell">
-                  {lead.counselor?.name ?? "—"}
+                  {lead.counselor?.users?.[0]?.name ?? "Unassigned"}
                 </td>
 
                 {/* Preferred Country */}
@@ -721,7 +768,7 @@ export default function AllLeadsPage() {
 
                   <div>
                     Counselor:{" "}
-                    {selected.counselor?.name}
+                    {selected.counselor?.users?.[0]?.name ?? "—"}
                   </div>
                 </div>
 

@@ -1,13 +1,22 @@
 /**
- * api/branches/route.ts
- * GET  /api/branches  — list all branches (paginated, filterable)
- * POST /api/branches  — create a new branch
+ * GET  /api/branches
+ * POST /api/branches
  */
 
 import { NextRequest } from "next/server";
 import db from "@/lib/prisma";
-import { ok, handleError, parsePagination, buildMeta, created } from "@/lib/api-helpers";
+import {
+  ok,
+  created,
+  handleError,
+  parsePagination,
+  buildMeta,
+} from "@/lib/api-helpers";
 import { z } from "zod";
+
+/* ===========================
+   GET BRANCHES
+=========================== */
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,7 +37,19 @@ export async function GET(req: NextRequest) {
             },
           },
           {
+            code: {
+              contains: search,
+              mode: "insensitive" as const,
+            },
+          },
+          {
             city: {
+              contains: search,
+              mode: "insensitive" as const,
+            },
+          },
+          {
+            state: {
               contains: search,
               mode: "insensitive" as const,
             },
@@ -37,39 +58,35 @@ export async function GET(req: NextRequest) {
       }),
     };
 
-    const [branches, total] = await Promise.all([
-      db.branch.findMany({
-        where,
-        skip,
-        take,
-        orderBy: {
-          createdAt: "desc",
-        },
-        include: {
-          manager: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+    const [branches, total] =
+      await Promise.all([
+        db.branch.findMany({
+          where,
+          skip,
+          take,
+          orderBy: {
+            createdAt: "desc",
+          },
+
+          include: {
+            _count: {
+              select: {
+                users: true,
+                leads: true,
+                students: true,
+                mbbsLeads: true,
+              },
             },
           },
-          _count: {
-            select: {
-              users: true,
-              leads: true,
-              students: true,
-            },
-          },
-        },
-      }),
+        }),
 
-      db.branch.count({
-        where,
-      }),
-    ]);
+        db.branch.count({
+          where,
+        }),
+      ]);
 
-    const formattedBranches =
-      branches.map((branch) => ({
+    const data = branches.map(
+      (branch) => ({
         ...branch,
 
         usersCount:
@@ -81,11 +98,15 @@ export async function GET(req: NextRequest) {
         studentsCount:
           branch._count.students,
 
+        mbbsLeadsCount:
+          branch._count.mbbsLeads,
+
         _count: undefined,
-      }));
+      })
+    );
 
     return ok(
-      formattedBranches,
+      data,
       undefined,
       buildMeta(
         total,
@@ -98,68 +119,98 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export const BranchCreateSchema = z.object({
-  name: z.string().min(1, "Branch name is required"),
+/* ===========================
+   VALIDATION
+=========================== */
 
-  city: z.string().min(1, "City is required"),
+export const BranchCreateSchema =
+  z.object({
+    name: z
+      .string()
+      .min(1, "Name is required"),
 
-  managerId: z.string().uuid().optional(),
+    code: z
+      .string()
+      .min(1, "Code is required"),
 
-  staffCount: z.number().min(0).default(0),
+    email: z
+      .string()
+      .email()
+      .optional()
+      .or(z.literal("")),
 
-  studentsCount: z.number().min(0).default(0),
+    phone: z.string().optional(),
 
-  revenue: z.coerce.number().min(0),
-});
+    city: z.string().optional(),
 
-export async function POST(req: NextRequest) {
+    state: z.string().optional(),
+
+    country: z.string().optional(),
+
+    pincode: z.string().optional(),
+
+    address: z.string().optional(),
+
+    status: z.boolean().optional(),
+  });
+
+/* ===========================
+   CREATE BRANCH
+=========================== */
+
+export async function POST(
+  req: NextRequest
+) {
   try {
-    const body = BranchCreateSchema.parse(
-      await req.json()
-    );
+    const body =
+      BranchCreateSchema.parse(
+        await req.json()
+      );
 
-    // Optional: verify manager exists
-    if (body.managerId) {
-      const manager =
-        await db.user.findUnique({
-          where: {
-            id: body.managerId,
-          },
-        });
+    const existingBranch =
+      await db.branch.findFirst({
+        where: {
+          OR: [
+            {
+              name: body.name,
+            },
+            {
+              code: body.code,
+            },
+          ],
+        },
+      });
 
-      if (!manager) {
-        throw new Error(
-          "Manager not found"
-        );
-      }
+    if (existingBranch) {
+      throw new Error(
+        "Branch name or code already exists"
+      );
     }
 
-    const branch = await db.branch.create({
-      data: {
-        name: body.name,
-        city: body.city,
+    const branch =
+      await db.branch.create({
+        data: {
+          name: body.name,
+          code: body.code,
 
-        managerId: body.managerId,
+          email: body.email,
 
-        staffCount:
-          body.staffCount,
+          phone: body.phone,
 
-        studentsCount:
-          body.studentsCount,
+          city: body.city,
 
-        revenue: body.revenue,
-      },
+          state: body.state,
 
-      include: {
-        manager: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+          country: body.country,
+
+          pincode: body.pincode,
+
+          address: body.address,
+
+          status:
+            body.status ?? true,
         },
-      },
-    });
+      });
 
     return created(
       branch,

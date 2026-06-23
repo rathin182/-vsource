@@ -19,7 +19,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       });
 
       if (res.ok) {
-        setAuthenticated(res.ok);
+        setAuthenticated(true);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -32,13 +32,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
 
   useEffect(() => {
-    if (authenticated) {
+    if (isAuthenticated) {
 
       router.replace("/dashboard");
     } else {
       router.replace("/login");
     }
-  }, [authenticated]);
+  }, [isAuthenticated]);
 
   return (
     <>

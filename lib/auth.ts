@@ -3,17 +3,22 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 
-export async function validateUser(
-  email: string,
-  password: string
-) {
+export async function validateUser(email: string, password: string) {
   const user = await prisma.user.findUnique({
     where: {
       email,
     },
     include: {
+      role: {
+        include: {
+          modulePermissions: {
+            include: {
+              module: true,
+            },
+          },
+        },
+      },
       branches: true,
-      managedBranches: true,
     },
   });
 
@@ -21,14 +26,7 @@ export async function validateUser(
     return null;
   }
 
-  if (user.status !== "ACTIVE") {
-    return null;
-  }
-
-  const valid = await bcrypt.compare(
-    password,
-    user.password
-  );
+  const valid = await bcrypt.compare(password, user.password);
 
   if (!valid) {
     return null;

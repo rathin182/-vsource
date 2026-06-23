@@ -140,6 +140,7 @@ export interface Application {
   intake: string;
   counselor: string;
   updatedAt: string;
+  createdAt: string;
 }
 
 export interface Branch {

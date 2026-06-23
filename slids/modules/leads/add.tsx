@@ -51,9 +51,9 @@ const leadFormSchema = z.object({
 
 type LeadFormValues = z.infer<typeof leadFormSchema>;
 
-const genderOptions = ["Male", "Female", "Other"];
-const qualificationOptions = ["High School", "Diploma", "Bachelors", "Masters", "PhD"];
-const intakeOptions = ["Fall", "Spring", "Summer", "Winter"];
+const genderOptions = ["MALE", "FEMALE", "OTHER"];
+const qualificationOptions = ["HIGH_SCHOOL", "DIPLOMA", "BACHELORS", "MASTERS", "PHD"];
+const intakeOptions = ["FALL", "SPRING", "SUMMER", "WINTER"];
 const intakeYears = ["2025", "2026", "2027", "2028"];
 const countryOptions = [
   "USA",
@@ -119,13 +119,13 @@ export default function AddLeadPage() {
       const [branchRes, counselorRes] =
         await Promise.all([
           fetch("/api/branches"),
-          fetch("/api/users/userrole?role=COUNSELOR&status=ACTIVE"),
+          fetch("/api/users/counselors"),
         ]);
       const branch = await branchRes.json();
       const counselor = await counselorRes.json();
 
-      setBranches(branch.data);
-      setCounselors(counselor.data);
+      setBranches(branch.data || []);
+      setCounselors(counselor.data || []);
 
       setLoading(false);
     }
