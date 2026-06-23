@@ -14,7 +14,7 @@ import {
   buildMeta,
 } from "@/lib/api-helpers";
 import { UniversityCreateSchema } from "@/lib/schemas";
-import type { UniversityStatus } from "@/generated/prisma";
+import type { UniversityStatus } from "@/lib/generated/prisma/enums";
 
 export async function GET(req: NextRequest) {
   try {

@@ -343,3 +343,169 @@ model LoanInquiry {
 
   @@map("loan_inquiries")
 }
+
+
+model Country {
+  id String @id @default(uuid())
+
+  name String @unique
+
+  code String @unique // AU, US, UK, CA
+
+  currency String?
+
+  universities University[]
+
+  status Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Intake {
+  id String @id @default(uuid())
+
+  name String @unique
+
+  status Boolean @default(true)
+
+  courses UniversityCourse[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model University {
+  id String @id @default(uuid())
+
+  name String
+
+  countryId String
+  country   Country @relation(fields: [countryId], references: [id])
+
+  logo String?
+
+  website String?
+
+  address    String?
+  city       String?
+  state      String?
+  postalCode String?
+
+  ranking Int?
+
+  establishedYear Int?
+
+  applicationFee Decimal? @db.Decimal(12, 2)
+
+  currency String? // USD, AUD, GBP, CAD
+
+  description String? @db.Text
+
+  status UniversityStatus @default(active)
+
+  courses      UniversityCourse[]
+  scholarships UniversityScholarship[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  contactPerson String?
+  contactEmail  String?
+  contactPhone  String?
+  intakeNotes   String?  @db.Text
+
+  @@unique([name, countryId])
+  @@index([countryId])
+  @@index([countryId, city])
+  @@index([name])
+  @@index([city])
+  @@index([status])
+}
+
+enum DegreeType {
+  diploma
+  bachelors
+  masters
+  phd
+  mba
+  certificate
+}
+
+model UniversityCourse {
+  id String @id @default(uuid())
+
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  name String
+
+  degree DegreeType
+
+  durationMonths Int?
+
+  annualTuitionFee Decimal? @db.Decimal(12, 2)
+
+  totalTuitionFee Decimal? @db.Decimal(12, 2)
+
+  currency String?
+
+  intakeId String?
+  intake   Intake? @relation(fields: [intakeId], references: [id])
+
+  minimumPercentage Float?
+
+  backlogLimit Int?
+
+  englishRequirement String?
+
+  ieltsOverall   Float?
+  ieltsListening Float?
+  ieltsReading   Float?
+  ieltsWriting   Float?
+  ieltsSpeaking  Float?
+
+  greRequired         Boolean   @default(false)
+  gmatRequired        Boolean   @default(false)
+  courseCode          String?
+  description         String?   @db.Text
+  applicationDeadline DateTime?
+  status              Boolean   @default(true)
+
+  scholarships UniversityScholarship[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([universityId])
+}
+
+enum UniversityStatus {
+  active
+  inactive
+  archived
+}
+
+model UniversityScholarship {
+  id String @id @default(uuid())
+
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  name String
+
+  amount Decimal? @db.Decimal(12, 2)
+
+  percentage Float?
+
+  description String? @db.Text
+
+  status    UniversityStatus  @default(active)
+  courseId  String?
+  course    UniversityCourse? @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([universityId])
+  @@index([courseId])
+}

@@ -117,18 +117,41 @@ export interface Student {
   avatar?: string;
 }
 
-export interface University {
+interface Country {
   id: string;
+  code: string;
   name: string;
-  country: string;
+}
+
+interface Count {
+  courses: number;
+  scholarships: number;
+}
+
+export interface University {
+  _count: Count;
+  address: string | null;
+  applicationFee: string;
   city: string;
+  contactEmail: string | null;
+  contactPerson: string | null;
+  contactPhone: string | null;
+  country: Country;
+  countryId: string;
+  createdAt: string;
+  currency: string;
+  description: string;
+  establishedYear: number;
+  id: string;
+  intakeNotes: string;
+  logo: string;
+  name: string;
+  postalCode: string;
   ranking: number;
-  tuitionFee: number;
-  duration: string;
-  intakes: string[];
-  scholarships: boolean;
-  programs: string[];
-  image?: string;
+  state: string;
+  status: "active" | "inactive";
+  updatedAt: string;
+  website: string;
 }
 
 export interface Application {
@@ -144,12 +167,21 @@ export interface Application {
 
 export interface Branch {
   id: string;
+  code: string;
   name: string;
+  address: string;
   city: string;
-  manager: string;
-  staff: number;
-  students: number;
-  revenue: number;
+  state: string;
+  pincode: string;
+  country: string;
+  email: string;
+  phone: string;
+  status: boolean;
+  usersCount: number;
+  studentsCount: number;
+  leadsCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Counselor {

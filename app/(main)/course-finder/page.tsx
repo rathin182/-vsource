@@ -71,6 +71,9 @@ export default function CourseFinderPage() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
+
+  
+
   const countries = Array.from(new Set(seedCourses.map((course) => course.country)));
   const levels = Array.from(new Set(seedCourses.map((course) => course.level)));
   const intakeMonths = Array.from(new Set(seedCourses.map((course) => course.intakeMonth)));
