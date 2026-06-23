@@ -29,6 +29,7 @@ import type { Lead, LeadStatus } from "@/slids/types";
 import { toast } from "sonner";
 import { Skeleton } from "@/slids/components/ui/skeleton";
 import { useRouter } from "next/navigation";
+import { leadStatuses } from "@/slids/data/leads";
 
 const statusStyle: Record<LeadStatus, string> = {
   new: "bg-info/15 text-info border-info/20",
@@ -60,17 +61,18 @@ export default function AllLeadsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [branches, setBranches] = useState<any[]>([]);
   const [branchCount, setBranchCount] = useState(1);
+  const statuses = leadStatuses;
 
   const fetchLeads = async () => {
     try {
       setIsLoading(true);
 
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: "10",
+      });
 
-      params.append("page", page.toString());
-      params.append("limit", "10");
-
-      if (query) {
+      if (query.trim()) {
         params.append("search", query);
       }
 
@@ -78,25 +80,35 @@ export default function AllLeadsPage() {
         params.append("status", status);
       }
 
-      if (branch && branch !== "all") {
+      if (branch !== "all") {
         params.append("branchId", branch);
       }
 
-      if (source && source !== "all") {
+      if (source !== "all") {
         params.append("source", source);
       }
 
-      const res = await fetch(
+      const response = await fetch(
         `/api/leads?${params.toString()}`,
         {
           credentials: "include",
         }
       );
 
-      const data = await res.json();
+      if (!response.ok) {
+        throw new Error("Failed to fetch leads");
+      }
 
-      setLeads(data.data);
-      setTotalPages(data.meta.totalPages);
+      const result = await response.json();
+      setLeads(result.data);
+
+      setTotalPages(
+        result.meta?.totalPages ??
+        Math.ceil(
+          result.meta.total /
+          result.meta.limit
+        )
+      );
     } catch (error) {
       console.error(error);
       toast.error("Failed to load leads");
@@ -104,7 +116,6 @@ export default function AllLeadsPage() {
       setIsLoading(false);
     }
   };
-
   const fetchBranches = async () => {
     try {
       setIsLoading(true);
@@ -263,13 +274,22 @@ export default function AllLeadsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>Status</SelectLabel>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="new">New</SelectItem>
-                    <SelectItem value="contacted">Contacted</SelectItem>
-                    <SelectItem value="qualified">Qualified</SelectItem>
-                    <SelectItem value="converted">Converted</SelectItem>
-                    <SelectItem value="lost">Lost</SelectItem>
+                    <SelectLabel>
+                      Status
+                    </SelectLabel>
+
+                    <SelectItem value="all">
+                      Any
+                    </SelectItem>
+
+                    {statuses.map((status) => (
+                      <SelectItem
+                        key={status}
+                        value={status}
+                      >
+                        {status}
+                      </SelectItem>
+                    ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
@@ -487,15 +507,18 @@ export default function AllLeadsPage() {
                 key={lead.id}
                 className="border-b border-border hover:bg-secondary/40"
               >
+                {/* ID */}
                 <td className="px-4 py-4 font-medium">
-                  {lead.leadNumber}
+                  {lead.id.slice(0, 8)}
                 </td>
 
+                {/* Name */}
                 <td className="px-4 py-4">
                   <div className="flex items-center gap-3">
                     <Avatar className="size-8">
                       <AvatarFallback>
-                        {(lead.studentName ?? "NA")
+                        {`${lead.firstName ?? ""} ${lead.lastName ?? ""}`
+                          .trim()
                           .split(" ")
                           .map((part: string) => part[0])
                           .join("")
@@ -504,45 +527,44 @@ export default function AllLeadsPage() {
                     </Avatar>
 
                     <div>
-                      <div>{lead.studentName}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {lead.emailId}
+                      <div>
+                        {lead.firstName} {lead.lastName}
                       </div>
                     </div>
                   </div>
                 </td>
 
+                {/* Phone */}
                 <td className="px-4 py-4">
-                  {lead.mobileNumber}
+                  {lead.phone}
                 </td>
 
+                {/* Email */}
                 <td className="px-4 py-4 hidden lg:table-cell text-muted-foreground">
-                  {lead.emailId}
+                  {lead.email}
                 </td>
 
+                {/* Source */}
                 <td className="px-4 py-4">
                   {lead.source}
                 </td>
 
+                {/* Branch */}
                 <td className="px-4 py-4 hidden lg:table-cell">
-                  {lead.branch?.name}
+                  {lead.branch?.name ?? "—"}
                 </td>
 
+                {/* Counselor */}
                 <td className="px-4 py-4 hidden xl:table-cell">
-                  {lead.counselors?.length > 0
-                    ? lead.counselors
-                      .map(
-                        (c: any) =>
-                          c.counselor?.name
-                      )
-                      .join(", ")
-                    : "—"}
+                  {lead.counselor?.name ?? "—"}
                 </td>
 
+                {/* Preferred Country */}
                 <td className="px-4 py-4">
-                  {lead.preferredCountry}
+                  {lead.preferredCountry ?? "—"}
                 </td>
 
+                {/* Status */}
                 <td className="px-4 py-4">
                   <Badge
                     variant="outline"
@@ -555,37 +577,36 @@ export default function AllLeadsPage() {
                   </Badge>
                 </td>
 
+                {/* Created Date */}
                 <td className="px-4 py-4 hidden xl:table-cell">
                   {new Date(
                     lead.createdAt
                   ).toLocaleDateString()}
                 </td>
 
+                {/* Student Conversion */}
                 <td className="px-4 py-4 hidden xl:table-cell">
-                  {lead.nextFollowup
-                    ? new Date(
-                      lead.nextFollowup
-                    ).toLocaleDateString()
-                    : "—"}
+                  {lead.student ? (
+                    <Badge>
+                      Converted
+                    </Badge>
+                  ) : (
+                    "—"
+                  )}
                 </td>
 
+                {/* Actions */}
                 <td className="px-4 py-4 space-x-1 whitespace-nowrap">
                   <Button
                     size="icon"
                     variant="ghost"
                     className="size-8"
-                    onClick={() => setSelected(lead)}
+                    onClick={() =>
+                      setSelected(lead)
+                    }
                   >
                     <Eye className="size-4" />
                   </Button>
-
-                  {/* <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-8"
-                  >
-                    <Pencil className="size-4" />
-                  </Button> */}
 
                   <Button
                     size="icon"
@@ -633,33 +654,58 @@ export default function AllLeadsPage() {
 
       <Sheet
         open={!!selected}
-        onOpenChange={(value) => !value && setSelected(null)}
+        onOpenChange={(value) =>
+          !value && setSelected(null)
+        }
       >
         <SheetContent className="w-full sm:max-w-md overflow-y-auto">
           {selected && (
             <>
               <SheetHeader>
                 <SheetTitle>
-                  {selected.studentName}
+                  {selected.firstName}{" "}
+                  {selected.lastName}
                 </SheetTitle>
 
                 <SheetDescription>
-                  {selected.leadNumber}
+                  {selected.email}
                 </SheetDescription>
               </SheetHeader>
 
               <div className="space-y-5 px-4 py-4">
+
                 {/* Contact */}
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Contact
+                    Contact Information
                   </div>
 
-                  <div>{selected.mobileNumber}</div>
+                  <div>
+                    Phone: {selected.phone}
+                  </div>
 
-                  <div>{selected.emailId}</div>
+                  <div>
+                    Alternate:{" "}
+                    {selected.alternatePhone ?? "—"}
+                  </div>
 
-                  <div>{selected.place}</div>
+                  <div>
+                    Email: {selected.email}
+                  </div>
+
+                  <div>
+                    DOB:{" "}
+                    {selected.dob
+                      ? new Date(
+                        selected.dob
+                      ).toLocaleDateString()
+                      : "—"}
+                  </div>
+
+                  <div>
+                    Gender:{" "}
+                    {selected.gender ?? "—"}
+                  </div>
                 </div>
 
                 {/* Assignment */}
@@ -669,19 +715,13 @@ export default function AllLeadsPage() {
                   </div>
 
                   <div>
-                    Branch: {selected.branch?.name}
+                    Branch:{" "}
+                    {selected.branch?.name}
                   </div>
 
                   <div>
                     Counselor:{" "}
-                    {selected.counselors?.length
-                      ? selected.counselors
-                        .map(
-                          (c: any) =>
-                            c.counselor?.name
-                        )
-                        .join(", ")
-                      : "Not Assigned"}
+                    {selected.counselor?.name}
                   </div>
                 </div>
 
@@ -692,15 +732,29 @@ export default function AllLeadsPage() {
                   </div>
 
                   <div>
-                    Country: {selected.preferredCountry}
+                    Country:{" "}
+                    {selected.preferredCountry ??
+                      "—"}
                   </div>
 
                   <div>
-                    Course: {selected.preferredCourse}
+                    Course:{" "}
+                    {selected.preferredCourse ??
+                      "—"}
                   </div>
 
                   <div>
-                    Intake: {selected.preferredIntake}
+                    Intake:{" "}
+                    {selected.intakeSeason ??
+                      "—"}{" "}
+                    {selected.intakeYear ?? ""}
+                  </div>
+
+                  <div>
+                    Budget:{" "}
+                    {selected.budget
+                      ? `₹${selected.budget}`
+                      : "—"}
                   </div>
                 </div>
 
@@ -711,47 +765,51 @@ export default function AllLeadsPage() {
                   </div>
 
                   <div>
-                    10th: {selected.tenthPercentage}%
+                    Qualification:{" "}
+                    {selected.qualification ??
+                      "—"}
                   </div>
 
                   <div>
-                    12th: {selected.twelfthPercentage}%
+                    Percentage:{" "}
+                    {selected.percentage ?? "—"}%
                   </div>
 
                   <div>
-                    Degree: {selected.bachelorsCourse}
-                  </div>
-
-                  <div>
-                    University:{" "}
-                    {selected.bachelorsUniversityName}
+                    Passing Year:{" "}
+                    {selected.passingYear ??
+                      "—"}
                   </div>
                 </div>
 
-                {/* English Test */}
+                {/* English Tests */}
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    English Test
+                    English Test Scores
                   </div>
 
                   <div>
-                    Test: {selected.englishTestType}
+                    IELTS:{" "}
+                    {selected.ieltsScore ??
+                      "—"}
                   </div>
 
                   <div>
-                    Reading: {selected.readingScore}
+                    PTE:{" "}
+                    {selected.pteScore ??
+                      "—"}
                   </div>
 
                   <div>
-                    Writing: {selected.writingScore}
+                    TOEFL:{" "}
+                    {selected.toeflScore ??
+                      "—"}
                   </div>
 
                   <div>
-                    Speaking: {selected.speakingScore}
-                  </div>
-
-                  <div>
-                    Listening: {selected.listeningScore}
+                    Duolingo:{" "}
+                    {selected.duolingoScore ??
+                      "—"}
                   </div>
                 </div>
 
@@ -779,28 +837,26 @@ export default function AllLeadsPage() {
                   </div>
 
                   <p className="text-sm text-muted-foreground">
-                    Created on{" "}
+                    Source: {selected.source}
+                  </p>
+
+                  <p className="text-sm text-muted-foreground">
+                    Created:{" "}
                     {new Date(
                       selected.createdAt
                     ).toLocaleDateString()}
                   </p>
 
                   <p className="text-sm text-muted-foreground">
-                    Follow-up:{" "}
-                    {selected.nextFollowup
-                      ? new Date(
-                        selected.nextFollowup
-                      ).toLocaleDateString()
-                      : "Not Scheduled"}
+                    Referral:{" "}
+                    {selected.referralSource ??
+                      "—"}
                   </p>
 
                   <p className="text-sm text-muted-foreground">
-                    Passport: {selected.passport}
-                  </p>
-
-                  <p className="text-sm text-muted-foreground">
-                    Remarks:{" "}
-                    {selected.remarks ?? "No remarks"}
+                    Notes:{" "}
+                    {selected.notes ??
+                      "No remarks"}
                   </p>
                 </div>
               </div>

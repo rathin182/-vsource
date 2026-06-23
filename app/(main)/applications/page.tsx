@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader, PageTransition } from "@/slids/components/common/PageHeader";
 import { Card, CardContent } from "@/slids/components/ui/card";
 import { Badge } from "@/slids/components/ui/badge";
@@ -22,11 +22,38 @@ const STAGES: { key: ApplicationStage; label: string; color: string }[] = [
 ];
 
 export default function ApplicationsPage() {
-  const [apps, setApps] = useState<Application[]>(seed);
+  const [apps, setApps] = useState<Application[]>([]);
   const [dragId, setDragId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const empty = { studentName: "", university: "", program: "MS Computer Science", intake: "Fall 2026", counselor: "Aditi Rao" };
   const [form, setForm] = useState(empty);
+
+const me = async () => {
+  try {
+    const response = await fetch(
+      "/api/auth/me"
+    );
+
+    const user =
+      await response.json();
+
+    const leadRes = await fetch(
+      `/api/leads?counselorId=${user.id}`
+    );
+
+    const leadData = await leadRes.json();
+console.log(leadData.data, "lead data");
+
+    setApps(leadData.data);
+  } catch (error) {
+    console.error(
+      "Error fetching data:",
+      error
+    );
+  }
+};
+  
+
 
   const moveTo = (id: string, stage: ApplicationStage) => {
     setApps((prev) => prev.map((a) => (a.id === id ? { ...a, stage } : a)));
@@ -38,6 +65,10 @@ export default function ApplicationsPage() {
     setOpen(false); setForm(empty);
     toast.success("Application created");
   };
+
+  useEffect(() => {
+    me();
+  }, []);
 
   return (
     <PageTransition>

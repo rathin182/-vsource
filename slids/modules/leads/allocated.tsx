@@ -32,6 +32,7 @@ import {
 } from "@/slids/components/ui/sheet";
 import { Search, ChevronRight, Eye } from "lucide-react";
 import { leads as seedLeads } from "@/slids/data/leads";
+import { leadStatuses } from "@/slids/data/leads";
 import type { Lead } from "@/slids/types";
 import { toast } from "sonner";
 import { Skeleton } from "@/slids/components/ui/skeleton";
@@ -55,26 +56,20 @@ export default function AllocatedLeadsPage() {
 
   // const counselors = Array.from(new Set(seedLeads.map((item) => item.counselor)));
   // const branches = Array.from(new Set(seedLeads.map((item) => item.branch)));
-  const statuses = Array.from(new Set(seedLeads.map((item) => item.status)));
+  const statuses = leadStatuses;
 
   const fetchCounsellor = async () => {
     try {
-      const res = await fetch(`/api/counsellors`, { credentials: "include", });
+      const res = await fetch(`/api/users/userrole?role=COUNSELOR&status=ACTIVE`, { credentials: "include", });
       if (!res.ok) {
         toast.error("Counsellor not found");
       }
       const data = await res.json();
-      const dd = data[0]?.users || "[]"
-      setCounselors(data[0]?.users || []);
-      // setCounselorFilter(
-      //   data.find((item: any) => item.name === counselorFilter).id
-      // )
+      setCounselors(data.data || []);
     } catch (error: any) {
       toast.error("Failed to load counselors");
     }
   }
-
-
 
   const fetchBranches = async () => {
     try {
@@ -117,7 +112,7 @@ export default function AllocatedLeadsPage() {
       params.append("page", page.toString());
       params.append("limit", "10");
 
-      if (query) {
+      if (query.trim()) {
         params.append("search", query);
       }
 
@@ -146,7 +141,7 @@ export default function AllocatedLeadsPage() {
         counselorFilter !== "all"
       ) {
         params.append(
-          "assignedCounselorId",
+          "counselorId",
           counselorFilter
         );
       }
@@ -158,10 +153,26 @@ export default function AllocatedLeadsPage() {
         }
       );
 
-      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          "Failed to fetch leads"
+        );
+      }
 
-      setLeads(data.data);
-      // setTotalPages(data.meta.totalPages);
+      const result = await res.json();
+      console.log(result.data);
+
+      setLeads(result.data);
+
+      if (result.meta) {
+        setTotalPages(
+          result.meta.totalPages ??
+          Math.ceil(
+            result.meta.total /
+            result.meta.limit
+          )
+        );
+      }
     } catch (error) {
       console.error(error);
       toast.error("Failed to load leads");
@@ -181,10 +192,8 @@ export default function AllocatedLeadsPage() {
     const counselorMatch =
       counselorFilter === "all" ||
       !counselorFilter ||
-      lead.counselors?.some(
-        (c: any) =>
-          c.counselor.id === counselorFilter
-      );
+      lead.counselor?.id ===
+      counselorFilter;
 
     const branchMatch =
       branchFilter === "all" ||
@@ -235,6 +244,7 @@ export default function AllocatedLeadsPage() {
         <CardContent className="grid gap-4 lg:grid-cols-3">
           <div className="grid gap-2">
             <Label>Filter by Counselor</Label>
+
             <Select
               value={counselorFilter}
               onValueChange={setCounselorFilter}
@@ -245,62 +255,87 @@ export default function AllocatedLeadsPage() {
 
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Counselor</SelectLabel>
+                  <SelectLabel>
+                    Counselor
+                  </SelectLabel>
 
                   <SelectItem value="all">
                     All
                   </SelectItem>
 
-                  {counselors.map((item) => (
-                    <SelectItem
-                      key={item.id}
-                      value={item.id}
-                    >
-                      {item.name}
-                    </SelectItem>
-                  ))}
+                  {Array.isArray(counselors) &&
+                    counselors.map((item) => (
+                      <SelectItem
+                        key={item.id}
+                        value={item.id}
+                      >
+                        {item.name}
+                      </SelectItem>
+                    ))}
                 </SelectGroup>
               </SelectContent>
             </Select>
           </div>
           <div className="grid gap-2">
             <Label>Filter by Branch</Label>
-            <Select value={branchFilter} onValueChange={setBranchFilter}>
+
+            <Select
+              value={branchFilter}
+              onValueChange={setBranchFilter}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="All branches" />
               </SelectTrigger>
+
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Branch</SelectLabel>
+                  <SelectLabel>
+                    Branch
+                  </SelectLabel>
 
                   <SelectItem value="all">
                     Any Branch
                   </SelectItem>
 
-                  {branches.map((item) => (
-                    <SelectItem
-                      key={item.id}
-                      value={item.id}
-                    >
-                      {item.name}
-                    </SelectItem>
-                  ))}
+                  {Array.isArray(branches) &&
+                    branches.map((item) => (
+                      <SelectItem
+                        key={item.id}
+                        value={item.id}
+                      >
+                        {item.name}
+                      </SelectItem>
+                    ))}
                 </SelectGroup>
               </SelectContent>
             </Select>
           </div>
           <div className="grid gap-2">
             <Label>Filter by Status</Label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+
+            <Select
+              value={statusFilter}
+              onValueChange={setStatusFilter}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Any status" />
               </SelectTrigger>
+
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Status</SelectLabel>
-                  <SelectItem value="all">Any</SelectItem>
+                  <SelectLabel>
+                    Status
+                  </SelectLabel>
+
+                  <SelectItem value="all">
+                    Any
+                  </SelectItem>
+
                   {statuses.map((status) => (
-                    <SelectItem key={status} value={status}>
+                    <SelectItem
+                      key={status}
+                      value={status}
+                    >
                       {status}
                     </SelectItem>
                   ))}
@@ -316,59 +351,84 @@ export default function AllocatedLeadsPage() {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="bg-secondary/30 text-left text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                <th className="px-4 py-3">Student Name</th>
-                <th className="px-4 py-3 hidden md:table-cell">Assigned Counselor</th>
-                <th className="px-4 py-3">Branch</th>
-                <th className="px-4 py-3">Country</th>
-                <th className="px-4 py-3 hidden lg:table-cell">Allocation Date</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 hidden xl:table-cell">Next Followup</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3">
+                  Student Name
+                </th>
+
+                <th className="px-4 py-3 hidden md:table-cell">
+                  Assigned Counselor
+                </th>
+
+                <th className="px-4 py-3">
+                  Branch
+                </th>
+
+                <th className="px-4 py-3">
+                  Country
+                </th>
+
+                <th className="px-4 py-3 hidden lg:table-cell">
+                  Allocation Date
+                </th>
+
+                <th className="px-4 py-3">
+                  Status
+                </th>
+
+                <th className="px-4 py-3 hidden xl:table-cell">
+                  Converted
+                </th>
+
+                <th className="px-4 py-3">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                Array.from({ length: 6 }).map((_, index) => (
-                  <tr
-                    key={index}
-                    className="border-b border-border"
-                  >
-                    <td className="px-4 py-4">
-                      <Skeleton className="h-4 w-32" />
-                    </td>
+                Array.from({ length: 6 }).map(
+                  (_, index) => (
+                    <tr
+                      key={index}
+                      className="border-b border-border"
+                    >
+                      <td className="px-4 py-4">
+                        <Skeleton className="h-4 w-32" />
+                      </td>
 
-                    <td className="px-4 py-4 hidden md:table-cell">
-                      <Skeleton className="h-4 w-40" />
-                    </td>
+                      <td className="px-4 py-4 hidden md:table-cell">
+                        <Skeleton className="h-4 w-40" />
+                      </td>
 
-                    <td className="px-4 py-4">
-                      <Skeleton className="h-4 w-28" />
-                    </td>
+                      <td className="px-4 py-4">
+                        <Skeleton className="h-4 w-28" />
+                      </td>
 
-                    <td className="px-4 py-4">
-                      <Skeleton className="h-4 w-20" />
-                    </td>
+                      <td className="px-4 py-4">
+                        <Skeleton className="h-4 w-20" />
+                      </td>
 
-                    <td className="px-4 py-4 hidden lg:table-cell">
-                      <Skeleton className="h-4 w-24" />
-                    </td>
+                      <td className="px-4 py-4 hidden lg:table-cell">
+                        <Skeleton className="h-4 w-24" />
+                      </td>
 
-                    <td className="px-4 py-4">
-                      <Skeleton className="h-7 w-20 rounded-full" />
-                    </td>
+                      <td className="px-4 py-4">
+                        <Skeleton className="h-7 w-20 rounded-full" />
+                      </td>
 
-                    <td className="px-4 py-4 hidden xl:table-cell">
-                      <Skeleton className="h-4 w-24" />
-                    </td>
+                      <td className="px-4 py-4 hidden xl:table-cell">
+                        <Skeleton className="h-4 w-20" />
+                      </td>
 
-                    <td className="px-4 py-4">
-                      <div className="flex gap-2">
-                        <Skeleton className="h-8 w-8 rounded-md" />
-                        <Skeleton className="h-8 w-8 rounded-md" />
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      <td className="px-4 py-4">
+                        <div className="flex gap-2">
+                          <Skeleton className="h-8 w-8 rounded-md" />
+                          <Skeleton className="h-8 w-8 rounded-md" />
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                )
               ) : filteredLeads.length === 0 ? (
                 <tr>
                   <td
@@ -384,47 +444,51 @@ export default function AllocatedLeadsPage() {
                     key={lead.id}
                     className="border-b border-border hover:bg-secondary/30"
                   >
+                    {/* Student Name */}
                     <td className="px-4 py-4 font-medium">
-                      {lead.studentName}
+                      {lead.firstName}{" "}
+                      {lead.lastName ?? ""}
                     </td>
 
+                    {/* Counselor */}
                     <td className="px-4 py-4 hidden md:table-cell">
-                      {lead.counselors?.length > 0
-                        ? lead.counselors
-                          .map(
-                            (c: any) =>
-                              c.counselor?.name
-                          )
-                          .join(", ")
-                        : "Unassigned"}
+                      {lead.counselor?.name ??
+                        "Unassigned"}
                     </td>
 
+                    {/* Branch */}
                     <td className="px-4 py-4">
-                      {lead.branch?.name}
+                      {lead.branch?.name ?? "—"}
                     </td>
 
+                    {/* Country */}
                     <td className="px-4 py-4">
-                      {lead.preferredCountry}
+                      {lead.preferredCountry ??
+                        "—"}
                     </td>
 
+                    {/* Allocation Date */}
                     <td className="px-4 py-4 hidden lg:table-cell">
                       {new Date(
                         lead.createdAt
                       ).toLocaleDateString()}
                     </td>
 
+                    {/* Status */}
                     <td className="px-4 py-4">
-                      {lead.status}
+                      <Badge variant="outline">
+                        {lead.status}
+                      </Badge>
                     </td>
 
+                    {/* Converted */}
                     <td className="px-4 py-4 hidden xl:table-cell">
-                      {lead.nextFollowup
-                        ? new Date(
-                          lead.nextFollowup
-                        ).toLocaleDateString()
-                        : "—"}
+                      {lead.student
+                        ? "Yes"
+                        : "No"}
                     </td>
 
+                    {/* Actions */}
                     <td className="px-4 py-4 space-x-1 whitespace-nowrap">
                       <Button
                         size="icon"
@@ -439,7 +503,8 @@ export default function AllocatedLeadsPage() {
 
                       <Dialog
                         open={
-                          reassignLead?.id === lead.id
+                          reassignLead?.id ===
+                          lead.id
                         }
                         onOpenChange={(open) =>
                           setReassignLead(
@@ -467,13 +532,12 @@ export default function AllocatedLeadsPage() {
                           <div className="grid gap-4 py-2">
                             <div className="grid gap-2">
                               <Label>
-                                Current Student
+                                Student
                               </Label>
 
                               <Input
-                                value={
-                                  lead.studentName
-                                }
+                                value={`${lead.firstName} ${lead.lastName ?? ""
+                                  }`}
                                 disabled
                               />
                             </div>
@@ -546,29 +610,31 @@ export default function AllocatedLeadsPage() {
         </CardContent>
       </Card>
 
-      <Sheet open={!!selectedLead} onOpenChange={(open) => !open && setSelectedLead(null)}>
-        <SheetContent>
+      <Sheet
+        open={!!selectedLead}
+        onOpenChange={(open) =>
+          !open && setSelectedLead(null)
+        }
+      >
+        <SheetContent className="overflow-y-auto">
           {selectedLead && (
             <div>
               <SheetHeader>
                 <SheetTitle>
-                  {selectedLead.studentName}
+                  {selectedLead.firstName}{" "}
+                  {selectedLead.lastName ?? ""}
                 </SheetTitle>
 
                 <SheetDescription>
                   Assigned to{" "}
-                  {selectedLead.counselors?.length > 0
-                    ? selectedLead.counselors
-                      .map(
-                        (c: any) =>
-                          c.counselor?.name
-                      )
-                      .join(", ")
-                    : "Unassigned"}
+                  {selectedLead.counselor?.name ??
+                    "Unassigned"}
                 </SheetDescription>
               </SheetHeader>
 
-              <div className="space-y-4 px-4 py-3">
+              <div className="space-y-5 px-4 py-4">
+
+                {/* Branch */}
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Branch
@@ -579,33 +645,130 @@ export default function AllocatedLeadsPage() {
                   </div>
                 </div>
 
+                {/* Country */}
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Country
+                    Preferred Country
                   </div>
 
                   <div>
-                    {selectedLead.preferredCountry}
+                    {selectedLead.preferredCountry ??
+                      "—"}
                   </div>
                 </div>
 
+                {/* Contact */}
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Contact
+                    Contact Information
                   </div>
 
                   <div>
-                    {selectedLead.mobileNumber}
+                    Phone:{" "}
+                    {selectedLead.phone}
                   </div>
 
                   <div>
-                    {selectedLead.emailId}
+                    Email:{" "}
+                    {selectedLead.email}
+                  </div>
+
+                  <div>
+                    Alternate:{" "}
+                    {selectedLead.alternatePhone ??
+                      "—"}
                   </div>
                 </div>
 
+                {/* Academic */}
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Allocation Date
+                    Academic
+                  </div>
+
+                  <div>
+                    Qualification:{" "}
+                    {selectedLead.qualification ??
+                      "—"}
+                  </div>
+
+                  <div>
+                    Percentage:{" "}
+                    {selectedLead.percentage ??
+                      "—"}
+                    %
+                  </div>
+
+                  <div>
+                    Passing Year:{" "}
+                    {selectedLead.passingYear ??
+                      "—"}
+                  </div>
+                </div>
+
+                {/* Study Preference */}
+                <div className="grid gap-2">
+                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    Study Preference
+                  </div>
+
+                  <div>
+                    Course:{" "}
+                    {selectedLead.preferredCourse ??
+                      "—"}
+                  </div>
+
+                  <div>
+                    Intake:{" "}
+                    {selectedLead.intakeSeason ??
+                      "—"}{" "}
+                    {selectedLead.intakeYear ??
+                      ""}
+                  </div>
+
+                  <div>
+                    Budget:{" "}
+                    {selectedLead.budget
+                      ? `₹${selectedLead.budget}`
+                      : "—"}
+                  </div>
+                </div>
+
+                {/* English Tests */}
+                <div className="grid gap-2">
+                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    English Scores
+                  </div>
+
+                  <div>
+                    IELTS:{" "}
+                    {selectedLead.ieltsScore ??
+                      "—"}
+                  </div>
+
+                  <div>
+                    PTE:{" "}
+                    {selectedLead.pteScore ??
+                      "—"}
+                  </div>
+
+                  <div>
+                    TOEFL:{" "}
+                    {selectedLead.toeflScore ??
+                      "—"}
+                  </div>
+
+                  <div>
+                    Duolingo:{" "}
+                    {selectedLead.duolingoScore ??
+                      "—"}
+                  </div>
+                </div>
+
+                {/* Created */}
+                <div className="grid gap-2">
+                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    Lead Created
                   </div>
 
                   <div>
@@ -615,20 +778,7 @@ export default function AllocatedLeadsPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-2">
-                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Next Followup
-                  </div>
-
-                  <div>
-                    {selectedLead.nextFollowup
-                      ? new Date(
-                        selectedLead.nextFollowup
-                      ).toLocaleDateString()
-                      : "Not set"}
-                  </div>
-                </div>
-
+                {/* Status */}
                 <div className="grid gap-2">
                   <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Status
@@ -642,23 +792,43 @@ export default function AllocatedLeadsPage() {
                   </Badge>
                 </div>
 
+                {/* Notes */}
                 <div className="rounded-2xl border border-border bg-background p-4">
                   <div className="mb-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Counselor Notes
+                    Notes
                   </div>
 
                   <p className="text-sm text-muted-foreground">
-                    This lead is currently allocated to{" "}
-                    {selectedLead.counselors?.length > 0
-                      ? selectedLead.counselors
-                        .map(
-                          (c: any) =>
-                            c.counselor?.name
-                        )
-                        .join(", ")
-                      : "Unassigned"}{" "}
-                    and is being handled in the{" "}
-                    {selectedLead.branch?.name} branch.
+                    {selectedLead.notes ??
+                      "No notes available."}
+                  </p>
+                </div>
+
+                {/* Counselor */}
+                <div className="rounded-2xl border border-border bg-background p-4">
+                  <div className="mb-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    Counselor
+                  </div>
+
+                  <p className="text-sm">
+                    {selectedLead.counselor?.name}
+                  </p>
+
+                  <p className="text-sm text-muted-foreground">
+                    {selectedLead.counselor?.email}
+                  </p>
+                </div>
+
+                {/* Conversion */}
+                <div className="rounded-2xl border border-border bg-background p-4">
+                  <div className="mb-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                    Conversion Status
+                  </div>
+
+                  <p className="text-sm">
+                    {selectedLead.student
+                      ? "Converted to Student"
+                      : "Not Converted"}
                   </p>
                 </div>
               </div>

@@ -87,3 +87,11 @@ export const leads: Lead[] = Array.from({ length: 50 }, (_, i) => ({
     nextFollowup: formatDate(((i % 5) - 1) * 1),
     allocationDate: formatDate(-(i % 10) * 3),
 }));
+
+export const leadStatuses = [
+  "NEW",
+  "CONTACTED",
+  "QUALIFIED",
+  "CONVERTED",
+  "LOST",
+] as const;

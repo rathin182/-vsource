@@ -4,50 +4,63 @@ import prisma from "@/lib/prisma";
 import { verifyToken } from "@/lib/jwt";
 
 export async function GET() {
-    const token =
-        (await cookies()).get(
-            "access_token"
-        )?.value;
+  try {
+    const token = (await cookies())
+      .get("access_token")
+      ?.value;
 
     if (!token) {
-        return NextResponse.json(
-            {},
-            {
-                status: 401,
-            }
-        );
+      return NextResponse.json(
+        { message: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    const payload =
-        await verifyToken(token);
+    const payload = verifyToken(token);
 
     if (!payload) {
-        return NextResponse.json(
-            {},
-            {
-                status: 401,
-            }
-        );
+      return NextResponse.json(
+        { message: "Invalid token" },
+        { status: 401 }
+      );
     }
 
-    const user =
-        await prisma.user.findUnique({
-            where: {
-                id: payload.id as string,
-            },
-            include: {
-                role: {
-                    include: {
-                        modulePermissions: {
-                            include: {
-                                module: true,
-                            },
-                        },
-                    },
-                },
-                branches: true,
-            },
-        });
+    const user = await prisma.user.findUnique({
+      where: {
+        id: payload.id,
+      },
+      include: {
+        branches: true,
+        managedBranches: true,
 
-    return NextResponse.json(user);
+        _count: {
+          select: {
+            leads: true,
+            students: true,
+            applications: true,
+            remark: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { message: "User not found" },
+        { status: 404 }
+      );
+    }
+
+    // Remove password before returning
+    const { password, ...safeUser } = user;
+
+    return NextResponse.json(safeUser);
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      { message: "Internal server error" },
+      { status: 500 }
+    );
+  }
 }

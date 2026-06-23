@@ -69,26 +69,46 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    await getAuthorizedUser(req, MODULES.USERS, PERMISSIONS.CREATE);
+    const {
+      name,
+      email,
+      password,
+      phone,
+      role,
+      status,
+    } = await req.json();
 
-    const { branchIds, password, ...rest } = UserCreateSchema.parse(
-      await req.json(),
+    const hashedPassword = await bcrypt.hash(
+      password,
+      10
     );
-
-    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await db.user.create({
       data: {
-        ...rest,
+        name,
+        email,
         password: hashedPassword,
-        ...(branchIds?.length && {
-          branches: { connect: branchIds.map((id) => ({ id })) },
-        }),
+        phone,
+        role,
+        status: status ?? "ACTIVE",
       },
-      select: USER_SELECT,
+
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        status: true,
+        lastLogin: true,
+        createdAt: true,
+      },
     });
 
-    return created(user, "User created successfully");
+    return created(
+      user,
+      "User created successfully"
+    );
   } catch (err) {
     return handleError(err);
   }

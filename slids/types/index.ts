@@ -3,92 +3,72 @@ export type ApplicationStage = "inquiry" | "documents" | "applied" | "offer" | "
 
 export interface Lead {
   id: string;
-  leadNumber: string;
-  leadType: string;
 
-  studentName: string;
-  fatherName: string;
+  // Personal Information
+  firstName: string;
+  lastName?: string | null;
 
-  emailId: string;
-  mobileNumber: string;
-  place: string;
+  email: string;
+  phone: string;
+  alternatePhone?: string | null;
 
+  dob?: string | null;
+  gender?: "MALE" | "FEMALE" | "OTHER" | null;
+
+  // Academic Information
+  qualification?: string | null;
+  percentage?: number | null;
+  passingYear?: number | null;
+
+  ieltsScore?: number | null;
+  pteScore?: number | null;
+  toeflScore?: number | null;
+  duolingoScore?: number | null;
+
+  // Study Preferences
+  preferredCountry?: string | null;
+  preferredCourse?: string | null;
+
+  intakeSeason?: string | null;
+  intakeYear?: number | null;
+
+  budget?: string | null;
+
+  // Lead Information
   source: string;
+  referralSource?: string | null;
+
   status: LeadStatus;
 
-  preferredCountry: string;
-  preferredCourse: string;
-  preferredIntake: string;
+  country?: string | null;
 
   branchId: string;
+  counselorId: string;
+
   branch: {
     id: string;
     name: string;
-    code: string;
+    city: string;
   };
 
-  counselors: {
-    counselor: {
-      id: string;
-      name: string;
-    };
-  }[];
+  counselor: {
+    id: string;
+    name: string;
+    email: string;
+  };
 
-  englishTestType?: string;
+  // Notes
+  notes?: string | null;
 
-  readingScore?: number;
-  writingScore?: number;
-  speakingScore?: number;
-  listeningScore?: number;
-
-  greGmatScore?: number;
-  verbalScore?: number;
-  quantitativeScore?: number;
-  analyticalWritingScore?: number;
-
-  tenthPercentage?: number;
-  tenthYearOfPassing?: number;
-
-  twelfthPercentage?: number;
-  twelfthYearOfPassing?: number;
-
-  bachelorsCourse?: string;
-  bachelorsUniversityName?: string;
-  bachelorsPercentage?: number;
-  bachelorsYearOfPassing?: number;
-
-  backlogs?: number;
-  workExperience?: string;
-  gapsIfAny?: string;
-
-  passport?: string;
-  passportExpireDate?: string;
-
-  counsellingDate?: string;
-  nextFollowup?: string;
-
-  isConverted: boolean;
-  convertedAt?: string;
-
-  remarks?: string | null;
+  // Conversion
+  student?: {
+    id: string;
+    name: string;
+  } | null;
 
   createdAt: string;
   updatedAt: string;
-
-  _count: {
-    timelines: number;
-  };
 }
-
-export const LEAD_STATUSES = [
-  "new",
-  "contacted",
-  "qualified",
-  "converted",
-  "lost",
-] as const;
-
-export const APPLICATION_STAGES = ["inquiry", "documents", "applied", "offer", "visa", "enrolled"] as const;
 
 export interface Followup {
   id: string;
@@ -125,46 +105,16 @@ export interface Course {
 
 export interface Student {
   id: string;
-
-  studentNumber: string;
-
-  leadId: string;
-  branchId: string;
-  counselorId?: string | null;
-
-  studentName: string;
-  mobileNumber?: string | null;
-  emailId?: string | null;
-
-  preferredCountry?: string | null;
-  preferredCourse?: string | null;
-
+  name: string;
+  email: string;
+  phone: string;
+  dob: string;
+  country: string;
+  program: string;
+  intake: string;
   status: string;
-
-  createdAt: string;
-  updatedAt: string;
-
-  branch?: {
-    id: string;
-    name: string;
-    code: string;
-  };
-
-  counselor?: {
-    id: string;
-    name: string;
-    email: string;
-  } | null;
-
-  lead?: {
-    id: string;
-    leadNumber: string;
-    source: string;
-  };
-
-  _count?: {
-    timeline: number;
-  };
+  progress: number;
+  avatar?: string;
 }
 
 export interface University {
