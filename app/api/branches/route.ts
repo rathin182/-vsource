@@ -14,9 +14,6 @@ import {
 } from "@/lib/api-helpers";
 import { z } from "zod";
 
-/* ===========================
-   GET BRANCHES
-=========================== */
 
 export async function GET(req: NextRequest) {
   try {

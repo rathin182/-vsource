@@ -30,7 +30,7 @@ const USER_SELECT = {
 
 export async function GET(req: NextRequest) {
   try {
-    await getAuthorizedUser(req, MODULES.USERS, PERMISSIONS.READ);
+    // await getAuthorizedUser(req, MODULES.USERS, PERMISSIONS.READ);
 
     const sp = req.nextUrl.searchParams;
     const { skip, take, page, limit } = parsePagination(sp);

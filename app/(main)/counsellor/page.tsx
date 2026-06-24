@@ -1,6 +1,9 @@
 "use client";
 import { useEffect, useState, useTransition } from "react";
-import { PageHeader, PageTransition } from "@/slids/components/common/PageHeader";
+import {
+  PageHeader,
+  PageTransition,
+} from "@/slids/components/common/PageHeader";
 import { Card, CardContent } from "@/slids/components/ui/card";
 import { Button } from "@/slids/components/ui/button";
 import { Input } from "@/slids/components/ui/input";
@@ -16,23 +19,28 @@ import {
 } from "@/slids/components/ui/dialog";
 import { Label } from "@/slids/components/ui/label";
 import {
-  Search, Plus, Pencil, Trash2, Shield, LucideLoader2,
+  Search,
+  Plus,
+  Pencil,
+  Trash2,
+  Shield,
+  LucideLoader2,
   LucideArrowLeftCircle,
   LucideArrowLeft,
+  ChevronsUpDown,
+  Check,
 } from "lucide-react";
 import axios from "axios";
+import { Select } from "@/slids/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/slids/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/slids/components/ui/command";
 
 interface Role {
   id: string;
   name: string;
 }
 
-interface MetaData {
-  totalPages: number,
-  total: number,
-  limit: number,
-  page: number
-}
+
 interface UserRow {
   id: string;
   name: string;
@@ -40,16 +48,22 @@ interface UserRow {
   monthlyTarget: number;
   branches: { id: string; name: string }[];
   createdAt: string;
+  _count: { leadCounselorsAssigned: number };
   updatedAt: string;
 }
+
+
 
 export default function Users() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [q, setQ] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [metaData, setMetaData] = useState<MetaData>()
-  const [page, setPage] = useState(1)
-    // Edit state
+  const [target, setTarget] = useState(0);
+  const [page, setPage] = useState(1);
+  const [branches, setBranches] = useState<{ id: string; name: string; email: string }[]>([]);
+
+  const [branchOpen, setBranchOpen] = useState(false);
+  // Edit state
   const [editOpen, setEditOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [editName, setEditName] = useState("");
@@ -61,16 +75,58 @@ export default function Users() {
   const [deleteUser, setDeleteUser] = useState<UserRow | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [monthlyTarget, setMonthlyTarget] = useState(0);
+  const [branchIds, setBranchIds] = useState<string[]>([]);
+
+  const createCounsellor = async () => {
+  try {
+    setCreateLoading(true);
+
+    const res = await axios.post("/api/users/counsellor", {
+      name,
+      email,
+      phone,
+      password,
+      monthlyTarget,
+      branchIds,
+    });
+
+    if (res.status === 201) {
+      setCreateOpen(false);
+
+      setName("");
+      setEmail("");
+      setPhone("");
+      setPassword("");
+      setMonthlyTarget(0);
+      setBranchIds([]);
+
+      fetchData();
+    }
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setCreateLoading(false);
+  }
+};
+
   const filtered = users.filter(
     (u) =>
       u.name.toLowerCase().includes(q.toLowerCase()) ||
-      u.email.toLowerCase().includes(q.toLowerCase())
+      u.email.toLowerCase().includes(q.toLowerCase()),
   );
 
   const fetchData = () =>
     startTransition(async () => {
       const req = await axios.get(`/api/users/counsellor`);
-      
+
       if (req.status === 200) {
         setUsers(req.data.data);
         console.log(req.data.data);
@@ -81,11 +137,12 @@ export default function Users() {
     fetchData();
   }, [page]);
 
-  // Edit handlers
   const openEdit = (u: UserRow) => {
     setEditUser(u);
     setEditName(u.name);
     setEditEmail(u.email);
+    setTarget(u.monthlyTarget);
+    setBranchIds(u.branches.map((branch) => branch.id));
     setEditOpen(true);
   };
 
@@ -93,15 +150,28 @@ export default function Users() {
     if (!editUser) return;
     setEditSaving(true);
     try {
-      const res = await axios.patch(`/api/users/${editUser.id}`, {
+      const res = await axios.put(`/api/users/${editUser.id}`, {
         name: editName,
         email: editEmail,
+        monthlyTarget: target,
+        branchIds
       });
+
       if (res.status === 200) {
         setUsers((prev) =>
           prev.map((u) =>
-            u.id === editUser.id ? { ...u, name: editName, email: editEmail } : u
-          )
+            u.id === editUser.id
+              ? {
+                  ...u,
+                  name: editName,
+                  email: editEmail,
+                  monthlyTarget: target,
+                  branches: branches.filter((branch) =>
+                    branchIds.includes(branch.id),
+                  ),
+                }
+              : u,
+          ),
         );
         setEditOpen(false);
       }
@@ -130,6 +200,19 @@ export default function Users() {
     }
   };
 
+  const getBranches = async () => {
+    const req = await axios.get("/api/branches/all");
+    if (req.status === 200) {
+      setBranches(req.data.data)
+    }
+    }
+
+  useEffect(() => {
+    if (createOpen || editOpen) {
+      getBranches()
+    }
+  }, [createOpen, editOpen])
+
   if (isPending) {
     return (
       <div className="w-[80vw] h-screen grid place-items-center">
@@ -144,7 +227,7 @@ export default function Users() {
         title="Counsellor Management"
         description="Manage list of counsellor."
         actions={
-          <Button size="sm">
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="size-4 mr-1.5" /> Add counsellor
           </Button>
         }
@@ -174,9 +257,18 @@ export default function Users() {
               <thead>
                 <tr className="text-xs text-muted-foreground border-b border-border bg-secondary/30">
                   <th className="text-left px-4 py-2.5 font-medium">User</th>
-                  <th className="text-left px-4 py-2.5 font-medium hidden md:table-cell">Monthly Target</th>
-                  <th className="text-left px-4 py-2.5 font-medium hidden md:table-cell">Branches</th>
-                  <th className="text-left px-4 py-2.5 font-medium hidden lg:table-cell">Joined</th>
+                  <th className="text-left px-4 py-2.5 font-medium hidden md:table-cell">
+                    Monthly Target
+                  </th>
+                  <th className="text-left px-4 py-2.5 font-medium hidden md:table-cell">
+                    Branches
+                  </th>
+                  <th className="text-left px-4 py-2.5 font-medium hidden md:table-cell">
+                    Assigned Leads
+                  </th>
+                  <th className="text-left px-4 py-2.5 font-medium hidden lg:table-cell">
+                    Joined
+                  </th>
                   <th className="px-4 py-2.5"></th>
                 </tr>
               </thead>
@@ -190,12 +282,17 @@ export default function Users() {
                       <div className="flex items-center gap-2.5">
                         <Avatar className="size-8">
                           <AvatarFallback className="text-[10px] bg-accent text-accent-foreground">
-                            {u.name.split(" ").map((p) => p[0]).join("")}
+                            {u.name
+                              .split(" ")
+                              .map((p) => p[0])
+                              .join("")}
                           </AvatarFallback>
                         </Avatar>
                         <div>
                           <div className="font-medium">{u.name}</div>
-                          <div className="text-[11px] text-muted-foreground">{u.email}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {u.email}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -203,13 +300,22 @@ export default function Users() {
                       <Badge variant="outline">{u.monthlyTarget}</Badge>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell text-muted-foreground text-xs">
-                      {u.branches.length > 0
-                        ? u.branches.map((b) => b.name).join(", ")
-                        : <span className="italic">No branches</span>}
+                      {u.branches.length > 0 ? (
+                        u.branches.map((b) => b.name).join(", ")
+                      ) : (
+                        <span className="italic">No branches</span>
+                      )}
                     </td>
+
+                    <td className="px-4 py-3 hidden md:table-cell text-muted-foreground text-xs">
+                      {u._count.leadCounselorsAssigned}
+                    </td>
+
                     <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground text-xs">
                       {new Date(u.createdAt).toLocaleDateString("en-IN", {
-                        day: "numeric", month: "short", year: "numeric",
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
                       })}
                     </td>
                     <td className="px-4 py-3">
@@ -237,28 +343,168 @@ export default function Users() {
               </tbody>
             </table>
           </div>
-    
         </CardContent>
       </Card>
+      
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+  <DialogContent className="sm:max-w-md">
+    <DialogHeader>
+      <DialogTitle>Add Counsellor</DialogTitle>
+      <DialogDescription>
+        Create a new counsellor account.
+      </DialogDescription>
+    </DialogHeader>
 
-            <div className="w-full flex justify-between items-center my-4 px-2">
-              <p className="text-sm text-gray-400">Showing: {users.length} / {metaData && metaData.total}</p>
-              <div className=""></div>
-              <div className="text-sm text-gray-400 flex justify-center items-center gap-2">
-                <button onClick={() => setPage(page + 1)} disabled={metaData?.page === 1}  className="px-2 py-2 text-primary  rounded-full"><LucideArrowLeft size={16}/></button>
-                {metaData && metaData.page} / {metaData && metaData.totalPages}
-                <button onClick={() => setPage(page + 1)} disabled={metaData?.page === metaData?.totalPages} className="px-2 py-2 bg-primary rotate-180 text-white rounded-full"><LucideArrowLeft size={16}/></button>
-                </div>
-            </div>
+    <div className="space-y-4">
 
-            
+      <div>
+        <Label>Name</Label>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <Label>Email</Label>
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <Label>Phone</Label>
+        <Input
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <Label>Password</Label>
+        <Input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+      </div>
+
+      <div>
+        <Label>Monthly Target</Label>
+        <Input
+          type="number"
+          value={monthlyTarget}
+          onChange={(e) =>
+            setMonthlyTarget(Number(e.target.value))
+          }
+        />
+      </div>
+<div className="space-y-2">
+  <Label>Branches</Label>
+
+  <Popover open={branchOpen} onOpenChange={setBranchOpen}>
+    <PopoverTrigger asChild>
+      <Button
+        variant="outline"
+        role="combobox"
+        className="w-full justify-between"
+      >
+        {branchIds.length > 0
+          ? `${branchIds.length} branch selected`
+          : "Select branches"}
+
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+    </PopoverTrigger>
+
+    <PopoverContent className="w-full">
+      <Command>
+        <CommandInput placeholder="Search branch..." />
+
+        <CommandEmpty>
+          No branch found.
+        </CommandEmpty>
+
+        <CommandGroup>
+          {branches.map((branch) => (
+            <CommandItem
+              key={branch.id}
+              value={`${branch.name} ${branch.email}`}
+              onSelect={() => {
+                setBranchIds((prev) =>
+                  prev.includes(branch.id)
+                    ? prev.filter((id) => id !== branch.id)
+                    : [...prev, branch.id]
+                );
+              }}
+            >
+              <Check
+                className={`mr-2 h-4 w-4 ${
+                  branchIds.includes(branch.id)
+                    ? "opacity-100"
+                    : "opacity-0"
+                }`}
+              />
+
+              <div className="flex flex-col">
+                <span>{branch.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {branch.email}
+                </span>
+              </div>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      </Command>
+    </PopoverContent>
+  </Popover>
+
+  {branchIds.length > 0 && (
+    <div className="flex flex-wrap gap-2">
+      {branches
+        .filter((b) => branchIds.includes(b.id))
+        .map((branch) => (
+          <Badge key={branch.id} variant="secondary">
+            {branch.name}
+          </Badge>
+        ))}
+    </div>
+  )}
+</div>
+
+    </div>
+
+    <DialogFooter>
+      <Button
+        variant="outline"
+        onClick={() => setCreateOpen(false)}
+      >
+        Cancel
+      </Button>
+
+      <Button
+        onClick={createCounsellor}
+        disabled={createLoading}
+      >
+        {createLoading && (
+          <LucideLoader2 className="mr-2 h-4 w-4 animate-spin" />
+        )}
+        Create Counsellor
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit user</DialogTitle>
             <DialogDescription>
-              Update name or email for <span className="font-medium">{editUser?.name}</span>.
+              Update name or email for{" "}
+              <span className="font-medium">{editUser?.name}</span>.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
@@ -279,13 +525,101 @@ export default function Users() {
                 onChange={(e) => setEditEmail(e.target.value)}
               />
             </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-target">Monthly Target</Label>
+              <Input
+                id="edit-target"
+                type="number"
+                value={target}
+                onChange={(e) => setTarget(Number(e.target.value))}
+              />
+            </div>
           </div>
+
+
+          <div className="space-y-2">
+  <Label>Branches</Label>
+
+  <Popover open={branchOpen} onOpenChange={setBranchOpen}>
+    <PopoverTrigger asChild>
+      <Button
+        variant="outline"
+        role="combobox"
+        className="w-full justify-between"
+      >
+        {branchIds.length > 0
+          ? `${branchIds.length} branch selected`
+          : "Select branches"}
+
+        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+      </Button>
+    </PopoverTrigger>
+
+    <PopoverContent className="w-full">
+      <Command>
+        <CommandInput placeholder="Search branch..." />
+
+        <CommandEmpty>
+          No branch found.
+        </CommandEmpty>
+
+        <CommandGroup>
+          {branches.map((branch) => (
+            <CommandItem
+              key={branch.id}
+              value={`${branch.name} ${branch.email}`}
+              onSelect={() => {
+                setBranchIds((prev) =>
+                  prev.includes(branch.id)
+                    ? prev.filter((id) => id !== branch.id)
+                    : [...prev, branch.id]
+                );
+              }}
+            >
+              <Check
+                className={`mr-2 h-4 w-4 ${
+                  branchIds.includes(branch.id)
+                    ? "opacity-100"
+                    : "opacity-0"
+                }`}
+              />
+
+              <div className="flex flex-col">
+                <span>{branch.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {branch.email}
+                </span>
+              </div>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      </Command>
+    </PopoverContent>
+  </Popover>
+
+  {branchIds.length > 0 && (
+    <div className="flex flex-wrap gap-2">
+      {branches
+        .filter((b) => branchIds.includes(b.id))
+        .map((branch) => (
+          <Badge key={branch.id} variant="secondary">
+            {branch.name}
+          </Badge>
+        ))}
+    </div>
+  )}
+</div>
+
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Cancel
             </Button>
             <Button onClick={saveEdit} disabled={editSaving}>
-              {editSaving && <LucideLoader2 className="size-3.5 mr-1.5 animate-spin" />}
+              {editSaving && (
+                <LucideLoader2 className="size-3.5 mr-1.5 animate-spin" />
+              )}
               Save changes
             </Button>
           </DialogFooter>
@@ -299,16 +633,24 @@ export default function Users() {
             <DialogTitle>Delete user</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete{" "}
-              <span className="font-medium text-foreground">{deleteUser?.name}</span>? This action
-              cannot be undone.
+              <span className="font-medium text-foreground">
+                {deleteUser?.name}
+              </span>
+              ? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={deleteLoading}>
-              {deleteLoading && <LucideLoader2 className="size-3.5 mr-1.5 animate-spin" />}
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleteLoading}
+            >
+              {deleteLoading && (
+                <LucideLoader2 className="size-3.5 mr-1.5 animate-spin" />
+              )}
               Delete
             </Button>
           </DialogFooter>
