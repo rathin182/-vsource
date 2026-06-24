@@ -30,6 +30,7 @@ import {
 import type { Branch } from "@/slids/types";
 import { toast } from "sonner";
 import axios from "axios";
+import { useRouter } from "next/navigation";
 
 interface MetaData {
   totalPages: number;
@@ -53,12 +54,7 @@ export default function Branches() {
   const [form, setForm] = useState(empty);
   const [metaData, setMetaData] = useState<MetaData>();
   const [page, setPage] = useState(1)
-  // const add = () => {
-  //   if (!form.name || !form.city) return toast.error("Name and city required");
-  //   setList([{ id: `BR${Date.now()}`, ...form, usersCount: Number(form.staff), studentsCount: Number(form.students), revenue: Number(form.revenue) }, ...list]);
-  //   setOpen(false); setForm(empty);
-  //   toast.success("Branch added");
-  // };
+  const router = useRouter()
 
   const fetchData = () =>
     startTransition(async () => {
@@ -87,87 +83,9 @@ export default function Branches() {
         title="Branches"
         description="Manage office locations and team performance."
         actions={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" onClick={() => router.push("/branches/add")}>
                 <Plus className="size-4 mr-1.5" /> New Branch
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>New branch</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-3 py-2">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="grid gap-1.5">
-                    <Label>Name</Label>
-                    <Input
-                      value={form.name}
-                      onChange={(e) =>
-                        setForm({ ...form, name: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label>City</Label>
-                    <Input
-                      value={form.city}
-                      onChange={(e) =>
-                        setForm({ ...form, city: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-1.5">
-                  <Label>Manager</Label>
-                  <Input
-                    value={form.manager}
-                    onChange={(e) =>
-                      setForm({ ...form, manager: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="grid gap-1.5">
-                    <Label>Staff</Label>
-                    <Input
-                      type="number"
-                      value={form.staff}
-                      onChange={(e) =>
-                        setForm({ ...form, staff: Number(e.target.value) })
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label>Students</Label>
-                    <Input
-                      type="number"
-                      value={form.students}
-                      onChange={(e) =>
-                        setForm({ ...form, students: Number(e.target.value) })
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label>Revenue (₹)</Label>
-                    <Input
-                      type="number"
-                      value={form.revenue}
-                      onChange={(e) =>
-                        setForm({ ...form, revenue: Number(e.target.value) })
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                <Button>Create</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         }
       />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

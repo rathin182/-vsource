@@ -12,6 +12,9 @@ import { Card, CardContent } from "@/slids/components/ui/card";
 import { Input } from "@/slids/components/ui/input";
 import { Button } from "@/slids/components/ui/button";
 import { Badge } from "@/slids/components/ui/badge";
+import CourseForm from "@/slids/components/courses/course-form";
+import { Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface CourseSummary {
 courseName: string;
@@ -60,13 +63,11 @@ const [loading, setLoading] = useState(true);
 const [search, setSearch] = useState("");
 
 const [open, setOpen] = useState(false);
-const [selectedCourse, setSelectedCourse] =
-useState("");
+const [selectedCourse, setSelectedCourse] = useState("");
 
-const [details, setDetails] = useState<
-CourseDetail[]
+const [details, setDetails] = useState<CourseDetail[]> ([]);
 
-> ([]);
+const router = useRouter()
 
 useEffect(() => {
 loadCourses();
@@ -135,15 +136,26 @@ return Math.round(
 
 }, [courses]);
 
-return ( <div className="p-6 md:p-8 max-w-7xl mx-auto"> <div className="mb-8"> <h1 className="text-3xl font-bold">
-Courses Directory </h1>
+return ( 
+<div className="p-6 md:p-8 max-w-7xl mx-auto"> 
+  <div className="flex justify-between items-start">
 
+  <div className="mb-8"> 
+    <h1 className="text-3xl font-bold">
+Courses Directory </h1>
     <p className="text-muted-foreground mt-2">
       Compare courses offered by
       universities, tuition fees,
       requirements and admission
       criteria.
     </p>
+  </div>
+
+            <Button
+            onClick={() => router.push("/courses/add")}
+          >
+            <Plus className="size-4 mr-2" /> Add Course
+          </Button>
   </div>
 
   <div className="grid md:grid-cols-3 gap-4 mb-8">

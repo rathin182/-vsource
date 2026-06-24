@@ -83,11 +83,12 @@ export default function CourseForm() {
       countryRes,
       intakeRes,
     ] = await Promise.all([
-      fetch("/api/universities"),
-      fetch("/api/countries"),
-      fetch("/api/intakes"),
+      fetch("/api/universities/all"),
+      fetch("/api/countries/all"),
+      fetch("/api/intakes/all"),
     ]);
-
+    console.log(await universityRes.json());
+    
     setUniversities(await universityRes.json());
     setCountries(await countryRes.json());
     setIntakes(await intakeRes.json());
@@ -223,7 +224,7 @@ export default function CourseForm() {
               </SelectTrigger>
 
               <SelectContent>
-                {universities.map(
+                {universities.length > 0 && universities.map(
                   (
                     university
                   ) => (
@@ -263,7 +264,7 @@ export default function CourseForm() {
               </SelectTrigger>
 
               <SelectContent>
-                {countries.map(
+                {countries.length > 0 && countries.map(
                   (
                     country
                   ) => (
@@ -299,7 +300,7 @@ export default function CourseForm() {
               </SelectTrigger>
 
               <SelectContent>
-                {intakes.map(
+                {intakes.length > 0 && intakes.map(
                   (
                     intake
                   ) => (

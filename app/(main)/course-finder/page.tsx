@@ -1,14 +1,12 @@
 "use client";
-import { useMemo, useState } from "react";
-import { useForm, Controller } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { PageHeader, PageTransition } from "@/slids/components/common/PageHeader";
 import { Card, CardContent } from "@/slids/components/ui/card";
 import { Button } from "@/slids/components/ui/button";
 import { Input } from "@/slids/components/ui/input";
 import { Label } from "@/slids/components/ui/label";
-import { Textarea } from "@/slids/components/ui/textarea";
+import { Badge } from "@/slids/components/ui/badge";
+import { Skeleton } from "@/slids/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -19,177 +17,426 @@ import {
   SelectValue,
 } from "@/slids/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/slids/components/ui/dialog";
-import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,
 } from "@/slids/components/ui/sheet";
-import { courses as seedCourses } from "@/slids/data/courses";
-import type { Course } from "@/slids/types";
-import { Search, Plus, Eye, Edit3, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { Eye, SearchX } from "lucide-react";
 import Image from "next/image";
 
-const courseSchema = z.object({
-  logo: z.string().url("Enter a valid URL"),
-  universityName: z.string().min(1, "University name is required"),
-  courseName: z.string().min(1, "Course name is required"),
-  country: z.string().min(1, "Country is required"),
-  applicationFee: z.string().min(1, "Application fee is required"),
-  yearlyTuition: z.string().min(1, "Yearly tuition is required"),
-  duration: z.string().min(1, "Duration is required"),
-  intakeMonth: z.string().min(1, "Intake month is required"),
-  intakeYear: z.string().min(1, "Intake year is required"),
-  level: z.string().min(1, "Level is required"),
-  ielts: z.string().optional(),
-  pte: z.string().optional(),
-  toefl: z.string().optional(),
-  duolingo: z.string().optional(),
-  description: z.string().optional(),
-});
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type CourseFormValues = z.infer<typeof courseSchema>;
+type DegreeType = string; // map to your prisma enum if exported
+
+interface Intake {
+  id: string;
+  month?: string;
+  year?: string;
+  label?: string;
+}
+
+interface University {
+  id: string;
+  name: string;
+  logo?: string;
+  country?: string;
+}
+
+interface UniversityCourse {
+  id: string;
+  name: string;
+  degree: DegreeType;
+  durationMonths?: number | null;
+  annualTuitionFee?: number | null;
+  totalTuitionFee?: number | null;
+  currency?: string | null;
+  intake?: Intake | null;
+  minimumPercentage?: number | null;
+  backlogLimit?: number | null;
+  englishRequirement?: string | null;
+  ieltsOverall?: number | null;
+  ieltsListening?: number | null;
+  ieltsReading?: number | null;
+  ieltsWriting?: number | null;
+  ieltsSpeaking?: number | null;
+  greRequired?: boolean;
+  gmatRequired?: boolean;
+  courseCode?: string | null;
+  description?: string | null;
+  applicationDeadline?: string | null;
+  status?: boolean;
+  university: University;
+}
+
+// ─── API helpers ──────────────────────────────────────────────────────────────
+
+interface FetchCoursesParams {
+  search?: string;
+  university?: string;
+  country?: string;
+  degree?: string;
+  intakeMonth?: string;
+  intakeYear?: string;
+}
+
+async function fetchCourses(params: FetchCoursesParams): Promise<UniversityCourse[]> {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v && v !== "all" && v !== "any") query.set(k, v);
+  });
+  const res = await fetch(`/api/courses?${query.toString()}`);
+  if (!res.ok) throw new Error("Failed to load courses");
+  const json = await res.json();
+  // Support { data: [] } or bare array
+  return Array.isArray(json) ? json : (json.data ?? []);
+}
+
+// ─── Small helpers ─────────────────────────────────────────────────────────────
+
+function formatFee(amount?: number | null, currency?: string | null) {
+  if (!amount) return "N/A";
+  return currency
+    ? `${currency} ${Number(amount).toLocaleString()}`
+    : Number(amount).toLocaleString();
+}
+
+function formatDuration(months?: number | null) {
+  if (!months) return "N/A";
+  if (months % 12 === 0) return `${months / 12} ${months / 12 === 1 ? "Year" : "Years"}`;
+  return `${months} Months`;
+}
+
+function formatIntake(intake?: Intake | null) {
+  if (!intake) return "N/A";
+  return intake.label ? [intake.month, intake.year].filter(Boolean).join(" ") : "N/A";
+}
+
+// ─── Skeleton card ─────────────────────────────────────────────────────────────
+
+function CourseCardSkeleton() {
+  return (
+    <Card className="overflow-hidden rounded-2xl border border-border">
+      <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+        <Skeleton className="h-12 w-12 rounded-xl" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+      </div>
+      <CardContent className="space-y-4 p-5">
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-3 w-28" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-3/4" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Skeleton className="h-16 rounded-xl" />
+          <Skeleton className="h-16 rounded-xl" />
+        </div>
+        <Skeleton className="h-9 w-32 rounded-md" />
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Course card ───────────────────────────────────────────────────────────────
+
+function CourseCard({
+  course,
+  onView,
+}: {
+  course: UniversityCourse;
+  onView: (course: UniversityCourse) => void;
+}) {
+  return (
+    <Card className="overflow-hidden rounded-2xl border border-border transition hover:shadow-md">
+      <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+        {course.university.logo ? (
+          <Image
+            src={course.university.logo}
+            alt={course.university.name}
+            width={48}
+            height={48}
+            className="h-12 w-12 rounded-xl object-cover"
+          />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-xs font-semibold text-muted-foreground">
+            {course.university.name.slice(0, 2).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="truncate font-semibold">{course.university.name}</div>
+          <div className="text-sm text-muted-foreground">
+            {course.university.country ?? "—"}
+          </div>
+        </div>
+      </div>
+
+      <CardContent className="space-y-4 p-5">
+        <div>
+          <div className="text-base font-semibold leading-snug">{course.name}</div>
+          <div className="mt-0.5 text-sm text-muted-foreground">
+            {course.degree} · {formatDuration(course.durationMonths)}
+          </div>
+        </div>
+
+        <div className="grid gap-1.5 text-sm text-muted-foreground">
+          <div>
+            <span className="text-foreground font-medium">Annual tuition:</span>{" "}
+            {formatFee(course.annualTuitionFee, course.currency)}
+          </div>
+          <div>
+            <span className="text-foreground font-medium">Intake:</span>{" "}
+            {formatIntake(course.intake)}
+          </div>
+          {course.applicationDeadline && (
+            <div>
+              <span className="text-foreground font-medium">Deadline:</span>{" "}
+              {new Date(course.applicationDeadline).toLocaleDateString()}
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="rounded-xl border border-border bg-secondary/50 p-3">
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">IELTS</div>
+            <div className="font-semibold">{course.ieltsOverall ?? "N/A"}</div>
+          </div>
+          <div className="rounded-xl border border-border bg-secondary/50 p-3">
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Min %</div>
+            <div className="font-semibold">
+              {course.minimumPercentage != null ? `${course.minimumPercentage}%` : "N/A"}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {course.greRequired && <Badge variant="outline">GRE Required</Badge>}
+          {course.gmatRequired && <Badge variant="outline">GMAT Required</Badge>}
+        </div>
+
+        <Button size="sm" variant="outline" onClick={() => onView(course)}>
+          <Eye className="mr-2 size-4" />
+          View Details
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Detail sheet ──────────────────────────────────────────────────────────────
+
+function CourseDetailSheet({
+  course,
+  onClose,
+}: {
+  course: UniversityCourse | null;
+  onClose: () => void;
+}) {
+  return (
+    <Sheet open={!!course} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent className="overflow-y-auto">
+        {course && (
+          <>
+            <SheetHeader>
+              <SheetTitle>{course.name}</SheetTitle>
+              <SheetDescription>{course.university.name}</SheetDescription>
+            </SheetHeader>
+
+            <div className="space-y-5 px-4 py-4">
+              {/* University logo / banner */}
+              {course.university.logo && (
+                <Image
+                  src={course.university.logo}
+                  alt={course.university.name}
+                  width={600}
+                  height={200}
+                  className="h-24 w-full rounded-2xl object-cover"
+                />
+              )}
+
+              {/* Core info */}
+              <div className="grid gap-2 text-sm text-muted-foreground">
+                {[
+                  ["Country", course.university.country],
+                  ["Degree", course.degree],
+                  ["Duration", formatDuration(course.durationMonths)],
+                  ["Intake", formatIntake(course.intake)],
+                  ["Annual Tuition", formatFee(course.annualTuitionFee, course.currency)],
+                  ["Total Tuition", formatFee(course.totalTuitionFee, course.currency)],
+                  [
+                    "Application Deadline",
+                    course.applicationDeadline
+                      ? new Date(course.applicationDeadline).toLocaleDateString()
+                      : null,
+                  ],
+                  ["Course Code", course.courseCode],
+                  ["Min Percentage", course.minimumPercentage != null ? `${course.minimumPercentage}%` : null],
+                  ["Max Backlogs", course.backlogLimit?.toString()],
+                  ["English Requirement", course.englishRequirement],
+                ]
+                  .filter(([, v]) => v)
+                  .map(([label, value]) => (
+                    <div key={label as string}>
+                      <span className="font-semibold text-foreground">{label}:</span> {value}
+                    </div>
+                  ))}
+              </div>
+
+              {/* English test scores */}
+              <div>
+                <div className="mb-2 text-sm font-semibold">English Test Requirements</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      ["IELTS Overall", course.ieltsOverall],
+                      ["IELTS Listening", course.ieltsListening],
+                      ["IELTS Reading", course.ieltsReading],
+                      ["IELTS Writing", course.ieltsWriting],
+                      ["IELTS Speaking", course.ieltsSpeaking],
+                    ] as [string, number | null | undefined][]
+                  )
+                    .filter(([, v]) => v != null)
+                    .map(([label, value]) => (
+                      <div key={label} className="rounded-2xl border border-border p-3">
+                        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                          {label}
+                        </div>
+                        <div className="mt-1 font-semibold">{value}</div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Entrance exams */}
+              {(course.greRequired || course.gmatRequired) && (
+                <div className="flex gap-2">
+                  {course.greRequired && <Badge variant="secondary">GRE Required</Badge>}
+                  {course.gmatRequired && <Badge variant="secondary">GMAT Required</Badge>}
+                </div>
+              )}
+
+              {/* Description */}
+              {course.description && (
+                <div>
+                  <div className="mb-2 text-sm font-semibold">About the Program</div>
+                  <div className="rounded-2xl border border-border bg-background p-4 text-sm text-muted-foreground leading-relaxed">
+                    {course.description}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function CourseFinderPage() {
-  const [courses, setCourses] = useState<Course[]>(seedCourses);
+  // Filter state
   const [searchCourse, setSearchCourse] = useState("");
   const [searchUniversity, setSearchUniversity] = useState("");
   const [country, setCountry] = useState("");
-  const [level, setLevel] = useState("");
+  const [degree, setDegree] = useState("");
   const [intakeMonth, setIntakeMonth] = useState("");
   const [intakeYear, setIntakeYear] = useState("");
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
 
+  // Data state
+  const [courses, setCourses] = useState<UniversityCourse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  
+  // UI state
+  const [selectedCourse, setSelectedCourse] = useState<UniversityCourse | null>(null);
 
-  const countries = Array.from(new Set(seedCourses.map((course) => course.country)));
-  const levels = Array.from(new Set(seedCourses.map((course) => course.level)));
-  const intakeMonths = Array.from(new Set(seedCourses.map((course) => course.intakeMonth)));
-  const intakeYears = Array.from(new Set(seedCourses.map((course) => course.intakeYear)));
+  // Debounce ref for text inputs
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const filteredCourses = useMemo(() => {
-    return courses.filter((course) => {
-      return (
-        (!searchCourse || course.courseName.toLowerCase().includes(searchCourse.toLowerCase())) &&
-        (!searchUniversity ||
-          course.universityName.toLowerCase().includes(searchUniversity.toLowerCase())) &&
-        (country === "all" || !country || course.country === country) &&
-        (level === "any" || !level || course.level === level) &&
-        (intakeMonth === "any" || !intakeMonth || course.intakeMonth === intakeMonth) &&
-        (intakeYear === "any" || !intakeYear || course.intakeYear === intakeYear)
-      );
-    });
-  }, [courses, searchCourse, searchUniversity, country, level, intakeMonth, intakeYear]);
+  const loadCourses = useCallback(async (params: FetchCoursesParams) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchCourses(params);
+      setCourses(data);
+    } catch {
+      setError("Could not load courses. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const form = useForm<CourseFormValues>({
-    resolver: zodResolver(courseSchema),
-    defaultValues: {
-      logo: "https://logo.clearbit.com/atlantiscollege.edu",
-      universityName: "Atlantis College",
-      courseName: "Master of Business Administration",
-      country: "Cyprus",
-      applicationFee: "N/A",
-      yearlyTuition: "€ 7,000",
-      duration: "12 Months",
-      intakeMonth: "Sep",
-      intakeYear: "2026",
-      level: "Master",
-      ielts: "5",
-      pte: "58",
-      toefl: "84",
-      duolingo: "95",
-      description:
-        "A practical MBA program designed for international leaders focusing on operations, finance and growth strategies.",
-    },
-  });
-
-  const {
-    register,
-    control,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = form;
-
-  const saveCourse = (values: CourseFormValues) => {
-    const updated: Course = {
-      id: editingCourse?.id ?? `CR${Date.now()}`,
-      ...values,
-      
+  // Re-fetch whenever select filters change immediately
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      loadCourses({
+        search: searchCourse,
+        university: searchUniversity,
+        country,
+        degree,
+        intakeMonth,
+        intakeYear,
+      });
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
+  }, [searchCourse, searchUniversity, country, degree, intakeMonth, intakeYear, loadCourses]);
 
-    setCourses((current) => {
-      if (editingCourse) {
-        return current.map((course) => (course.id === editingCourse.id ? updated : course));
-      }
-      return [updated, ...current];
-    });
-    toast.success(editingCourse ? "Course updated" : "Course added");
-    setDialogOpen(false);
-    setEditingCourse(null);
-    reset(values);
+  const handleReset = () => {
+    setSearchCourse("");
+    setSearchUniversity("");
+    setCountry("");
+    setDegree("");
+    setIntakeMonth("");
+    setIntakeYear("");
   };
 
-  const handleEdit = (course: Course) => {
-    setEditingCourse(course);
-    reset(course);
-    setDialogOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    setCourses((current) => current.filter((course) => course.id !== id));
-    toast.success("Course removed");
-  };
+  const hasFilters =
+    searchCourse || searchUniversity || country || degree || intakeMonth || intakeYear;
 
   return (
     <PageTransition>
       <PageHeader
         title="Course Finder"
-        description="Manage international universities and study programs."
-        actions={
-          <Button
-            onClick={() => {
-              setEditingCourse(null);
-              reset();
-              setDialogOpen(true);
-            }}
-          >
-            <Plus className="size-4 mr-2" /> Add Course
-          </Button>
-        }
+        description="Search programs across international universities."
       />
 
+      {/* ── Filters ── */}
       <Card className="mb-6">
-        <CardContent className="grid gap-4 xl:grid-cols-[1.2fr_1fr_1fr]">
+        <CardContent className="grid gap-4 xl:grid-cols-[1.2fr_1fr_1fr] py-8">
+          {/* Col 1 — Course search */}
           <div className="grid gap-2">
             <Label>Search Course</Label>
             <Input
               value={searchCourse}
-              onChange={(event) => setSearchCourse(event.target.value)}
+              onChange={(e) => setSearchCourse(e.target.value)}
               placeholder="Search course"
             />
           </div>
+
+          {/* Col 2 — University search */}
           <div className="grid gap-2">
             <Label>Search University</Label>
             <Input
               value={searchUniversity}
-              onChange={(event) => setSearchUniversity(event.target.value)}
+              onChange={(e) => setSearchUniversity(e.target.value)}
               placeholder="Search university"
             />
           </div>
+
+          {/* Col 3 — Select filters + Reset */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {/* Country */}
             <div className="grid gap-2">
               <Label>Country</Label>
               <Select value={country} onValueChange={setCountry}>
@@ -200,18 +447,29 @@ export default function CourseFinderPage() {
                   <SelectGroup>
                     <SelectLabel>Country</SelectLabel>
                     <SelectItem value="all">All</SelectItem>
-                    {countries.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
+                    {[
+                      "Australia",
+                      "Canada",
+                      "Cyprus",
+                      "Germany",
+                      "Ireland",
+                      "New Zealand",
+                      "UK",
+                      "USA",
+                    ].map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
                       </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Level */}
             <div className="grid gap-2">
               <Label>Level</Label>
-              <Select value={level} onValueChange={setLevel}>
+              <Select value={degree} onValueChange={setDegree}>
                 <SelectTrigger>
                   <SelectValue placeholder="Any level" />
                 </SelectTrigger>
@@ -219,15 +477,24 @@ export default function CourseFinderPage() {
                   <SelectGroup>
                     <SelectLabel>Level</SelectLabel>
                     <SelectItem value="any">Any</SelectItem>
-                    {levels.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
+                    {[
+                      "Bachelor",
+                      "Master",
+                      "PhD",
+                      "Diploma",
+                      "Certificate",
+                      "Associate",
+                    ].map((l) => (
+                      <SelectItem key={l} value={l}>
+                        {l}
                       </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Intake Month */}
             <div className="grid gap-2">
               <Label>Intake Month</Label>
               <Select value={intakeMonth} onValueChange={setIntakeMonth}>
@@ -238,15 +505,20 @@ export default function CourseFinderPage() {
                   <SelectGroup>
                     <SelectLabel>Intake Month</SelectLabel>
                     <SelectItem value="any">Any</SelectItem>
-                    {intakeMonths.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
+                    {[
+                      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+                    ].map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
                       </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Intake Year */}
             <div className="grid gap-2">
               <Label>Intake Year</Label>
               <Select value={intakeYear} onValueChange={setIntakeYear}>
@@ -257,28 +529,19 @@ export default function CourseFinderPage() {
                   <SelectGroup>
                     <SelectLabel>Intake Year</SelectLabel>
                     <SelectItem value="any">Any</SelectItem>
-                    {intakeYears.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
+                    {["2025", "2026", "2027"].map((y) => (
+                      <SelectItem key={y} value={y}>
+                        {y}
                       </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Reset */}
             <div className="flex items-end">
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  setSearchCourse("");
-                  setSearchUniversity("");
-                  setCountry("");
-                  setLevel("");
-                  setIntakeMonth("");
-                  setIntakeYear("");
-                }}
-              >
+              <Button variant="outline" className="w-full" onClick={handleReset}>
                 Reset
               </Button>
             </div>
@@ -286,270 +549,50 @@ export default function CourseFinderPage() {
         </CardContent>
       </Card>
 
+      {/* ── Results count ── */}
+      {!loading && !error && (
+        <p className="mb-4 text-sm text-muted-foreground">
+          {courses.length === 0
+            ? "No courses found"
+            : `${courses.length} ${courses.length === 1 ? "course" : "courses"} found`}
+        </p>
+      )}
+
+      {/* ── Error state ── */}
+      {error && (
+        <div className="flex flex-col items-center gap-3 py-20 text-center text-muted-foreground">
+          <SearchX className="size-10 opacity-40" />
+          <p>{error}</p>
+          <Button variant="outline" size="sm" onClick={() => loadCourses({})}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {/* ── Course grid ── */}
       <div className="grid gap-4 lg:grid-cols-3">
-        {filteredCourses.map((course) => (
-          <Card
-            key={course.id}
-            className="overflow-hidden rounded-2xl border border-border shadow-md transition hover:shadow-lg"
-          >
-            <div className="flex items-center gap-3 border-b border-border px-5 py-4">
-              <Image
-                src={course.logo}
-                alt={course.universityName}
-                width={100}
-                height={100}
-                className="h-12 w-12 rounded-xl object-cover"
-              />
-              <div>
-                <div className="font-semibold">{course.universityName}</div>
-                <div className="text-sm text-muted-foreground">{course.country}</div>
-              </div>
-            </div>
-            <CardContent className="space-y-4 p-5">
-              <div>
-                <div className="text-lg font-semibold">{course.courseName}</div>
-                <div className="text-sm text-muted-foreground">
-                  {course.level} · {course.duration}
-                </div>
-              </div>
-              <div className="grid gap-2 text-sm text-muted-foreground">
-                <div>Application fee: {course.applicationFee}</div>
-                <div>Yearly tuition: {course.yearlyTuition}</div>
-                <div>
-                  Intake: {course.intakeMonth} {course.intakeYear}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-xl border border-border p-3 bg-secondary/50">
-                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    IELTS
-                  </div>
-                  <div className="font-medium">{course.ielts || "N/A"}</div>
-                </div>
-                <div className="rounded-xl border border-border p-3 bg-secondary/50">
-                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    PTE
-                  </div>
-                  <div className="font-medium">{course.pte || "N/A"}</div>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" onClick={() => setSelectedCourse(course)}>
-                  {" "}
-                  <Eye className="size-4 mr-2" /> View Details
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => handleEdit(course)}>
-                  {" "}
-                  <Edit3 className="size-4 mr-2" /> Edit
-                </Button>
-                <Button size="sm" variant="destructive" onClick={() => handleDelete(course.id)}>
-                  {" "}
-                  <Trash2 className="size-4 mr-2" /> Delete
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {loading
+          ? Array.from({ length: 6 }).map((_, i) => <CourseCardSkeleton key={i} />)
+          : courses.map((course) => (
+              <CourseCard key={course.id} course={course} onView={setSelectedCourse} />
+            ))}
       </div>
 
-      <Dialog
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) {
-            setEditingCourse(null);
-            reset();
-          }
-        }}
-      >
-        <DialogContent className="max-w-4xl h-[85vh]  overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingCourse ? "Edit Course" : "Add Course"}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit(saveCourse)} className="grid gap-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label>University Logo URL</Label>
-                <Input {...register("logo")} />
-                {errors.logo && <p className="text-xs text-destructive">{errors.logo.message}</p>}
-              </div>
-              <div className="grid gap-2">
-                <Label>University Name</Label>
-                <Input {...register("universityName")} />
-                {errors.universityName && (
-                  <p className="text-xs text-destructive">{errors.universityName.message}</p>
-                )}
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label>Course Name</Label>
-                <Input {...register("courseName")} />
-                {errors.courseName && (
-                  <p className="text-xs text-destructive">{errors.courseName.message}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label>Country</Label>
-                <Input {...register("country")} />
-                {errors.country && (
-                  <p className="text-xs text-destructive">{errors.country.message}</p>
-                )}
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label>Application Fee</Label>
-                <Input {...register("applicationFee")} />
-                {errors.applicationFee && (
-                  <p className="text-xs text-destructive">{errors.applicationFee.message}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label>Yearly Tuition Fee</Label>
-                <Input {...register("yearlyTuition")} />
-                {errors.yearlyTuition && (
-                  <p className="text-xs text-destructive">{errors.yearlyTuition.message}</p>
-                )}
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="grid gap-2">
-                <Label>Duration</Label>
-                <Input {...register("duration")} />
-                {errors.duration && (
-                  <p className="text-xs text-destructive">{errors.duration.message}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label>Intake Month</Label>
-                <Input {...register("intakeMonth")} />
-                {errors.intakeMonth && (
-                  <p className="text-xs text-destructive">{errors.intakeMonth.message}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label>Intake Year</Label>
-                <Input {...register("intakeYear")} />
-                {errors.intakeYear && (
-                  <p className="text-xs text-destructive">{errors.intakeYear.message}</p>
-                )}
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label>Level</Label>
-                <Input {...register("level")} />
-                {errors.level && <p className="text-xs text-destructive">{errors.level.message}</p>}
-              </div>
-              <div className="grid gap-2">
-                <Label>IELTS Score</Label>
-                <Input {...register("ielts")} />
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label>PTE Score</Label>
-                <Input {...register("pte")} />
-              </div>
-              <div className="grid gap-2">
-                <Label>TOEFL Score</Label>
-                <Input {...register("toefl")} />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label>Duolingo Score</Label>
-              <Input {...register("duolingo")} />
-            </div>
-            <div className="grid gap-2">
-              <Label>Description</Label>
-              <Textarea rows={4} {...register("description")} />
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => {
-                  setDialogOpen(false);
-                  setEditingCourse(null);
-                  reset();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {editingCourse ? "Save Changes" : "Save"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Sheet open={!!selectedCourse} onOpenChange={(open) => !open && setSelectedCourse(null)}>
-        <SheetContent>
-          {selectedCourse && (
-            <>
-              <SheetHeader>
-                <SheetTitle>{selectedCourse.courseName}</SheetTitle>
-                <SheetDescription>{selectedCourse.universityName}</SheetDescription>
-              </SheetHeader>
-              <div className="space-y-4 px-4 py-3">
-                <Image
-                  src={selectedCourse.logo}
-                  alt={selectedCourse.universityName}
-                  className="h-24 w-full rounded-2xl object-cover"
-                />
-                <div className="grid gap-2 text-sm text-muted-foreground">
-                  <div>
-                    <span className="font-semibold text-foreground">Country:</span>{" "}
-                    {selectedCourse.country}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-foreground">Level:</span>{" "}
-                    {selectedCourse.level}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-foreground">Intake:</span>{" "}
-                    {selectedCourse.intakeMonth} {selectedCourse.intakeYear}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-foreground">Application Fee:</span>{" "}
-                    {selectedCourse.applicationFee}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-foreground">Yearly Tuition Fee:</span>{" "}
-                    {selectedCourse.yearlyTuition}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-foreground">Duration:</span>{" "}
-                    {selectedCourse.duration}
-                  </div>
-                </div>
-                <div className="grid gap-2 md:grid-cols-2">
-                  <div className="rounded-2xl border border-border p-4">
-                    <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">
-                      IELTS
-                    </div>
-                    <div className="text-base font-semibold">{selectedCourse.ielts || "N/A"}</div>
-                  </div>
-                  <div className="rounded-2xl border border-border p-4">
-                    <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">
-                      PTE
-                    </div>
-                    <div className="text-base font-semibold">{selectedCourse.pte || "N/A"}</div>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-sm font-semibold mb-2">Requirements</div>
-                  <div className="rounded-2xl border border-border bg-background p-4 text-sm text-muted-foreground">
-                    {selectedCourse.description}
-                  </div>
-                </div>
-              </div>
-            </>
+      {/* ── Empty state ── */}
+      {!loading && !error && courses.length === 0 && (
+        <div className="flex flex-col items-center gap-3 py-20 text-center text-muted-foreground">
+          <SearchX className="size-10 opacity-40" />
+          <p className="text-sm">No courses match your filters.</p>
+          {hasFilters && (
+            <Button variant="outline" size="sm" onClick={handleReset}>
+              Clear filters
+            </Button>
           )}
-        </SheetContent>
-      </Sheet>
+        </div>
+      )}
+
+      {/* ── Detail sheet ── */}
+      <CourseDetailSheet course={selectedCourse} onClose={() => setSelectedCourse(null)} />
     </PageTransition>
   );
 }
