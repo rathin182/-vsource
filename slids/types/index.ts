@@ -218,3 +218,41 @@ export interface LoanInquiry {
 export interface Role { id: string; name: string; users: number; permissions: Record<string, { c: boolean; r: boolean; u: boolean; d: boolean }>; }
 export interface UserRow { id: string; name: string; email: string; role: string; branch: string; status: "active" | "inactive"; lastLogin: string; }
 export interface NotificationItem { id: string; title: string; description: string; time: string; read: boolean; type: "lead" | "application" | "system"; }
+
+
+export interface CourseFormData {
+  name: string;
+  degree: string;
+
+  universityId: string;
+  countryId?: string;
+
+  intakeId?: string;
+
+  durationMonths?: number;
+
+  annualTuitionFee?: number;
+  totalTuitionFee?: number;
+  currency?: string;
+
+  minimumPercentage?: number;
+  backlogLimit?: number;
+
+  englishRequirement?: string;
+
+  ieltsOverall?: number;
+  ieltsListening?: number;
+  ieltsReading?: number;
+  ieltsWriting?: number;
+  ieltsSpeaking?: number;
+
+  greRequired: boolean;
+  gmatRequired: boolean;
+
+  courseCode?: string;
+  applicationDeadline?: string;
+
+  description?: string;
+
+  status: boolean;
+}

@@ -11,7 +11,7 @@ export async function GET() {
     const counselors = await prisma.user.findMany({
       where: {
         role: {
-          name: "COUNSELOR", // must match DB value exactly
+          name: "Counsellor", // must match DB value exactly
         },
       },
       include: {
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     const counsellorRole = await prisma.role.findFirst({
       where: {
-        name: "COUNSELOR",
+        name: "Counsellor",
       },
     });
 
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          message: "COUNSELOR role not found",
+          message: "Counsellor role not found",
         },
         { status: 404 }
       );
