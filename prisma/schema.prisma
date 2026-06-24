@@ -140,6 +140,7 @@ model User {
 
   remarks      Remark[]
   applications Application[]
+  lead Lead[]
 }
 
 model Role {
@@ -152,7 +153,6 @@ model Role {
   isSystem Boolean @default(false)
 
   users User[]
-  lead  Lead[]
 
   modulePermissions RoleModulePermission[]
 
@@ -245,7 +245,7 @@ model Lead {
   counselorId String
 
   branch    Branch @relation(fields: [branchId], references: [id])
-  counselor Role   @relation(fields: [counselorId], references: [id])
+  counselor User   @relation(fields: [counselorId], references: [id])
 
   createdById String?
   updatedById String?
