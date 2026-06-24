@@ -60,7 +60,6 @@ export default function Branches() {
     startTransition(async () => {
       const req = await axios.get(`/api/branches?page=${page}`);
       if (req.status === 200) {
-        console.log(req.data);
         setList(req.data.data);
         setMetaData(req.data.meta);
       }

@@ -41,14 +41,12 @@ export async function GET(req: NextRequest) {
     createdAt: "desc",
   },
 });
-console.log(leads, "leadss");
 
     return NextResponse.json({
       success: true,
       data: leads,
     });
   } catch (error: any) {
-    console.log(error);
 
     return NextResponse.json(
       {

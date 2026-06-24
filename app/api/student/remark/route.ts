@@ -11,7 +11,6 @@ export async function POST(req: NextRequest) {
     if (!token) throw new Error("Unauthorized");
     const payload = verifyToken(token) as any;
     const userId = payload.id;
-console.log(userId, "userId", studentId, "student", payload);
 
     if (!studentId && !userId) {
       return NextResponse.json(

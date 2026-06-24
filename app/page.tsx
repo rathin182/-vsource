@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/slids/store";
+import { getCurrentUser } from "@/lib/auth"
 
 export default function RootPage() {
   const router = useRouter();
+  const user = getCurrentUser();
   const { isAuthenticated } = useAuth();
   const [authenticated, setAuthenticated] = useState(true);
   const [hydrated, setHydrated] = useState(false);
@@ -24,19 +26,36 @@ export default function RootPage() {
   //   }
   // };
 
-  useEffect(() => {
-    // logdata();
-    setHydrated(true);
-  }, []);
+  // useEffect(() => {
+  //   // logdata();
+  //   setHydrated(true);
+  // }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    const fetchUser = async () => {
+      try {
+        const res = await fetch("/api/me");
+
+        const data = await res.json();
+        if (res.ok) {
+          setAuthenticated(res.ok);
+        }
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+    useEffect(() => {
+    if (authenticated) {
 
       router.replace("/dashboard");
     } else {
       router.replace("/login");
     }
-  }, [isAuthenticated]);
+  }, [authenticated]);
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background">

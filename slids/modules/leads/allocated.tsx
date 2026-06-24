@@ -160,7 +160,6 @@ export default function AllocatedLeadsPage() {
       }
 
       const result = await res.json();
-      console.log(result.data);
 
       setLeads(result.data);
 

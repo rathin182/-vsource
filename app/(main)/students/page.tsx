@@ -73,7 +73,6 @@ export default function StudentsPage() {
         );
       }
       setIsCreating(true)
-      console.log(form, "data of details");
 
       const response = await fetch(
         "/api/student",

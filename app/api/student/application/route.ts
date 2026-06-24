@@ -63,7 +63,6 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
     try {
         const id = req.nextUrl.searchParams.get("id");
-console.log(id, "IDSSSSSSSSSSSSS");
 
         const body = await req.json();
 

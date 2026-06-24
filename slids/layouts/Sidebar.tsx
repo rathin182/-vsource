@@ -28,6 +28,7 @@ import {
 import { useUi } from "@/slids/store";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/vsourcess.png";
+import { toast } from "sonner";
 
 const items = [
   {
@@ -141,16 +142,13 @@ export function Sidebar() {
             credentials: "include",
           }
         );
-
+const data = await response.json();
         if (!response.ok) {
-          throw new Error(
-            "Failed to fetch user"
-          );
+          toast.error(
+      data.message || "Failed to fetch user"
+    );
+    return;
         }
-
-        const data =
-          await response.json();
-        console.log(data, "data");
 
         setUser(data);
       } catch (error) {

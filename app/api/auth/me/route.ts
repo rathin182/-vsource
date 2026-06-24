@@ -30,24 +30,23 @@ export async function GET() {
         );
     }
 
-    const user =
-        await prisma.user.findUnique({
-            where: {
-                id: payload.id as string,
-            },
-            include: {
-                role: {
-                    include: {
-                        modulePermissions: {
-                            include: {
-                                module: true,
-                            },
+const user = await prisma.user.findUnique({
+        where: {
+            id: payload.userId as string,
+        },
+        include: {
+            role: {
+                include: {
+                    modulePermissions: {
+                        include: {
+                            module: true,
                         },
                     },
                 },
-                branches: true,
             },
-        });
+            branches: true,
+        },
+    });
 
     return NextResponse.json(user);
 }

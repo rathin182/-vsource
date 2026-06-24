@@ -235,7 +235,6 @@ export async function GET(req: NextRequest) {
       )
     );
   } catch (err: any) {
-    console.log(err.message);
 
     return handleError(err);
   }
@@ -422,7 +421,6 @@ export async function POST(req: NextRequest) {
       "Lead created successfully"
     );
   } catch (err: any) {
-    console.log(err.message);
 
     return handleError(err);
 

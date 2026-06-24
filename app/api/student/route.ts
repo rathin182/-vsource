@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
                         },
                         remarks: true,
                         docs:true,
+                        loanInquiries: true,
 
                         studentCourses: {
                             select: {

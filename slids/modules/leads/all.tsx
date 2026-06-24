@@ -142,7 +142,6 @@ export default function AllLeadsPage() {
 
     const result =
       await response.json();
-console.log(result);
 
     setLeads(result.data);
 

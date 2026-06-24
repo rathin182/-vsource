@@ -12,23 +12,23 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   const [hydrated, setHydrated] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
 
-  const logdata = async () => {
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "GET",
-      });
+  // const logdata = async () => {
+  //   try {
+  //     const res = await fetch("/api/auth/login", {
+  //       method: "GET",
+  //     });
 
-      if (res.ok) {
-        setAuthenticated(true);
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-    }
-  };
+  //     if (res.ok) {
+  //       setAuthenticated(true);
+  //     }
+  //   } catch (error) {
+  //     console.error('Failed to fetch data:', error);
+  //   }
+  // };
 
-  useEffect(() => {
-    logdata();
-  }, []);
+  // useEffect(() => {
+  //   logdata();
+  // }, []);
 
 
   // useEffect(() => {

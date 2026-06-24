@@ -129,7 +129,6 @@ export default function Users() {
 
       if (req.status === 200) {
         setUsers(req.data.data);
-        console.log(req.data.data);
       }
     });
 

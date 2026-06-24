@@ -21,27 +21,90 @@ function LoginPage() {
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
 
-useEffect(() => {
-  if (isAuthenticated) {
+// useEffect(() => {
+//   if (isAuthenticated) {
     
-    router.push("/dashboard");
-  }
-}, [isAuthenticated, router]);
+//     router.push("/dashboard");
+//   }
+// }, [isAuthenticated, router]);
 
-const onSubmit = async (e: React.FormEvent) => {
+// const onSubmit = async (e: React.FormEvent) => {
+//   e.preventDefault();
+
+//   setLoading(true);
+
+//   const res = await login(email, password);
+
+//   setLoading(false);
+
+//   if (res.ok) {
+//     toast.success("Welcome back");
+//     router.push("/dashboard");
+//   } else {
+//     toast.error(res.error ?? "Login failed");
+//   }
+// };
+
+useEffect(() => {
+  const checkAuth = async () => {
+    const res = await fetch("/api/me");
+
+    if (res.ok) {
+      router.push("/dashboard");
+    }
+  };
+
+  checkAuth();
+}, [router]);
+
+const onSubmit = async (
+  e: React.FormEvent
+) => {
   e.preventDefault();
 
-  setLoading(true);
+  try {
+    setLoading(true);
 
-  const res = await login(email, password);
+    const res = await fetch(
+      "/api/auth/signin",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      }
+    );
 
-  setLoading(false);
+    const data = await res.json();
 
-  if (res.ok) {
-    toast.success("Welcome back");
+    if (!res.ok) {
+      return toast.error(
+        data.message ||
+          data.error ||
+          "Login failed"
+      );
+    }
+
+    toast.success(
+      "Welcome back, " +
+        data.user.name
+    );
+
     router.push("/dashboard");
-  } else {
-    toast.error(res.error ?? "Login failed");
+    router.refresh();
+  } catch (error) {
+    console.error(error);
+
+    toast.error(
+      "Something went wrong."
+    );
+  } finally {
+    setLoading(false);
   }
 };
 

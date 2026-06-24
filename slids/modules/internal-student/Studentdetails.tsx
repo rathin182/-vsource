@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -187,7 +187,6 @@ export default function StudentData({ student, reloadStudent, }: any) {
       };
     });
   });
-  console.log(student, "studentt");
 
   const [currentView, setCurrentView] = useState<'dashboard' | 'students' | 'applications' | 'loans' | 'visas' | 'reports'>('dashboard');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(student.id || null);
@@ -719,7 +718,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
   const handleSaveLoan = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedStudentId || !loanBank.trim() || !loanAmount || !loanEmi) {
+    if (!student.id || !loanBank.trim() || !loanAmount || !loanEmi) {
       return toast.error("Please fill all required fields.");
     }
 
@@ -735,7 +734,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
       };
 
       const res = await fetch(
-        `/api/student/loaninquiry?id=${selectedStudentId}`,
+        `/api/student/loaninquiry?id=${student.id}`,
         {
           method: "POST",
           headers: {
@@ -924,6 +923,18 @@ export default function StudentData({ student, reloadStudent, }: any) {
     }));
     alert("Financial credit and NBFC parameters updated successfully!");
   };
+
+  useEffect(() => {
+  if (!student?.loanInquiries?.length) return;
+
+  const loan = student.loanInquiries[0];
+
+  setLoanAssignee(loan.assignee || "");
+  setLoanBank(loan.bank || "");
+  setLoanAmount(String(loan.amount || ""));
+  setLoanEmi(String(loan.emi || ""));
+  setLoanStatus(loan.status || "PENDING");
+}, [student]);
 
   // UI tab definitions (Home-style horizontal pill tabs, mapped onto StudentData's own tab keys)
   const tabs = [

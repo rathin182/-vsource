@@ -86,7 +86,6 @@ export default function UniversitiesPage() {
     startTransition(async () => {
       const req = await axios.get(`/api/universities?page=${page}`);
       if (req.status === 200) {
-        console.log(req.data);
         setList(req.data.data);
         setMetaData(req.data.meta)
 

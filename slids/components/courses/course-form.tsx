@@ -87,7 +87,6 @@ export default function CourseForm() {
       fetch("/api/countries/all"),
       fetch("/api/intakes/all"),
     ]);
-    console.log(await universityRes.json());
     
     setUniversities(await universityRes.json());
     setCountries(await countryRes.json());

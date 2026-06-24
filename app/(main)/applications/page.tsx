@@ -97,7 +97,6 @@ export default function ApplicationsPage() {
           : a
       )
     );
-    console.log(id, stage);
     try {
       await fetch(`/api/leads/leadsforcounsoler?id=${id}`, {
         method: "PATCH",
