@@ -86,36 +86,36 @@ export default function Users() {
   const [branchIds, setBranchIds] = useState<string[]>([]);
 
   const createCounsellor = async () => {
-  try {
-    setCreateLoading(true);
+    try {
+      setCreateLoading(true);
 
-    const res = await axios.post("/api/users/counsellor", {
-      name,
-      email,
-      phone,
-      password,
-      monthlyTarget,
-      branchIds,
-    });
+      const res = await axios.post("/api/users/counsellor", {
+        name,
+        email,
+        phone,
+        password,
+        monthlyTarget,
+        branchIds,
+      });
 
-    if (res.status === 201) {
-      setCreateOpen(false);
+      if (res.status === 201) {
+        setCreateOpen(false);
 
-      setName("");
-      setEmail("");
-      setPhone("");
-      setPassword("");
-      setMonthlyTarget(0);
-      setBranchIds([]);
+        setName("");
+        setEmail("");
+        setPhone("");
+        setPassword("");
+        setMonthlyTarget(0);
+        setBranchIds([]);
 
-      fetchData();
+        fetchData();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCreateLoading(false);
     }
-  } catch (err) {
-    console.error(err);
-  } finally {
-    setCreateLoading(false);
-  }
-};
+  };
 
   const filtered = users.filter(
     (u) =>
@@ -162,14 +162,14 @@ export default function Users() {
           prev.map((u) =>
             u.id === editUser.id
               ? {
-                  ...u,
-                  name: editName,
-                  email: editEmail,
-                  monthlyTarget: target,
-                  branches: branches.filter((branch) =>
-                    branchIds.includes(branch.id),
-                  ),
-                }
+                ...u,
+                name: editName,
+                email: editEmail,
+                monthlyTarget: target,
+                branches: branches.filter((branch) =>
+                  branchIds.includes(branch.id),
+                ),
+              }
               : u,
           ),
         );
@@ -205,7 +205,7 @@ export default function Users() {
     if (req.status === 200) {
       setBranches(req.data.data)
     }
-    }
+  }
 
   useEffect(() => {
     if (createOpen || editOpen) {
@@ -345,157 +345,156 @@ export default function Users() {
           </div>
         </CardContent>
       </Card>
-      
+
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-  <DialogContent className="sm:max-w-md">
-    <DialogHeader>
-      <DialogTitle>Add Counsellor</DialogTitle>
-      <DialogDescription>
-        Create a new counsellor account.
-      </DialogDescription>
-    </DialogHeader>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Counsellor</DialogTitle>
+            <DialogDescription>
+              Create a new counsellor account.
+            </DialogDescription>
+          </DialogHeader>
 
-    <div className="space-y-4">
+          <div className="space-y-4">
 
-      <div>
-        <Label>Name</Label>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-
-      <div>
-        <Label>Email</Label>
-        <Input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-      </div>
-
-      <div>
-        <Label>Phone</Label>
-        <Input
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-        />
-      </div>
-
-      <div>
-        <Label>Password</Label>
-        <Input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </div>
-
-      <div>
-        <Label>Monthly Target</Label>
-        <Input
-          type="number"
-          value={monthlyTarget}
-          onChange={(e) =>
-            setMonthlyTarget(Number(e.target.value))
-          }
-        />
-      </div>
-<div className="space-y-2">
-  <Label>Branches</Label>
-
-  <Popover open={branchOpen} onOpenChange={setBranchOpen}>
-    <PopoverTrigger asChild>
-      <Button
-        variant="outline"
-        role="combobox"
-        className="w-full justify-between"
-      >
-        {branchIds.length > 0
-          ? `${branchIds.length} branch selected`
-          : "Select branches"}
-
-        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-      </Button>
-    </PopoverTrigger>
-
-    <PopoverContent className="w-full">
-      <Command>
-        <CommandInput placeholder="Search branch..." />
-
-        <CommandEmpty>
-          No branch found.
-        </CommandEmpty>
-
-        <CommandGroup>
-          {branches.map((branch) => (
-            <CommandItem
-              key={branch.id}
-              value={`${branch.name} ${branch.email}`}
-              onSelect={() => {
-                setBranchIds((prev) =>
-                  prev.includes(branch.id)
-                    ? prev.filter((id) => id !== branch.id)
-                    : [...prev, branch.id]
-                );
-              }}
-            >
-              <Check
-                className={`mr-2 h-4 w-4 ${
-                  branchIds.includes(branch.id)
-                    ? "opacity-100"
-                    : "opacity-0"
-                }`}
+            <div>
+              <Label>Name</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
               />
+            </div>
 
-              <div className="flex flex-col">
-                <span>{branch.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {branch.email}
-                </span>
-              </div>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-      </Command>
-    </PopoverContent>
-  </Popover>
+            <div>
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
 
-  {branchIds.length > 0 && (
-    <div className="flex flex-wrap gap-2">
-      {branches
-        .filter((b) => branchIds.includes(b.id))
-        .map((branch) => (
-          <Badge key={branch.id} variant="secondary">
-            {branch.name}
-          </Badge>
-        ))}
-    </div>
-  )}
-</div>
+            <div>
+              <Label>Phone</Label>
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
 
-    </div>
+            <div>
+              <Label>Password</Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
 
-    <DialogFooter>
-      <Button
-        variant="outline"
-        onClick={() => setCreateOpen(false)}
-      >
-        Cancel
-      </Button>
+            <div>
+              <Label>Monthly Target</Label>
+              <Input
+                type="number"
+                value={monthlyTarget}
+                onChange={(e) =>
+                  setMonthlyTarget(Number(e.target.value))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Branches</Label>
 
-      <Button
-        onClick={createCounsellor}
-        disabled={createLoading}
-      >
-        {createLoading && (
-          <LucideLoader2 className="mr-2 h-4 w-4 animate-spin" />
-        )}
-        Create Counsellor
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
+              <Popover open={branchOpen} onOpenChange={setBranchOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between"
+                  >
+                    {branchIds.length > 0
+                      ? `${branchIds.length} branch selected`
+                      : "Select branches"}
+
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+
+                <PopoverContent className="w-full">
+                  <Command>
+                    <CommandInput placeholder="Search branch..." />
+
+                    <CommandEmpty>
+                      No branch found.
+                    </CommandEmpty>
+
+                    <CommandGroup>
+                      {branches.map((branch) => (
+                        <CommandItem
+                          key={branch.id}
+                          value={`${branch.name} ${branch.email}`}
+                          onSelect={() => {
+                            setBranchIds((prev) =>
+                              prev.includes(branch.id)
+                                ? prev.filter((id) => id !== branch.id)
+                                : [...prev, branch.id]
+                            );
+                          }}
+                        >
+                          <Check
+                            className={`mr-2 h-4 w-4 ${branchIds.includes(branch.id)
+                                ? "opacity-100"
+                                : "opacity-0"
+                              }`}
+                          />
+
+                          <div className="flex flex-col">
+                            <span>{branch.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {branch.email}
+                            </span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+
+              {branchIds.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {branches
+                    .filter((b) => branchIds.includes(b.id))
+                    .map((branch) => (
+                      <Badge key={branch.id} variant="secondary">
+                        {branch.name}
+                      </Badge>
+                    ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCreateOpen(false)}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              onClick={createCounsellor}
+              disabled={createLoading}
+            >
+              {createLoading && (
+                <LucideLoader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Create Counsellor
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -539,77 +538,76 @@ export default function Users() {
 
 
           <div className="space-y-2">
-  <Label>Branches</Label>
+            <Label>Branches</Label>
 
-  <Popover open={branchOpen} onOpenChange={setBranchOpen}>
-    <PopoverTrigger asChild>
-      <Button
-        variant="outline"
-        role="combobox"
-        className="w-full justify-between"
-      >
-        {branchIds.length > 0
-          ? `${branchIds.length} branch selected`
-          : "Select branches"}
+            <Popover open={branchOpen} onOpenChange={setBranchOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between"
+                >
+                  {branchIds.length > 0
+                    ? `${branchIds.length} branch selected`
+                    : "Select branches"}
 
-        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-      </Button>
-    </PopoverTrigger>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
 
-    <PopoverContent className="w-full">
-      <Command>
-        <CommandInput placeholder="Search branch..." />
+              <PopoverContent className="w-full">
+                <Command>
+                  <CommandInput placeholder="Search branch..." />
 
-        <CommandEmpty>
-          No branch found.
-        </CommandEmpty>
+                  <CommandEmpty>
+                    No branch found.
+                  </CommandEmpty>
 
-        <CommandGroup>
-          {branches.map((branch) => (
-            <CommandItem
-              key={branch.id}
-              value={`${branch.name} ${branch.email}`}
-              onSelect={() => {
-                setBranchIds((prev) =>
-                  prev.includes(branch.id)
-                    ? prev.filter((id) => id !== branch.id)
-                    : [...prev, branch.id]
-                );
-              }}
-            >
-              <Check
-                className={`mr-2 h-4 w-4 ${
-                  branchIds.includes(branch.id)
-                    ? "opacity-100"
-                    : "opacity-0"
-                }`}
-              />
+                  <CommandGroup>
+                    {branches.map((branch) => (
+                      <CommandItem
+                        key={branch.id}
+                        value={`${branch.name} ${branch.email}`}
+                        onSelect={() => {
+                          setBranchIds((prev) =>
+                            prev.includes(branch.id)
+                              ? prev.filter((id) => id !== branch.id)
+                              : [...prev, branch.id]
+                          );
+                        }}
+                      >
+                        <Check
+                          className={`mr-2 h-4 w-4 ${branchIds.includes(branch.id)
+                              ? "opacity-100"
+                              : "opacity-0"
+                            }`}
+                        />
 
-              <div className="flex flex-col">
-                <span>{branch.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {branch.email}
-                </span>
+                        <div className="flex flex-col">
+                          <span>{branch.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {branch.email}
+                          </span>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
+            {branchIds.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {branches
+                  .filter((b) => branchIds.includes(b.id))
+                  .map((branch) => (
+                    <Badge key={branch.id} variant="secondary">
+                      {branch.name}
+                    </Badge>
+                  ))}
               </div>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-      </Command>
-    </PopoverContent>
-  </Popover>
-
-  {branchIds.length > 0 && (
-    <div className="flex flex-wrap gap-2">
-      {branches
-        .filter((b) => branchIds.includes(b.id))
-        .map((branch) => (
-          <Badge key={branch.id} variant="secondary">
-            {branch.name}
-          </Badge>
-        ))}
-    </div>
-  )}
-</div>
+            )}
+          </div>
 
 
           <DialogFooter>

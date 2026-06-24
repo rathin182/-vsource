@@ -42,6 +42,22 @@ export async function GET(req: NextRequest) {
                                 source: true,
                             },
                         },
+                        remarks: true,
+                        docs:true,
+
+                        studentCourses: {
+                            select: {
+                                id: true,
+                                universityName: true,
+                                courseName: true,
+                                immigrationPortal: true,
+                                applicationDate: true,
+                                applicationStatus: true,
+                                studentId: true,
+                                createdAt: true,
+                                updatedAt: true,
+                            },
+                        },
 
                         _count: {
                             select: {
@@ -104,6 +120,20 @@ export async function GET(req: NextRequest) {
                     },
                 },
 
+                studentCourses: {
+                    select: {
+                        id: true,
+                        universityName: true,
+                        courseName: true,
+                        immigrationPortal: true,
+                        applicationDate: true,
+                        applicationStatus: true,
+                        studentId: true,
+                        createdAt: true,
+                        updatedAt: true,
+                    },
+                },
+
                 _count: {
                     select: {
                         timeline: true,
@@ -111,8 +141,6 @@ export async function GET(req: NextRequest) {
                 },
             },
         });
-
-        console.log(students, "calledd🔥 🔥 🔥");
 
         return NextResponse.json({
             success: true,
@@ -125,6 +153,51 @@ export async function GET(req: NextRequest) {
             {
                 success: false,
                 message: "Something went wrong",
+            },
+            {
+                status: 500,
+            }
+        );
+    }
+}
+
+export async function POST(req: Request) {
+    try {
+        const body = await req.json();
+
+        const student = await db.student.create({
+            data: {
+                studentName: body.name,
+                mobileNumber: body.phone,
+                emailId: body.email,
+
+                dob: body.dob
+                    ? new Date(body.dob)
+                    : null,
+
+                preferredCountry: body.country,
+                preferredCourse: body.program,
+                intake: body.intake,
+
+                status: body.status.toLowerCase(),
+
+                branchId: body.branchId,
+            },
+
+            include: {
+                branch: true,
+            },
+        });
+
+        return NextResponse.json(student, {
+            status: 201,
+        });
+    } catch (error) {
+        console.error(error);
+
+        return NextResponse.json(
+            {
+                message: "Failed to create student",
             },
             {
                 status: 500,

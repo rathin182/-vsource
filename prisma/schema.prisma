@@ -107,7 +107,7 @@ model User {
   email    String @unique
   password String
 
-  monthlyTarget Int? @default(0)
+  monthlyTarget Int?     @default(0)
   branches      Branch[]
 
   leadAssignments        LeadCounselor[]
@@ -140,7 +140,7 @@ model User {
 
   remarks      Remark[]
   applications Application[]
-  lead Lead[]
+  lead         Lead[]
 }
 
 model Role {
@@ -338,13 +338,14 @@ model Application {
 }
 
 model LoanInquiry {
-  id String @id
+  id String @id @default(uuid())
 
   studentId String
   student   Student @relation(fields: [studentId], references: [id])
 
-  bank   String
-  amount Decimal @db.Decimal(12, 2)
+  assignee String?
+  bank     String
+  amount   Decimal @db.Decimal(12, 2)
 
   status LoanStatus @default(PENDING)
 
@@ -524,13 +525,18 @@ enum StudentStatus {
   dropped
 }
 
+enum Studentstage {
+  GRADUATE
+  PURSUING
+}
+
 model Student {
   id String @id @default(uuid())
 
   studentNumber String? @unique
 
-  leadId String @unique
-  lead   Lead   @relation(fields: [leadId], references: [id])
+  leadId String? @unique
+  lead   Lead?   @relation(fields: [leadId], references: [id])
 
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id])
@@ -544,20 +550,70 @@ model Student {
   studentName  String
   mobileNumber String?
   emailId      String?
+  dob          DateTime?
 
   preferredCountry String?
   preferredCourse  String?
+  intake           String?
   status           StudentStatus @default(active)
 
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  visaDetail    VisaDetail?
-  remarks       Remark[]
-  applications  Application[]
-  loanInquiries LoanInquiry[]
+  passport      String?
+  admissionDate DateTime?
+  currentStage  Studentstage @default(PURSUING)
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  visaDetail     VisaDetail?
+  remarks        Remark[]
+  applications   Application[]
+  loanInquiries  LoanInquiry[]
+  studentCourses StudentCourses[]
+  docs           Doc[]
 
   @@index([branchId])
   @@index([counselorId])
+}
+
+model Doc {
+  id String @id @default(uuid())
+
+  name    String?
+  address String
+  type    String?
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum StudentcoursesStatus {
+  DRAFT
+  APPLIED
+  PENDING
+  OFFER_RECEIVED
+  PRIORITY_OFFER_RECEIVED
+  CONDITIONAL_OFFER
+  UNCONDITIONAL_OFFER
+  REJECTED
+  DEFERRED
+}
+
+model StudentCourses {
+  id String @id @default(uuid())
+
+  universityName    String
+  courseName        String
+  immigrationPortal String
+  applicationDate   DateTime
+  applicationStatus StudentcoursesStatus @default(PENDING)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Branch {

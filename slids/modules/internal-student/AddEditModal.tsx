@@ -66,7 +66,7 @@ export function AddEditModal({
       setPassportNumber(studentToEdit.passportNumber || '');
       setMobileNumber(studentToEdit.mobileNumber || '');
       setEmail(studentToEdit.email || '');
-      setPassword(studentToEdit.password || `Pass${studentToEdit.name.split(' ')[0]}@2026`);
+      // setPassword(studentToEdit.password || `Pass${studentToEdit.name.split(' ')[0]}@2026`);
       setTwelfthEnglishMoi(studentToEdit.twelfthEnglishMoi || 'MOI Waiver Letter');
       setPursuingGraduate(studentToEdit.pursuingGraduate || 'Graduate');
       setDepositDeadlineDate(studentToEdit.depositDeadlineDate || '30-Jun-2026');

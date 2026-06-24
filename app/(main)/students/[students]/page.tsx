@@ -17,7 +17,7 @@ export default function Page() {
   const selectedStudentId = params.students as string;
 
   const studentfetch = async () => {
-    const res = await fetch(`/api/student/${selectedStudentId}`, {
+    const res = await fetch(`/api/student?id=${selectedStudentId}`, {
       method: "GET",
     });
 
@@ -26,7 +26,7 @@ export default function Page() {
     if (!res.ok) {
       return toast.error(data.message);
     }
-    setStudent(data);
+    setStudent(data.data);
   };
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function Page() {
 
   return (
     <div className="w-full h-screen -m-5">
-      <StudentData student={student} />
+      <StudentData student={student} reloadStudent={studentfetch} />
     </div>
   );
 }

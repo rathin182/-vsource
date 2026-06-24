@@ -16,18 +16,32 @@ import { students as seed } from "@/slids/data/mock";
 import type { Student } from "@/slids/types";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import axios from "axios";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/slids/components/ui/select";
 
 export default function StudentsPage() {
   const router = useRouter();
+  const [isloading, setIsloading] = useState(false)
+  const [isCreating, setIsCreating] = useState(false);
   const [list, setList] = useState<Student[]>([]);
   const [q, setQ] = useState("");
   const [sel, setSel] = useState<Student | null>(null);
   const [open, setOpen] = useState(false);
   const empty = { name: "", email: "", phone: "", dob: "", country: "USA", program: "MS Computer Science", intake: "Fall 2026", status: "Active" };
   const [form, setForm] = useState(empty);
+  const [branches, setBranches] = useState<{ id: string; name: string; email: string }[]>([]);
 
   const allStudent = async () => {
     try {
+      setIsloading(true)
       const response = await fetch('/api/student', {
         method: 'GET',
         headers: {
@@ -39,8 +53,17 @@ export default function StudentsPage() {
       setList(data.data || []);
     } catch (error) {
       console.error('Error fetching data:', error);
+    } finally {
+      setIsloading(false)
     }
   };
+
+  const getBranches = async () => {
+    const req = await axios.get("/api/branches/all");
+    if (req.status === 200) {
+      setBranches(req.data.data)
+    }
+  }
 
   const createStudent = async () => {
     try {
@@ -49,6 +72,8 @@ export default function StudentsPage() {
           "Name and email are required"
         );
       }
+      setIsCreating(true)
+      console.log(form, "data of details");
 
       const response = await fetch(
         "/api/student",
@@ -84,6 +109,8 @@ export default function StudentsPage() {
       toast.error(
         "Failed to create student"
       );
+    } finally {
+      setIsCreating(false)
     }
   };
 
@@ -103,6 +130,7 @@ export default function StudentsPage() {
 
   useEffect(() => {
     allStudent();
+    getBranches();
   }, []);
 
   return (
@@ -118,6 +146,38 @@ export default function StudentsPage() {
               <DialogHeader><DialogTitle>Add new student</DialogTitle></DialogHeader>
               <div className="grid gap-3 py-2">
                 <div className="grid gap-1.5"><Label>Full name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+                <div className="grid gap-1.5">
+                  <Label>Branch</Label>
+
+                  <Select
+                    value={form.branchId}
+                    onValueChange={(value) =>
+                      setForm({
+                        ...form,
+                        branchId: value,
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select branch" />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Branch</SelectLabel>
+
+                        {branches.map((branch) => (
+                          <SelectItem
+                            key={branch.id}
+                            value={branch.id}
+                          >
+                            {branch.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="grid gap-1.5"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
                   <div className="grid gap-1.5"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
@@ -131,7 +191,12 @@ export default function StudentsPage() {
                   <div className="grid gap-1.5"><Label>Intake</Label><Input value={form.intake} onChange={(e) => setForm({ ...form, intake: e.target.value })} /></div>
                 </div>
               </div>
-              <DialogFooter><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={createStudent}>Create</Button></DialogFooter>
+              <DialogFooter><Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button
+                onClick={createStudent}
+                disabled={isCreating}
+              >
+                {isCreating ? "Creating..." : "Create"}
+              </Button></DialogFooter>
             </DialogContent>
           </Dialog>
         </>}
@@ -226,243 +291,243 @@ export default function StudentsPage() {
       </div>
 
       <Sheet open={!!sel} onOpenChange={(v) => !v && setSel(null)}>
-  <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-    {sel && (
-      <div>
-        <SheetHeader>
-          <div className="flex items-center gap-3">
-            <Avatar className="size-14">
-              <AvatarFallback className="bg-[image:var(--gradient-primary)] text-white font-bold">
-                {(sel.studentName || "NA")
-                  .split(" ")
-                  .map((p: string) => p[0])
-                  .join("")
-                  .toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          {sel && (
+            <div>
+              <SheetHeader>
+                <div className="flex items-center gap-3">
+                  <Avatar className="size-14">
+                    <AvatarFallback className="bg-[image:var(--gradient-primary)] text-white font-bold">
+                      {(sel.studentName || "NA")
+                        .split(" ")
+                        .map((p: string) => p[0])
+                        .join("")
+                        .toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
 
-            <div className="flex-1">
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <SheetTitle>
-                  {sel.studentName}
-                </SheetTitle>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <SheetTitle>
+                        {sel.studentName}
+                      </SheetTitle>
 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    router.push(`/students/${sel.id}`)
-                  }
-                >
-                  View More
-                </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          router.push(`/students/${sel.id}`)
+                        }
+                      >
+                        View More
+                      </Button>
+                    </div>
+
+                    <SheetDescription>
+                      {sel.studentNumber} ·{" "}
+                      {sel.preferredCountry || "N/A"} ·{" "}
+                      {sel.status}
+                    </SheetDescription>
+                  </div>
+                </div>
+              </SheetHeader>
+
+              <div className="px-4 mt-6">
+                <Tabs defaultValue="overview">
+                  <TabsList className="w-full">
+                    <TabsTrigger
+                      value="overview"
+                      className="flex-1"
+                    >
+                      Overview
+                    </TabsTrigger>
+
+                    <TabsTrigger
+                      value="academic"
+                      className="flex-1"
+                    >
+                      Academic
+                    </TabsTrigger>
+
+                    <TabsTrigger
+                      value="lead"
+                      className="flex-1"
+                    >
+                      Lead
+                    </TabsTrigger>
+
+                    <TabsTrigger
+                      value="timeline"
+                      className="flex-1"
+                    >
+                      Timeline
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent
+                    value="overview"
+                    className="space-y-3 mt-4"
+                  >
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-lg border border-border p-3">
+                        <div className="text-[11px] text-muted-foreground">
+                          Email
+                        </div>
+
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Mail className="size-3.5" />
+                          {sel.emailId || "N/A"}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-border p-3">
+                        <div className="text-[11px] text-muted-foreground">
+                          Phone
+                        </div>
+
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Phone className="size-3.5" />
+                          {sel.mobileNumber || "N/A"}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-border p-3">
+                        <div className="text-[11px] text-muted-foreground">
+                          Branch
+                        </div>
+
+                        <div className="mt-1">
+                          {sel.branch?.name}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-border p-3">
+                        <div className="text-[11px] text-muted-foreground">
+                          Counselor
+                        </div>
+
+                        <div className="mt-1">
+                          {sel.counselor?.name ||
+                            "Unassigned"}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-border p-3">
+                        <div className="text-[11px] text-muted-foreground">
+                          Country
+                        </div>
+
+                        <div className="mt-1">
+                          {sel.preferredCountry ||
+                            "N/A"}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-border p-3">
+                        <div className="text-[11px] text-muted-foreground">
+                          Status
+                        </div>
+
+                        <div className="mt-1 capitalize">
+                          {sel.status}
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent
+                    value="academic"
+                    className="space-y-2 mt-4"
+                  >
+                    <div className="flex justify-between items-center rounded-lg border border-border p-3 text-sm">
+                      <span className="text-muted-foreground flex items-center gap-2">
+                        <GraduationCap className="size-4" />
+                        Preferred Country
+                      </span>
+
+                      <span className="font-medium">
+                        {sel.preferredCountry ||
+                          "N/A"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center rounded-lg border border-border p-3 text-sm">
+                      <span className="text-muted-foreground flex items-center gap-2">
+                        <Award className="size-4" />
+                        Student Number
+                      </span>
+
+                      <span className="font-medium">
+                        {sel.studentNumber}
+                      </span>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent
+                    value="lead"
+                    className="space-y-3 mt-4"
+                  >
+                    <div className="rounded-lg border border-border p-3">
+                      <div className="text-xs text-muted-foreground">
+                        Lead Number
+                      </div>
+
+                      <div className="font-medium mt-1">
+                        {sel.lead?.leadNumber}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-border p-3">
+                      <div className="text-xs text-muted-foreground">
+                        Source
+                      </div>
+
+                      <div className="font-medium mt-1">
+                        {sel.lead?.source}
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent
+                    value="timeline"
+                    className="space-y-3 mt-4"
+                  >
+                    <div className="flex gap-3">
+                      <div className="size-2 rounded-full bg-primary mt-2" />
+
+                      <div>
+                        <div className="font-medium">
+                          Student Created
+                        </div>
+
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(
+                            sel.createdAt
+                          ).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <div className="size-2 rounded-full bg-primary mt-2" />
+
+                      <div>
+                        <div className="font-medium">
+                          Timeline Entries
+                        </div>
+
+                        <div className="text-xs text-muted-foreground">
+                          {sel._count?.timeline || 0}
+                        </div>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </div>
-
-              <SheetDescription>
-                {sel.studentNumber} ·{" "}
-                {sel.preferredCountry || "N/A"} ·{" "}
-                {sel.status}
-              </SheetDescription>
             </div>
-          </div>
-        </SheetHeader>
-
-        <div className="px-4 mt-6">
-          <Tabs defaultValue="overview">
-            <TabsList className="w-full">
-              <TabsTrigger
-                value="overview"
-                className="flex-1"
-              >
-                Overview
-              </TabsTrigger>
-
-              <TabsTrigger
-                value="academic"
-                className="flex-1"
-              >
-                Academic
-              </TabsTrigger>
-
-              <TabsTrigger
-                value="lead"
-                className="flex-1"
-              >
-                Lead
-              </TabsTrigger>
-
-              <TabsTrigger
-                value="timeline"
-                className="flex-1"
-              >
-                Timeline
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent
-              value="overview"
-              className="space-y-3 mt-4"
-            >
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-lg border border-border p-3">
-                  <div className="text-[11px] text-muted-foreground">
-                    Email
-                  </div>
-
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Mail className="size-3.5" />
-                    {sel.emailId || "N/A"}
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-border p-3">
-                  <div className="text-[11px] text-muted-foreground">
-                    Phone
-                  </div>
-
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Phone className="size-3.5" />
-                    {sel.mobileNumber || "N/A"}
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-border p-3">
-                  <div className="text-[11px] text-muted-foreground">
-                    Branch
-                  </div>
-
-                  <div className="mt-1">
-                    {sel.branch?.name}
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-border p-3">
-                  <div className="text-[11px] text-muted-foreground">
-                    Counselor
-                  </div>
-
-                  <div className="mt-1">
-                    {sel.counselor?.name ||
-                      "Unassigned"}
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-border p-3">
-                  <div className="text-[11px] text-muted-foreground">
-                    Country
-                  </div>
-
-                  <div className="mt-1">
-                    {sel.preferredCountry ||
-                      "N/A"}
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-border p-3">
-                  <div className="text-[11px] text-muted-foreground">
-                    Status
-                  </div>
-
-                  <div className="mt-1 capitalize">
-                    {sel.status}
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent
-              value="academic"
-              className="space-y-2 mt-4"
-            >
-              <div className="flex justify-between items-center rounded-lg border border-border p-3 text-sm">
-                <span className="text-muted-foreground flex items-center gap-2">
-                  <GraduationCap className="size-4" />
-                  Preferred Country
-                </span>
-
-                <span className="font-medium">
-                  {sel.preferredCountry ||
-                    "N/A"}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center rounded-lg border border-border p-3 text-sm">
-                <span className="text-muted-foreground flex items-center gap-2">
-                  <Award className="size-4" />
-                  Student Number
-                </span>
-
-                <span className="font-medium">
-                  {sel.studentNumber}
-                </span>
-              </div>
-            </TabsContent>
-
-            <TabsContent
-              value="lead"
-              className="space-y-3 mt-4"
-            >
-              <div className="rounded-lg border border-border p-3">
-                <div className="text-xs text-muted-foreground">
-                  Lead Number
-                </div>
-
-                <div className="font-medium mt-1">
-                  {sel.lead?.leadNumber}
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-border p-3">
-                <div className="text-xs text-muted-foreground">
-                  Source
-                </div>
-
-                <div className="font-medium mt-1">
-                  {sel.lead?.source}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent
-              value="timeline"
-              className="space-y-3 mt-4"
-            >
-              <div className="flex gap-3">
-                <div className="size-2 rounded-full bg-primary mt-2" />
-
-                <div>
-                  <div className="font-medium">
-                    Student Created
-                  </div>
-
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(
-                      sel.createdAt
-                    ).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <div className="size-2 rounded-full bg-primary mt-2" />
-
-                <div>
-                  <div className="font-medium">
-                    Timeline Entries
-                  </div>
-
-                  <div className="text-xs text-muted-foreground">
-                    {sel._count?.timeline || 0}
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-    )}
-  </SheetContent>
-</Sheet>
+          )}
+        </SheetContent>
+      </Sheet>
     </PageTransition>
   );
 }
