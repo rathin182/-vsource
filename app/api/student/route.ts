@@ -32,14 +32,14 @@ export async function GET(req: NextRequest) {
                         lead: {
                             select: {
                                 id: true,
-                                leadNumber: true,
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                                phone: true,
+                                preferredCountry: true,
+                                preferredCourse: true,
+                                status: true,
                                 source: true,
-                            },
-                        },
-
-                        timeline: {
-                            orderBy: {
-                                createdAt: "desc",
                             },
                         },
 
@@ -69,43 +69,50 @@ export async function GET(req: NextRequest) {
             });
         }
 
-        const students =
-            await db.student.findMany({
-                orderBy: {
-                    createdAt: "desc",
-                },
-                include: {
-                    branch: {
-                        select: {
-                            id: true,
-                            name: true,
-                            code: true,
-                        },
-                    },
-
-                    counselor: {
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true,
-                        },
-                    },
-
-                    lead: {
-                        select: {
-                            id: true,
-                            leadNumber: true,
-                            source: true,
-                        },
-                    },
-
-                    _count: {
-                        select: {
-                            timeline: true,
-                        },
+        const students = await db.student.findMany({
+            orderBy: {
+                createdAt: "desc",
+            },
+            include: {
+                branch: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
                     },
                 },
-            });
+
+                counselor: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
+
+                lead: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true,
+                        preferredCountry: true,
+                        preferredCourse: true,
+                        status: true,
+                        source: true,
+                    },
+                },
+
+                _count: {
+                    select: {
+                        timeline: true,
+                    },
+                },
+            },
+        });
+
+        console.log(students, "calledd🔥 🔥 🔥");
 
         return NextResponse.json({
             success: true,
