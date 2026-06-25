@@ -279,6 +279,17 @@ export default function StudentData({ student, reloadStudent, }: any) {
   const [selectedStage, setSelectedStage] =
     useState<StudentVisaStage | null>(null);
   const [confirmationText, setConfirmationText] = useState("");
+  const [visaForm, setVisaForm] = useState({
+    visaType: "",
+    status: "NOT_STARTED",
+    applicationDate: "",
+    biometricsDate: "",
+    interviewDate: "",
+    approvalDate: "",
+    rejectionReason: "",
+    visaNumber: "",
+    expiryDate: "",
+  });
 
 
   // Notification Banner triggers
@@ -1019,6 +1030,16 @@ export default function StudentData({ student, reloadStudent, }: any) {
     setConfirmationText("");
   };
 
+  const handleVisaSubmit = async () => {
+  await fetch(`/api/visa-detail?studentId=${student.id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(visaForm),
+  });
+};
+
   useEffect(() => {
     if (!student?.loanInquiries?.length) return;
 
@@ -1650,83 +1671,196 @@ export default function StudentData({ student, reloadStudent, }: any) {
                   )}
 
                   {/* T5. VISA STATS MILESTONES PROGRESS TRACKER */}
-                  {detailTab === 'visa' && (
+                  {detailTab === "visa" && (
                     <div className="space-y-6">
                       <div className="pb-3 border-b border-inherit">
-                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Visa Process</h4>
-                        <p className="text-xs text-slate-400">Alter key embassy timeline metrics. Changes refresh progress bars instantly.</p>
+                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">
+                          Visa Details
+                        </h4>
+                        <p className="text-xs text-slate-400">
+                          Manage the student's visa application information.
+                        </p>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+
+                        {/* Visa Type */}
                         <div>
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">Deposit Payment Status</label>
+                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
+                            Visa Type
+                          </label>
+                          <input
+                            type="text"
+                            value={visaForm.visaType}
+                            onChange={(e) =>
+                              setVisaForm({
+                                ...visaForm,
+                                visaType: e.target.value,
+                              })
+                            }
+                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                            placeholder="Student Visa"
+                          />
+                        </div>
+
+                        {/* Status */}
+                        <div>
+                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
+                            Visa Status
+                          </label>
                           <select
-                            value={student?.visaDetails?.depositStatus}
-                            onChange={(e) => handleTableStatusChange(student.id, 'depositStatus', e.target.value)}
-                            className={`w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200`}
+                            value={visaForm.status}
+                            onChange={(e) =>
+                              setVisaForm({
+                                ...visaForm,
+                                status: e.target.value,
+                              })
+                            }
+                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
                           >
-                            {['Deposit Paid', 'Deposit Not Paid', 'Paid', 'Pending', 'Waived'].map(opt => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
+                            <option value="NOT_STARTED">Not Started</option>
+                            <option value="APPLIED">Applied</option>
+                            <option value="BIOMETRICS_DONE">Biometrics Done</option>
+                            <option value="INTERVIEW_DONE">Interview Done</option>
+                            <option value="APPROVED">Approved</option>
+                            <option value="REJECTED">Rejected</option>
                           </select>
                         </div>
 
+                        {/* Application Date */}
                         <div>
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">IHS Charge Status</label>
-                          <select
-                            value={student?.visaDetails?.ihsPayment}
-                            onChange={(e) => handleTableStatusChange(student.id, 'ihsPayment', e.target.value)}
-                            className={`w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200`}
-                          >
-                            {['Paid', 'Pending', 'Not Required'].map(opt => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
+                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
+                            Application Date
+                          </label>
+                          <input
+                            type="date"
+                            value={visaForm.applicationDate}
+                            onChange={(e) =>
+                              setVisaForm({
+                                ...visaForm,
+                                applicationDate: e.target.value,
+                              })
+                            }
+                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                          />
                         </div>
 
+                        {/* Biometrics Date */}
                         <div>
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">Embassy Interview</label>
-                          <select
-                            value={student?.visaDetails?.interviewStatus}
-                            onChange={(e) => handleTableStatusChange(student.id, 'interviewStatus', e.target.value)}
-                            className={`w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200`}
-                          >
-                            {['Completed', 'Pending', 'Waived'].map(opt => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
+                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
+                            Biometrics Date
+                          </label>
+                          <input
+                            type="date"
+                            value={visaForm.biometricsDate}
+                            onChange={(e) =>
+                              setVisaForm({
+                                ...visaForm,
+                                biometricsDate: e.target.value,
+                              })
+                            }
+                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                          />
                         </div>
 
+                        {/* Interview Date */}
                         <div>
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">CAS Issue Status</label>
-                          <select
-                            value={student?.visaDetails?.casStatus}
-                            onChange={(e) => handleTableStatusChange(student.id, 'casStatus', e.target.value)}
-                            className={`w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200`}
-                          >
-                            {['CAS Received', 'CAS Under Review', 'CAS Not Applied', 'Received', 'Pending', 'Not Required'].map(opt => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
+                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
+                            Interview Date
+                          </label>
+                          <input
+                            type="date"
+                            value={visaForm.interviewDate}
+                            onChange={(e) =>
+                              setVisaForm({
+                                ...visaForm,
+                                interviewDate: e.target.value,
+                              })
+                            }
+                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                          />
                         </div>
 
+                        {/* Approval Date */}
+                        <div>
+                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
+                            Approval Date
+                          </label>
+                          <input
+                            type="date"
+                            value={visaForm.approvalDate}
+                            onChange={(e) =>
+                              setVisaForm({
+                                ...visaForm,
+                                approvalDate: e.target.value,
+                              })
+                            }
+                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                          />
+                        </div>
+
+                        {/* Visa Number */}
+                        <div>
+                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
+                            Visa Number
+                          </label>
+                          <input
+                            type="text"
+                            value={visaForm.visaNumber}
+                            onChange={(e) =>
+                              setVisaForm({
+                                ...visaForm,
+                                visaNumber: e.target.value,
+                              })
+                            }
+                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                          />
+                        </div>
+
+                        {/* Expiry Date */}
+                        <div>
+                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
+                            Expiry Date
+                          </label>
+                          <input
+                            type="date"
+                            value={visaForm.expiryDate}
+                            onChange={(e) =>
+                              setVisaForm({
+                                ...visaForm,
+                                expiryDate: e.target.value,
+                              })
+                            }
+                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                          />
+                        </div>
+
+                        {/* Rejection Reason */}
                         <div className="md:col-span-2">
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">Official Visa Stamp Decision</label>
-                          <select
-                            value={student?.visaDetails?.visaStatus}
-                            onChange={(e) => handleTableStatusChange(student.id, 'visaStatus', e.target.value)}
-                            className={`w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200`}
-                          >
-                            {['Visa Approved', 'Visa Applied', 'Visa Decision Pending', 'Visa Rejected', 'Draft Pending', 'Approved', 'Applied', 'Decision Pending', 'Rejected'].map(opt => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
+                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
+                            Rejection Reason
+                          </label>
+                          <textarea
+                            rows={4}
+                            value={visaForm.rejectionReason}
+                            onChange={(e) =>
+                              setVisaForm({
+                                ...visaForm,
+                                rejectionReason: e.target.value,
+                              })
+                            }
+                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                          />
                         </div>
                       </div>
 
-                      <div className="p-4 bg-emerald-500/10 border border-emerald-550/20 text-xs rounded-2xl flex items-center gap-3">
-                        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
-                        <p className="font-bold text-emerald-600 dark:text-emerald-400">Embassy milestone fields saved back to case file. Dynamic pipeline is in sync.</p>
+                      <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-800">
+                        <button
+                          onClick={handleVisaSubmit}
+                          className="px-5 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition"
+                        >
+                          Save Visa Details
+                        </button>
                       </div>
                     </div>
                   )}
