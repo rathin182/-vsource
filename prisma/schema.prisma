@@ -530,6 +530,29 @@ enum Studentstage {
   PURSUING
 }
 
+enum StudentVisaStage {
+  LEAD_CREATED
+  APPLICATION_SUBMITTED
+  OFFER_RECEIVED
+  DEPOSIT_PAID
+  INTERVIEW_COMPLETED
+  CAS_RECEIVED
+  VISA_APPLIED
+  VISA_APPROVED
+}
+
+enum EnglishWaiverType {
+  NONE
+  CLASS_12_ENGLISH
+  MOI
+}
+
+enum ApplicationType {
+  BACHELOR
+  MASTER
+  PHD
+}
+
 model Student {
   id String @id @default(uuid())
 
@@ -555,11 +578,18 @@ model Student {
   preferredCountry String?
   preferredCourse  String?
   intake           String?
-  status           StudentStatus @default(active)
+  status           StudentStatus    @default(active)
+  visaStage        StudentVisaStage @default(APPLICATION_SUBMITTED)
 
-  passport      String?
-  admissionDate DateTime?
-  currentStage  Studentstage @default(PURSUING)
+  passport                  String?
+  admissionDate             DateTime?
+  currentStage              Studentstage      @default(PURSUING)
+  englishWaiverType         EnglishWaiverType @default(NONE)
+  applicationType           ApplicationType   @default(BACHELOR)
+  immigrationPortalPassword String?
+  depositDeadline           DateTime?
+  casDeadline               DateTime?
+  universityStart           DateTime?
 
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt

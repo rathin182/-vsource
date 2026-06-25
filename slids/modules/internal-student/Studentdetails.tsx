@@ -48,6 +48,7 @@ import { AddEditModal } from '@/slids/modules/internal-student/AddEditModal';
 import { initialStudents, recentActivities, Student, Application } from '@/slids/data/mockData';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { StudentVisaStage } from "@/lib/generated/prisma/client";
 
 const BANK_OPTIONS = [
   "Poonawalla",
@@ -61,6 +62,41 @@ const BANK_OPTIONS = [
   "Punjab National Bank",
   "Self Funding",
   "Other",
+];
+
+const STEPS: { label: string; value: StudentVisaStage; }[] = [
+  {
+    label: "Lead Created",
+    value: "LEAD_CREATED",
+  },
+  {
+    label: "Application Submitted",
+    value: "APPLICATION_SUBMITTED",
+  },
+  {
+    label: "Offer Received",
+    value: "OFFER_RECEIVED",
+  },
+  {
+    label: "Deposit Paid",
+    value: "DEPOSIT_PAID",
+  },
+  {
+    label: "Interview Completed",
+    value: "INTERVIEW_COMPLETED",
+  },
+  {
+    label: "CAS Received",
+    value: "CAS_RECEIVED",
+  },
+  {
+    label: "Visa Applied",
+    value: "VISA_APPLIED",
+  },
+  {
+    label: "Visa Approved",
+    value: "VISA_APPROVED",
+  },
 ];
 
 // Admission parsed dates solver
@@ -238,7 +274,11 @@ export default function StudentData({ student, reloadStudent, }: any) {
   const [loanEmi, setLoanEmi] = useState("");
   const [loanStatus, setLoanStatus] = useState("PENDING");
   const [isLoanLoading, setIsLoanLoading] = useState(false);
-  const [loanAssignee, setLoanAssignee] = useState(""); 
+  const [loanAssignee, setLoanAssignee] = useState("");
+  const [stageModal, setStageModal] = useState(false);
+  const [selectedStage, setSelectedStage] =
+    useState<StudentVisaStage | null>(null);
+  const [confirmationText, setConfirmationText] = useState("");
 
 
   // Notification Banner triggers
@@ -453,12 +493,57 @@ export default function StudentData({ student, reloadStudent, }: any) {
   }, [students, selectedStudentId]);
 
   // Handle student router selector
-  const handleSelectStudent = (id: string) => {
-    setSelectedStudentId(id);
-    setCurrentView('students');
-    setDetailTab('info');
-    setGlobalSearch('');
-    setShowSearchResults(false);
+
+  const handleStageChange = async (step: StudentVisaStage) => {
+    try {
+      if (!student?.id) {
+        return toast.error("Student not found.");
+      }
+
+      if (student.visaStage === step) {
+        return toast.info(
+          "Student is already in this stage."
+        );
+      }
+
+      const response = await fetch(
+        "/api/student/visa-stage",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            studentId: student.id,
+            stage: step,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return toast.error(
+          data.message || "Failed to update visa stage."
+        );
+      }
+
+      toast.success(
+        data.message || "Visa stage updated successfully."
+      );
+
+      setStageModal(false);
+      setSelectedStage(null);
+      setConfirmationText("");
+
+      await reloadStudent();
+    } catch (error: any) {
+      console.error("Visa Stage Update Error:", error);
+
+      toast.error(
+        error.message || "Something went wrong."
+      );
+    }
   };
 
   // EDIT BASIC PROFILE WRAPPER
@@ -924,17 +1009,38 @@ export default function StudentData({ student, reloadStudent, }: any) {
     alert("Financial credit and NBFC parameters updated successfully!");
   };
 
+  const confirmStageChange = async () => {
+    if (!selectedStage) return;
+
+    await handleStageChange(selectedStage);
+
+    setStageModal(false);
+    setSelectedStage(null);
+    setConfirmationText("");
+  };
+
   useEffect(() => {
-  if (!student?.loanInquiries?.length) return;
+    if (!student?.loanInquiries?.length) return;
 
-  const loan = student.loanInquiries[0];
+    const loan = student.loanInquiries[0];
 
-  setLoanAssignee(loan.assignee || "");
-  setLoanBank(loan.bank || "");
-  setLoanAmount(String(loan.amount || ""));
-  setLoanEmi(String(loan.emi || ""));
-  setLoanStatus(loan.status || "PENDING");
-}, [student]);
+    setLoanAssignee(loan.assignee || "");
+    setLoanBank(loan.bank || "");
+    setLoanAmount(String(loan.amount || ""));
+    setLoanEmi(String(loan.emi || ""));
+    setLoanStatus(loan.status || "PENDING");
+  }, [student]);
+
+  const currentStage =
+    student?.visaStage ?? "LEAD_CREATED";
+
+  const activeIndex = STEPS.findIndex(
+    step => step.value === currentStage
+  );
+
+  const currentIndex = STEPS.findIndex(
+    step => step.value === student.visaStage
+  );
 
   // UI tab definitions (Home-style horizontal pill tabs, mapped onto StudentData's own tab keys)
   const tabs = [
@@ -986,6 +1092,54 @@ export default function StudentData({ student, reloadStudent, }: any) {
                 </div>
               </div>
 
+              {/* VISUAL STEPPER TIMELINE AND COMPLIANCE INTEGRATION TRACKER (Interactive!) */}
+              <div className={`p-6 rounded-3xl border shadow-md space-y-4 dark:bg-slate-900 dark:border-slate-805 bg-white border-slate-100`}>
+                <div className="flex justify-between items-center">
+                  <span className="text-[9px] uppercase font-black text-slate-400 tracking-widest block">Visa compliance pipeline stepper</span>
+                  <span className="text-[9.5px] text-slate-400 font-medium">Click any node block to force trigger stage update</span>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 relative py-2">
+                  {STEPS.map((step, index) => {
+                    const isCompleted = index < currentIndex;
+                    const isActive = index === currentIndex;
+                    const isLocked = index < currentIndex;
+
+                    return (
+                      <button
+                        key={step.value}
+                        disabled={isLocked}
+                        onClick={() => {
+                          setSelectedStage(step.value);
+                          setConfirmationText("");
+                          setStageModal(true);
+                        }}
+                        className={`p-3 rounded-2xl text-center border text-xs font-bold transition-all flex flex-col justify-between h-[85px] overflow-hidden select-none
+        ${isActive
+                            ? "bg-red-600 text-white border-red-600 shadow-lg shadow-red-600/15"
+                            : isCompleted
+                              ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900"
+                              : "bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-950 dark:border-slate-850 dark:text-slate-500"
+                          }
+        ${isLocked
+                            ? "cursor-not-allowed opacity-70"
+                            : "cursor-pointer hover:scale-[1.03]"
+                          }
+      `}
+                      >
+                        <span className="text-[10px] font-black font-mono self-start opacity-80">
+                          0{index + 1}
+                        </span>
+
+                        <p className="text-[10px] tracking-tight uppercase leading-tight font-black text-left">
+                          {step.label}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="space-y-6">
                 {/* Horizontal Tabs */}
                 <div className="overflow-x-auto">
@@ -1030,12 +1184,12 @@ export default function StudentData({ student, reloadStudent, }: any) {
                           >
                             Edit Basic Info
                           </button>
-                          <button
+                          {/* <button
                             onClick={() => handleDeleteStudent(student.id)}
                             className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-black px-4 py-2 rounded-xl transition-all shadow-md shadow-rose-600/10 cursor-pointer"
                           >
                             Delete Record
-                          </button>
+                          </button> */}
                         </div>
                       </div>
 
@@ -1695,6 +1849,84 @@ export default function StudentData({ student, reloadStudent, }: any) {
           </AnimatePresence>
         </main>
       </div>
+
+      {stageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-3xl bg-slate-900 border border-red-500/30 p-6 shadow-2xl">
+            <div className="mb-4">
+              <h2 className="text-xl font-black text-red-500">
+                Compliance Confirmation
+              </h2>
+
+              <p className="mt-2 text-sm text-slate-300">
+                You are about to update the student's visa stage.
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-slate-950 p-4 border border-slate-800 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-400">
+                  Current Stage
+                </span>
+
+                <span className="font-bold text-white">
+                  {
+                    STEPS.find(
+                      s => s.value === student.visaStage
+                    )?.label
+                  }
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-slate-400">
+                  New Stage
+                </span>
+
+                <span className="font-bold text-red-400">
+                  {
+                    STEPS.find(
+                      s => s.value === selectedStage
+                    )?.label
+                  }
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <label className="text-xs uppercase font-black text-slate-400">
+                Type CONFIRM to continue
+              </label>
+
+              <input
+                value={confirmationText}
+                onChange={(e) =>
+                  setConfirmationText(e.target.value)
+                }
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white"
+                placeholder="CONFIRM"
+              />
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setStageModal(false)}
+                className="px-4 py-2 rounded-xl border border-slate-700 text-slate-300"
+              >
+                Cancel
+              </button>
+
+              <button
+                disabled={confirmationText !== "CONFIRM"}
+                onClick={confirmStageChange}
+                className="px-5 py-2 rounded-xl bg-red-600 text-white font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Update Stage
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 3. FLOATING FILTER SIDEBAR DRAWER PANEL (Fully Responsive!) */}
       <FilterSidebar

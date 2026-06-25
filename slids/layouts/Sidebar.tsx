@@ -23,6 +23,10 @@ import {
   Settings,
   ChevronLeft,
   ChevronDown,
+  School,
+  Search,
+  Headset,
+  FolderKanban,
 } from "lucide-react";
 
 import { useUi } from "@/slids/store";
@@ -36,18 +40,18 @@ const items = [
     to: "/dashboard",
     label: "Dashboard",
     icon: LayoutDashboard,
-    roles: ["ADMIN", "Super Admin"],
+    roles: ["ADMIN", "SUPER ADMIN"],
   },
   {
     to: "/leads",
     label: "Leads",
     icon: Users,
-    roles: ["ADMIN", "RECEPTIONIST", "Super Admin"],
+    roles: ["ADMIN", "RECEPTIONIST", "SUPER ADMIN"],
     children: [
       { to: "/leads/all", label: "All Leads" },
       { to: "/leads/allocated", label: "Allocated" },
-      { to: "/leads/today-followup", label: "Today Follow-up" },
-      { to: "/leads/all-followup", label: "All Follow-ups" },
+      // { to: "/leads/today-followup", label: "Today Follow-up" },
+      // { to: "/leads/all-followup", label: "All Follow-ups" },
       { to: "/leads/add", label: "Add Lead" },
     ],
   },
@@ -55,25 +59,25 @@ const items = [
     to: "/students",
     label: "Students",
     icon: GraduationCap,
-    roles: ["ADMIN", "COUNSELOR", "Super Admin"],
+    roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN"],
   },
   {
     to: "/applications",
     label: "Applications",
     icon: FileText,
-    roles: ["ADMIN", "COUNSELOR", "Super Admin"],
+    roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN"],
   },
   {
     to: "/reports",
     label: "Reports",
     icon: BarChart3,
-    roles: ["ADMIN", "COUNSELOR", "Super Admin"],
+    roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN"],
   },
   {
     to: "/profile",
     label: "Profile",
     icon: User,
-    roles: ["ADMIN", "RECEPTIONIST", "COUNSELOR", "Super Admin"],
+    roles: ["ADMIN", "RECEPTIONIST", "COUNSELOR", "SUPER ADMIN"],
   },
 
   // Admin only
@@ -81,49 +85,73 @@ const items = [
     to: "/universities",
     label: "Universities",
     icon: Building2,
-    roles: ["ADMIN", "Super Admin"],
+    roles: ["ADMIN", "SUPER ADMIN"],
   },
   {
     to: "/loans",
     label: "Education Loans",
     icon: Banknote,
-    roles: ["ADMIN", "Super Admin"],
+    roles: ["ADMIN", "SUPER ADMIN"],
   },
   {
     to: "/promotional",
     label: "Promotional",
     icon: Megaphone,
-    roles: ["ADMIN", "Super Admin"],
+    roles: ["ADMIN", "SUPER ADMIN"],
   },
   {
     to: "/users",
     label: "User Management",
     icon: UserCog,
-    roles: ["ADMIN", "Super Admin"],
+    roles: ["ADMIN", "SUPER ADMIN"],
   },
   {
     to: "/roles",
     label: "Roles & Permissions",
     icon: ShieldCheck,
-    roles: ["ADMIN", "Super Admin"],
+    roles: ["ADMIN", "SUPER ADMIN"],
   },
   {
     to: "/master-settings",
     label: "Master Settings",
     icon: Settings2,
-    roles: ["ADMIN", "Super Admin"],
+    roles: ["ADMIN", "SUPER ADMIN"],
   },
   {
     to: "/branches",
     label: "Branches",
     icon: MapPin,
-    roles: ["ADMIN", "Super Admin"],
+    roles: ["ADMIN", "SUPER ADMIN"],
+  },
+  {
+    to: "/courses",
+    label: "Courses Management",
+    icon: School,
+    roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN"],
+  },
+   {
+    to: "/course-finder",
+    label: "Course Finder",
+    icon: Search,
+    roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN", "RECEPTIONIST"],
+  },
+  {
+    to: "/assign-leads",
+    label: "Assign Leads",
+    icon: Headset,
+    roles: ["ADMIN", "SUPER ADMIN"],
+  },
+  {
+    to: "/counsellor",
+    label: "counsellor Management",
+    icon: FolderKanban,
+    roles: ["ADMIN", "SUPER ADMIN"],
   },
   {
     to: "/settings",
     label: "Settings",
     icon: Settings,
-    roles: ["ADMIN", "Super Admin"],
+    roles: ["ADMIN", "SUPER ADMIN"],
   },
 ] as const;
 
@@ -155,7 +183,7 @@ export function Sidebar() {
     fetchUser();
   }, []);
 
-  const role = user?.role?.name;
+  const role = user?.role?.name.toUpperCase();
 
   const filteredItems = items.filter((item) =>
     item.roles.includes(role)

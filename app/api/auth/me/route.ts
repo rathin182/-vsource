@@ -29,7 +29,6 @@ export async function GET() {
             }
         );
     }
-    console.log(payload);
     
 
 const user = await prisma.user.findMany({

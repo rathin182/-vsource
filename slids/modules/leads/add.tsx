@@ -29,7 +29,7 @@ const leadFormSchema = z.object({
   mobileNumber: z.string().min(10, "Enter a valid mobile number"),
   alternateMobile: z.string().optional(),
   dob: z.string().optional(),
-  gender: z.enum(["Male", "Female", "Other"]).optional(),
+  gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
   highestQualification: z.string().min(1, "Qualification is required"),
   percentage: z.number({ invalid_type_error: "Percentage is required" }).min(0).max(100),
   passingYear: z.number({ invalid_type_error: "Passing year is required" }).min(2000).max(2035),
@@ -136,6 +136,7 @@ export default function AddLeadPage() {
 
   const onSubmit = async (values: LeadFormValues, continueFlow = false) => {
     try {
+
       const response = await fetch(
         "/api/leads",
         {
@@ -151,7 +152,8 @@ export default function AddLeadPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message);
+        toast.error(data.message || "Something went wrong");
+        return;
       }
 
       toast.success("Lead created successfully");
@@ -604,7 +606,9 @@ export default function AddLeadPage() {
           <Button
             type="button"
             className="w-full sm:w-auto"
-            onClick={handleSubmit((values) => onSubmit(values, true))}
+            onClick={handleSubmit(
+              (values) => onSubmit(values, true),
+            )}
             disabled={isSubmitting}
           >
             Save Lead

@@ -185,7 +185,7 @@ export default function AllLeadsPage() {
       const data = await res.json();
 
       setBranches(data.data);
-      setBranchCount(data.meta.totalPages);
+      // setBranchCount(data.meta.totalPages);
     } catch (error) {
       console.error(error);
       toast.error("Failed to load branches");
@@ -602,7 +602,7 @@ export default function AllLeadsPage() {
 
                 {/* Counselor */}
                 <td className="px-4 py-4 hidden xl:table-cell">
-                  {lead.counselor?.users?.[0]?.name ?? "Unassigned"}
+                  {lead.counselor?.name ?? "Unassigned"}
                 </td>
 
                 {/* Preferred Country */}
@@ -767,7 +767,7 @@ export default function AllLeadsPage() {
 
                   <div>
                     Counselor:{" "}
-                    {selected.counselor?.users?.[0]?.name ?? "—"}
+                    {selected.counselor?.name ?? "—"}
                   </div>
                 </div>
 

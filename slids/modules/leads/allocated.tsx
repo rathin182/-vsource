@@ -60,7 +60,7 @@ export default function AllocatedLeadsPage() {
 
   const fetchCounsellor = async () => {
     try {
-      const res = await fetch(`/api/users/counselors`, { credentials: "include", });
+      const res = await fetch(`/api/users/counsellor`);
       if (!res.ok) {
         toast.error("Counsellor not found");
       }
@@ -160,7 +160,6 @@ export default function AllocatedLeadsPage() {
       }
 
       const result = await res.json();
-
       setLeads(result.data);
 
       if (result.meta) {
@@ -191,10 +190,7 @@ export default function AllocatedLeadsPage() {
     const counselorMatch =
       counselorFilter === "all" ||
       !counselorFilter ||
-      lead.counselor?.users?.some(
-        (user: any) =>
-          user.id === counselorFilter
-      );
+      lead.counselor?.id === counselorFilter;
 
     const branchMatch =
       branchFilter === "all" ||
@@ -453,7 +449,7 @@ export default function AllocatedLeadsPage() {
 
                     {/* Counselor */}
                     <td className="px-4 py-4 hidden md:table-cell">
-                      {lead.counselor?.users?.[0]?.name ?? "Unassigned"}
+                      {lead.counselor?.name ?? "Unassigned"}
                     </td>
 
                     {/* Branch */}
@@ -627,7 +623,7 @@ export default function AllocatedLeadsPage() {
 
                 <SheetDescription>
                   Assigned to{" "}
-                  {selectedLead.counselor?.users?.[0]?.name ?? "Unassigned"}
+                  {selectedLead.counselor?.name ?? "Unassigned"}
                 </SheetDescription>
               </SheetHeader>
 
@@ -811,15 +807,13 @@ export default function AllocatedLeadsPage() {
 
                   <p className="text-sm">
                     {
-                      selectedLead.counselor?.users?.[0]
-                        ?.name
+                      selectedLead.counselor?.name
                     }
                   </p>
 
                   <p className="text-sm text-muted-foreground">
                     {
-                      selectedLead.counselor?.users?.[0]
-                        ?.email
+                      selectedLead.counselor?.email
                     }
                   </p>
                 </div>

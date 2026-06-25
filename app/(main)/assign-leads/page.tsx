@@ -131,17 +131,6 @@ export default function UnassignedLeads() {
 
   const allSelected = filtered.length > 0 && filtered.every((l) => selectedIds.has(l.id));
 
-  const fetchLeads = async () => {
-    const req = await axios.get("/api/leads?page=1");
-    if (req.status === 200) {
-        console.log(req.data);
-        
-    }
-  }
-
-  useEffect(() => {
-    fetchLeads()
-  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

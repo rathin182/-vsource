@@ -1,409 +1,529 @@
 'use client';
-/* eslint-disable react-hooks/set-state-in-effect */
 
 import React, { useState, useEffect } from 'react';
-import { X, Save, UserPlus, FileEdit, RefreshCcw } from 'lucide-react';
-import { motion, AnimatePresence } from "framer-motion";
-import { LocalStudent } from './StudentTable';
-import { counsellorsList, countriesList, intakesList } from '@/slids/data/mockData';
+import { X, Save, UserPlus, FileEdit, RefreshCcw, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
+
+// ─── Enum mirrors ────────────────────────────────────────────────────────────
+
+type StudentStatus =
+  | 'active'
+  | 'visa_process'
+  | 'loan_process'
+  | 'admitted'
+  | 'enrolled'
+  | 'completed'
+  | 'dropped';
+
+type Studentstage = 'GRADUATE' | 'PURSUING';
+
+type StudentVisaStage =
+  | 'LEAD_CREATED'
+  | 'APPLICATION_SUBMITTED'
+  | 'OFFER_RECEIVED'
+  | 'DEPOSIT_PAID'
+  | 'INTERVIEW_COMPLETED'
+  | 'CAS_RECEIVED'
+  | 'VISA_APPLIED'
+  | 'VISA_APPROVED';
+
+type EnglishWaiverType = 'NONE' | 'CLASS_12_ENGLISH' | 'MOI';
+
+type ApplicationType = 'BACHELOR' | 'MASTER' | 'PHD';
+
+// ─── Shape that maps 1:1 to the Student model fields we expose ───────────────
+
+export interface Counselor {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface StudentFormData {
+  id?: string;
+  studentNumber?: string;
+  counselorId?: string;
+  counselor?: Counselor | null;
+  studentName: string;
+  mobileNumber?: string;
+  emailId?: string;
+  dob?: string;                    // ISO date string from <input type="date">
+  preferredCountry?: string;
+  preferredCourse?: string;
+  intake?: string;
+  status: StudentStatus;
+  visaStage: StudentVisaStage;
+  passport?: string;
+  admissionDate?: string;          // ISO date string
+  currentStage: Studentstage;
+  englishWaiverType: EnglishWaiverType;
+  applicationType: ApplicationType;
+  immigrationPortalPassword?: string;
+  depositDeadline?: string;        // ISO date string
+  casDeadline?: string;
+  universityStart?: string;
+}
+
+// ─── Static option lists ─────────────────────────────────────────────────────
+
+const STUDENT_STATUS_OPTIONS: { value: StudentStatus; label: string }[] = [
+  { value: 'active', label: 'Active' },
+  { value: 'visa_process', label: 'Visa Process' },
+  { value: 'loan_process', label: 'Loan Process' },
+  { value: 'admitted', label: 'Admitted' },
+  { value: 'enrolled', label: 'Enrolled' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'dropped', label: 'Dropped' },
+];
+
+const VISA_STAGE_OPTIONS: { value: StudentVisaStage; label: string }[] = [
+  { value: 'LEAD_CREATED', label: 'Lead Created' },
+  { value: 'APPLICATION_SUBMITTED', label: 'Application Submitted' },
+  { value: 'OFFER_RECEIVED', label: 'Offer Received' },
+  { value: 'DEPOSIT_PAID', label: 'Deposit Paid' },
+  { value: 'INTERVIEW_COMPLETED', label: 'Interview Completed' },
+  { value: 'CAS_RECEIVED', label: 'CAS Received' },
+  { value: 'VISA_APPLIED', label: 'Visa Applied' },
+  { value: 'VISA_APPROVED', label: 'Visa Approved' },
+];
+
+const ENGLISH_WAIVER_OPTIONS: { value: EnglishWaiverType; label: string }[] = [
+  { value: 'NONE', label: 'None' },
+  { value: 'CLASS_12_ENGLISH', label: 'Class 12 English Marks' },
+  { value: 'MOI', label: 'MOI Waiver Letter' },
+];
+
+const APPLICATION_TYPE_OPTIONS: { value: ApplicationType; label: string }[] = [
+  { value: 'BACHELOR', label: 'Undergraduate – Bachelor' },
+  { value: 'MASTER', label: 'Postgraduate – Master' },
+  { value: 'PHD', label: 'Doctoral – PhD' },
+];
+
+const CURRENT_STAGE_OPTIONS: { value: Studentstage; label: string }[] = [
+  { value: 'GRADUATE', label: 'Graduate' },
+  { value: 'PURSUING', label: 'Pursuing' },
+];
+
+const COUNTRIES = [
+  'United Kingdom', 'Australia', 'Canada', 'United States', 'Ireland',
+  'Germany', 'New Zealand', 'France', 'Netherlands', 'Singapore',
+];
+
+const INTAKES = [
+  'Sep 2025', 'Jan 2026', 'May 2026', 'Sep 2026', 'Jan 2027', 'May 2027', 'Sep 2027',
+];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Convert "15-Jun-2026" or ISO string to yyyy-MM-dd for <input type="date"> */
+function toInputDate(raw?: string): string {
+  if (!raw) return '';
+  const d = new Date(raw);
+  if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  return '';
+}
+
+function randomPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#';
+  let res = 'Pass';
+  for (let i = 0; i < 4; i++) res += chars[Math.floor(Math.random() * chars.length)];
+  return res + '@2026';
+}
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface AddEditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  isDarkMode: boolean;
-  studentToEdit: LocalStudent | null; // null if Adding
-  onSave: (studentData: Partial<LocalStudent>) => void;
+  isDarkMode?: boolean;
+  studentToEdit?: StudentFormData | null;
+  /** Called with the server-returned student on success */
+  onSuccess?: (student: StudentFormData) => void;
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function AddEditModal({
   isOpen,
   onClose,
-  isDarkMode,
-  studentToEdit,
-  onSave
+  isDarkMode = false,
+  studentToEdit = null,
+  onSuccess,
 }: AddEditModalProps) {
-  // Form states
-  const [name, setName] = useState('');
-  const [counsellor, setCounsellor] = useState('Prasad Panjugula');
-  const [country, setCountry] = useState('United Kingdom');
+  const isEditing = Boolean(studentToEdit?.id);
+
+  // ── form state ──
+  const [studentName, setStudentName] = useState('');
+  const [counselorId, setCounselorId] = useState('');
+  const [selectedCounselor, setSelectedCounselor] = useState("");
+  const [preferredCountry, setPreferredCountry] = useState('United Kingdom');
   const [intake, setIntake] = useState('Sep 2026');
-  const [admissionDate, setAdmissionDate] = useState('15-Jun-2026');
-  const [applicationType, setApplicationType] = useState('Master');
-  const [passportNumber, setPassportNumber] = useState('');
+  const [admissionDate, setAdmissionDate] = useState('');
+  const [applicationType, setApplicationType] = useState<ApplicationType>('MASTER');
+  const [passport, setPassport] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [twelfthEnglishMoi, setTwelfthEnglishMoi] = useState('MOI Waiver Letter');
-  const [pursuingGraduate, setPursuingGraduate] = useState<'Pursuing' | 'Graduate'>('Graduate');
-  const [depositDeadlineDate, setDepositDeadlineDate] = useState('30-Jun-2026');
-  const [casDeadlineDate, setCasDeadlineDate] = useState('10-Aug-2026');
-  const [univStartDate, setUnivStartDate] = useState('15-Sep-2026');
-  
-  // Financiers
-  const [assignee, setAssignee] = useState('Sunil');
-  const [nbfc, setNbfc] = useState('Credila');
-  const [sanctionedAmount, setSanctionedAmount] = useState('₹25,00,000');
-  const [disbursedAmount, setDisbursedAmount] = useState('₹15,00,000');
+  const [emailId, setEmailId] = useState('');
+  const [dob, setDob] = useState('');
+  const [preferredCourse, setPreferredCourse] = useState('');
+  const [immigrationPortalPassword, setImmigrationPortalPassword] = useState('');
+  const [englishWaiverType, setEnglishWaiverType] = useState<EnglishWaiverType>('NONE');
+  const [currentStage, setCurrentStage] = useState<Studentstage>('PURSUING');
+  const [depositDeadline, setDepositDeadline] = useState('');
+  const [casDeadline, setCasDeadline] = useState('');
+  const [universityStart, setUniversityStart] = useState('');
+  const [status, setStatus] = useState<StudentStatus>('active');
+  const [visaStage, setVisaStage] = useState<StudentVisaStage>('APPLICATION_SUBMITTED');
 
-  // Statuses
-  const [appStatus, setAppStatus] = useState('Pending');
-  const [depositStatus, setDepositStatus] = useState('Pending');
-  const [ihsPayment, setIhsPayment] = useState('Pending');
-  const [interviewStatus, setInterviewStatus] = useState('Pending');
-  const [casStatus, setCasStatus] = useState('Pending');
-  const [visaStatus, setVisaStatus] = useState('Draft Pending');
-  const [loanStatus, setLoanStatus] = useState('Pending');
-  const [pfStatus, setPfStatus] = useState('Pending');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [counselors, setCounselors] = useState<any[]>([]);
 
+  const fetchCounsellor = async () => {
+    try {
+      const res = await fetch(`/api/users/counsellor`);
+      if (!res.ok) {
+        toast.error("Counsellor not found");
+      }
+      const data = await res.json();
+      setCounselors(data.data || []);
+    } catch (error: any) {
+      toast.error("Failed to load counselors");
+    }
+  }
+
+  // ── populate on open ──
   useEffect(() => {
+    if (!isOpen) return;
+    setError(null);
+    setSuccess(false);
+    fetchCounsellor();
+    
     if (studentToEdit) {
-      setName(studentToEdit.name || '');
-      setCounsellor(studentToEdit.counsellor || 'Prasad Panjugula');
-      setCountry(studentToEdit.country || 'United Kingdom');
-      setIntake(studentToEdit.intake || 'Sep 2026');
-      setAdmissionDate(studentToEdit.admissionDate || '15-Jun-2026');
-      setApplicationType(studentToEdit.applicationType || 'Master');
-      setPassportNumber(studentToEdit.passportNumber || '');
-      setMobileNumber(studentToEdit.mobileNumber || '');
-      setEmail(studentToEdit.email || '');
-      // setPassword(studentToEdit.password || `Pass${studentToEdit.name.split(' ')[0]}@2026`);
-      setTwelfthEnglishMoi(studentToEdit.twelfthEnglishMoi || 'MOI Waiver Letter');
-      setPursuingGraduate(studentToEdit.pursuingGraduate || 'Graduate');
-      setDepositDeadlineDate(studentToEdit.depositDeadlineDate || '30-Jun-2026');
-      setCasDeadlineDate(studentToEdit.casDeadlineDate || '10-Aug-2026');
-      setUnivStartDate(studentToEdit.univStartDate || '15-Sep-2026');
-      
-      setAssignee(studentToEdit.loan?.assignee || 'Sunil');
-      setNbfc(studentToEdit.loan?.nbfc || 'Credila');
-      setSanctionedAmount(studentToEdit.loan?.sanctionedAmount || '₹0');
-      setDisbursedAmount(studentToEdit.loan?.disbursedAmount || '₹0');
-
-      const firstApp = studentToEdit.applications?.[0] || { status: 'Pending' };
-      setAppStatus(firstApp.status || 'Pending');
-      setDepositStatus(studentToEdit.visaDetails?.depositStatus || 'Pending');
-      setIhsPayment(studentToEdit.visaDetails?.ihsPayment || 'Pending');
-      setInterviewStatus(studentToEdit.visaDetails?.interviewStatus || 'Pending');
-      setCasStatus(studentToEdit.visaDetails?.casStatus || 'Pending');
-      setVisaStatus(studentToEdit.visaDetails?.visaStatus || 'Draft Pending');
-      setLoanStatus(studentToEdit.loan?.status || 'Pending');
-      setPfStatus(studentToEdit.loan?.pfStatus || 'Pending');
+      setStudentName(studentToEdit.studentName ?? '');
+      setCounselorId(studentToEdit.counselorId ?? '');
+      setSelectedCounselor(studentToEdit.counselor?.id ?? '');
+      setPreferredCountry(studentToEdit.preferredCountry ?? 'United Kingdom');
+      setIntake(studentToEdit.intake ?? 'Sep 2026');
+      setAdmissionDate(toInputDate(studentToEdit.admissionDate));
+      setApplicationType(studentToEdit.applicationType ?? 'MASTER');
+      setPassport(studentToEdit.passport ?? '');
+      setMobileNumber(studentToEdit.mobileNumber ?? '');
+      setEmailId(studentToEdit.emailId ?? '');
+      setDob(toInputDate(studentToEdit.dob));
+      setPreferredCourse(studentToEdit.preferredCourse ?? '');
+      setImmigrationPortalPassword(studentToEdit.immigrationPortalPassword ?? '');
+      setEnglishWaiverType(studentToEdit.englishWaiverType ?? 'NONE');
+      setCurrentStage(studentToEdit.currentStage ?? 'PURSUING');
+      setDepositDeadline(toInputDate(studentToEdit.depositDeadline));
+      setCasDeadline(toInputDate(studentToEdit.casDeadline));
+      setUniversityStart(toInputDate(studentToEdit.universityStart));
+      setStatus(studentToEdit.status ?? 'active');
+      setVisaStage(studentToEdit.visaStage ?? 'APPLICATION_SUBMITTED');
     } else {
-      setName('');
-      setCounsellor('Prasad Panjugula');
-      setCountry('United Kingdom');
+      setStudentName('');
+      setCounselorId('');
+      setPreferredCountry('United Kingdom');
       setIntake('Sep 2026');
-      setAdmissionDate('15-Jun-2026');
-      setApplicationType('Master');
-      setPassportNumber('');
+      setAdmissionDate('');
+      setApplicationType('MASTER');
+      setPassport('');
       setMobileNumber('');
-      setEmail('');
-      setPassword(`Pass${Math.random().toString(36).slice(-4).toUpperCase()}@2026`);
-      setTwelfthEnglishMoi('MOI Waiver Letter');
-      setPursuingGraduate('Graduate');
-      setDepositDeadlineDate('30-Jun-2026');
-      setCasDeadlineDate('10-Aug-2026');
-      setUnivStartDate('15-Sep-2026');
-      setAssignee('Sunil');
-      setNbfc('Credila');
-      setSanctionedAmount('₹25,00,000');
-      setDisbursedAmount('₹0');
-
-      setAppStatus('Pending');
-      setDepositStatus('Pending');
-      setIhsPayment('Pending');
-      setInterviewStatus('Pending');
-      setCasStatus('Pending');
-      setVisaStatus('Draft Pending');
-      setLoanStatus('Pending');
-      setPfStatus('Pending');
+      setEmailId('');
+      setDob('');
+      setPreferredCourse('');
+      setImmigrationPortalPassword(randomPassword());
+      setEnglishWaiverType('NONE');
+      setCurrentStage('PURSUING');
+      setDepositDeadline('');
+      setCasDeadline('');
+      setUniversityStart('');
+      setStatus('active');
+      setVisaStage('APPLICATION_SUBMITTED');
     }
   }, [studentToEdit, isOpen]);
 
-  const randomizePassword = () => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#';
-    let res = 'Pass';
-    for (let i = 0; i < 4; i++) {
-      res += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    res += '@2026';
-    setPassword(res);
-  };
-
-  const handleFormSubmit = (e: React.FormEvent) => {
+  // ── submit ──
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!studentName.trim()) return;
 
-    const studentPayload: Partial<LocalStudent> = {
-      name,
-      counsellor,
-      country: country as any,
-      intake: intake as any,
-      admissionDate,
+    const payload: Partial<StudentFormData> = {
+      studentName,
+      counselorId: selectedCounselor || undefined,
+      preferredCountry,
+      intake,
+      admissionDate: admissionDate || undefined,
       applicationType,
-      passportNumber,
-      mobileNumber,
-      email,
-      password,
-      twelfthEnglishMoi,
-      pursuingGraduate,
-      depositDeadlineDate,
-      casDeadlineDate,
-      univStartDate,
-      loan: {
-        assignee,
-        nbfc: nbfc as any,
-        status: loanStatus as any,
-        pfStatus: pfStatus as any,
-        sanctionedAmount,
-        disbursedAmount
-      },
-      visaDetails: {
-        ...studentToEdit?.visaDetails,
-        depositStatus: depositStatus as any,
-        ihsPayment: ihsPayment as any,
-        interviewStatus: interviewStatus as any,
-        casStatus: casStatus as any,
-        visaStatus: visaStatus as any
-      } as any,
-      applications: studentToEdit?.applications?.map((app, idx) => 
-        idx === 0 ? { ...app, status: appStatus as any } : app
-      ) || [
-        {
-          id: `app-temp-1`,
-          portal: 'GVOC',
-          university: 'Teesside University',
-          course: 'MSc Data Science & AI',
-          applicationDate: '15-Jun-2026',
-          status: appStatus as any
-        }
-      ]
+      passport: passport || undefined,
+      mobileNumber: mobileNumber || undefined,
+      emailId: emailId || undefined,
+      dob: dob || undefined,
+      preferredCourse: preferredCourse || undefined,
+      immigrationPortalPassword: immigrationPortalPassword || undefined,
+      englishWaiverType,
+      currentStage,
+      depositDeadline: depositDeadline || undefined,
+      casDeadline: casDeadline || undefined,
+      universityStart: universityStart || undefined,
+      status,
+      visaStage,
     };
 
-    onSave(studentPayload);
-    onClose();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const url = isEditing
+        ? `/api/student?id=${studentToEdit!.id}`
+        : '/api/student';
+
+      const res = await fetch(url, {
+        method: isEditing ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? `Request failed: ${res.status}`);
+      }
+
+      const data: StudentFormData = await res.json();
+      setSuccess(true);
+      onSuccess?.(data);
+      setTimeout(() => {
+        setSuccess(false);
+        onClose();
+      }, 800);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // ── shared input classes ──
+  const input = `w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 transition-colors ${isDarkMode
+    ? 'bg-slate-950 border-slate-800 text-slate-100 placeholder:text-slate-600'
+    : 'bg-slate-50 border-slate-200 text-slate-800 placeholder:text-slate-400'
+    }`;
+
+  const select = `${input} appearance-none cursor-pointer`;
+
+  const sectionLabel =
+    'text-[10px] uppercase font-black text-slate-400 tracking-widest border-b pb-1 ' +
+    (isDarkMode ? 'border-slate-800' : 'border-slate-200');
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop layer */}
+          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: 0.5 }}
+            animate={{ opacity: 0.6 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-slate-950/70 z-[80] transition-opacity backdrop-blur-xs"
-            id="addedit-backdrop-blur"
+            className="fixed inset-0 bg-slate-950 z-[80] backdrop-blur-sm"
           />
 
-          {/* Core Panel Card Box */}
+          {/* Panel */}
           <motion.div
-            initial={{ y: '30%', opacity: 0, scale: 0.95 }}
+            initial={{ y: '30%', opacity: 0, scale: 0.96 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: '30%', opacity: 0, scale: 0.95 }}
+            exit={{ y: '30%', opacity: 0, scale: 0.96 }}
             transition={{ type: 'spring', damping: 28, stiffness: 210 }}
-            className={`fixed inset-x-4 bottom-4 sm:inset-x-auto sm:right-6 sm:top-6 sm:bottom-6 sm:w-[500px] z-[90] h-[92vh] sm:h-auto flex flex-col justify-between rounded-3xl shadow-2xl border ${
-              isDarkMode 
-                ? 'bg-slate-900 border-slate-800 text-slate-100' 
-                : 'bg-white border-slate-100 text-slate-800'
-            }`}
-            id="addedit-container-box"
+            className={`fixed inset-x-4 bottom-4 sm:inset-x-auto sm:right-6 sm:top-6 sm:bottom-6 sm:w-[520px] z-[90] flex flex-col rounded-3xl shadow-2xl border overflow-hidden ${isDarkMode
+              ? 'bg-slate-900 border-slate-800 text-slate-100'
+              : 'bg-white border-slate-100 text-slate-800'
+              }`}
           >
-            {/* Header Dialog Tab */}
-            <div className="p-5 border-b border-inherit flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="bg-red-600/10 p-2 rounded-xl text-red-650 text-red-600">
-                  {studentToEdit ? <FileEdit className="h-4.5 w-4.5" /> : <UserPlus className="h-4.5 w-4.5" />}
+            {/* ── Header ── */}
+            <div className={`p-5 flex items-center justify-between border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+              <div className="flex items-center gap-2.5">
+                <div className="bg-red-600/10 p-2 rounded-xl text-red-600">
+                  {isEditing ? <FileEdit className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
                 </div>
                 <div>
-                  <h3 className="text-sm font-black uppercase tracking-wider">
-                    {studentToEdit ? 'Modify Admissions Profile' : 'Register New Oversea Student'}
+                  <h3 className="text-sm font-black uppercase tracking-wider leading-none">
+                    {isEditing ? 'Edit Student Profile' : 'Register New Student'}
                   </h3>
-                  <p className="text-[10px] text-slate-400">
-                    {studentToEdit ? `Updating STU${100 + Number(studentToEdit.id)} file records` : 'Initiate new folders and compliance checklists'}
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {isEditing
+                      ? `Updating record · ${studentToEdit?.studentNumber ?? studentToEdit?.id?.slice(0, 8)}`
+                      : 'Create a new overseas student file'}
                   </p>
                 </div>
               </div>
-
-              <button 
+              <button
                 onClick={onClose}
-                className="p-1 px-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+                className={`p-1.5 rounded-xl transition-colors ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}
               >
-                <X className="h-5 w-5 text-slate-400" />
+                <X className="h-4.5 w-4.5 text-slate-400" />
               </button>
             </div>
 
-            {/* Scrollable Form parameters */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
-              <form onSubmit={handleFormSubmit} className="space-y-4">
-                
-                {/* 1. BASIC USER METADATA */}
-                <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest border-b pb-1 dark:border-slate-800">Basic Folio Information</p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Student Full Name</label>
+            {/* ── Scrollable form ── */}
+            <div className="flex-1 overflow-y-auto p-5">
+              <form id="student-form" onSubmit={handleSubmit} className="space-y-5 text-xs">
+
+                {/* 1 · Basic Info */}
+                <p className={sectionLabel}>Basic Information</p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">
+                      Student Full Name <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Enter legal passport name"
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'
-                      }`}
+                      value={studentName}
+                      onChange={e => setStudentName(e.target.value)}
+                      placeholder="Legal name as on passport"
+                      className={input}
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Assigned Counsellor</label>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">
+                      Counselor
+                    </label>
+
                     <select
-                      value={counsellor}
-                      onChange={(e) => setCounsellor(e.target.value)}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-655 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'
-                      }`}
+                      value={selectedCounselor}
+                      onChange={(e) =>
+                        setSelectedCounselor(e.target.value)
+                      }
+                      className={input}
                     >
-                      {counsellorsList.map(c => <option key={c} value={c}>{c}</option>)}
+                      <option value="">
+                        Select Counselor
+                      </option>
+
+                      {counselors.map((counselor) => (
+                        <option
+                          key={counselor.id}
+                          value={counselor.id}
+                        >
+                          {counselor.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Target Country</label>
-                    <select
-                      value={country}
-                      onChange={(e) => setCountry(e.target.value)}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    >
-                      {countriesList.map(c => <option key={c} value={c}>{c}</option>)}
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Application Type</label>
+                    <select value={applicationType} onChange={e => setApplicationType(e.target.value as ApplicationType)} className={select}>
+                      {APPLICATION_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Preferred Country</label>
+                    <select value={preferredCountry} onChange={e => setPreferredCountry(e.target.value)} className={select}>
+                      {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
 
                   <div>
                     <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Target Intake</label>
-                    <select
-                      value={intake}
-                      onChange={(e) => setIntake(e.target.value)}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    >
-                      {intakesList.map(i => <option key={i} value={i}>{i}</option>)}
+                    <select value={intake} onChange={e => setIntake(e.target.value)} className={select}>
+                      {INTAKES.map(i => <option key={i} value={i}>{i}</option>)}
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Preferred Course</label>
+                    <input
+                      type="text"
+                      value={preferredCourse}
+                      onChange={e => setPreferredCourse(e.target.value)}
+                      placeholder="e.g. MSc Data Science"
+                      className={input}
+                    />
                   </div>
 
                   <div>
                     <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Admission Date</label>
-                    <input
-                      type="text"
-                      value={admissionDate}
-                      onChange={(e) => setAdmissionDate(e.target.value)}
-                      placeholder="e.g. 15-Jun-2026"
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'
-                      }`}
-                    />
+                    <input type="date" value={admissionDate} onChange={e => setAdmissionDate(e.target.value)} className={input} />
                   </div>
                 </div>
 
-                {/* 2. DEMOGRAPHICS & CONTACT */}
-                <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest border-b pb-1 dark:border-slate-800">Demographics & Credentials</p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 2 · Demographics & Credentials */}
+                <p className={sectionLabel}>Demographics & Credentials</p>
+
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Passport Number</label>
                     <input
                       type="text"
-                      value={passportNumber}
-                      onChange={(e) => setPassportNumber(e.target.value)}
+                      value={passport}
+                      onChange={e => setPassport(e.target.value)}
                       placeholder="e.g. L9876543"
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
+                      className={input}
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">12th English / MOI Waiver</label>
-                    <input
-                      type="text"
-                      value={twelfthEnglishMoi}
-                      onChange={(e) => setTwelfthEnglishMoi(e.target.value)}
-                      placeholder="e.g. MOI Waiver Letter / 85%"
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Application Type</label>
-                    <select
-                      value={applicationType}
-                      onChange={(e) => setApplicationType(e.target.value)}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-650 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    >
-                      <option value="Master">Postgraduate Master Folder</option>
-                      <option value="Bachelor">Undergraduate Bachelor Folder</option>
-                      <option value="PhD">Doctoral PhD Folder</option>
-                    </select>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Date of Birth</label>
+                    <input type="date" value={dob} onChange={e => setDob(e.target.value)} className={input} />
                   </div>
 
                   <div>
                     <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Mobile Number</label>
                     <input
-                      type="text"
+                      type="tel"
                       value={mobileNumber}
-                      onChange={(e) => setMobileNumber(e.target.value)}
-                      placeholder="e.g. +91 9876543210"
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
+                      onChange={e => setMobileNumber(e.target.value)}
+                      placeholder="+91 9876543210"
+                      className={input}
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Email Address</label>
                     <input
                       type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@overseas-edu.com"
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
+                      value={emailId}
+                      onChange={e => setEmailId(e.target.value)}
+                      placeholder="student@example.com"
+                      className={input}
                     />
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-2 block">Immigration Portal Password</label>
-                    <div className="flex items-center gap-1.5">
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">English Waiver Type</label>
+                    <select value={englishWaiverType} onChange={e => setEnglishWaiverType(e.target.value as EnglishWaiverType)} className={select}>
+                      {ENGLISH_WAIVER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Current Stage</label>
+                    <select value={currentStage} onChange={e => setCurrentStage(e.target.value as Studentstage)} className={select}>
+                      {CURRENT_STAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Immigration Portal Password</label>
+                    <div className="flex gap-1.5">
                       <input
                         type="text"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Secure system password"
-                        className={`flex-1 px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                          isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                        }`}
-                        required
+                        value={immigrationPortalPassword}
+                        onChange={e => setImmigrationPortalPassword(e.target.value)}
+                        placeholder="Auto-generated secure password"
+                        className={`${input} flex-1`}
                       />
                       <button
                         type="button"
-                        onClick={randomizePassword}
-                        className="p-2 hover:bg-slate-100 dark:hover:bg-slate-850 rounded-xl border border-inherit text-slate-400 hover:text-red-600"
-                        title="Randomize secure credentials key"
+                        onClick={() => setImmigrationPortalPassword(randomPassword())}
+                        title="Regenerate password"
+                        className={`p-2 rounded-xl border transition-colors text-slate-400 hover:text-red-600 ${isDarkMode ? 'border-slate-800 hover:bg-slate-800' : 'border-slate-200 hover:bg-slate-100'
+                          }`}
                       >
                         <RefreshCcw className="h-3.5 w-3.5" />
                       </button>
@@ -411,283 +531,85 @@ export function AddEditModal({
                   </div>
                 </div>
 
-                {/* Timeline Dates & Graduation Status */}
-                <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest border-b pb-1 dark:border-slate-800">Timeline Dates & Graduation Status</p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 3 · Timeline */}
+                <p className={sectionLabel}>Key Dates</p>
+
+                <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Pursuing / Graduate</label>
-                    <select
-                      value={pursuingGraduate}
-                      onChange={(e) => setPursuingGraduate(e.target.value as 'Pursuing' | 'Graduate')}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    >
-                      <option value="Graduate">Graduate</option>
-                      <option value="Pursuing">Pursuing</option>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Deposit Deadline</label>
+                    <input type="date" value={depositDeadline} onChange={e => setDepositDeadline(e.target.value)} className={input} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">CAS Deadline</label>
+                    <input type="date" value={casDeadline} onChange={e => setCasDeadline(e.target.value)} className={input} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">University Start</label>
+                    <input type="date" value={universityStart} onChange={e => setUniversityStart(e.target.value)} className={input} />
+                  </div>
+                </div>
+
+                {/* 4 · Status & Visa Stage */}
+                <p className={sectionLabel}>Status & Visa Stage</p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Student Status</label>
+                    <select value={status} onChange={e => setStatus(e.target.value as StudentStatus)} className={select}>
+                      {STUDENT_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
 
                   <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Deposit Deadline Date</label>
-                    <input
-                      type="text"
-                      value={depositDeadlineDate}
-                      onChange={(e) => setDepositDeadlineDate(e.target.value)}
-                      placeholder="e.g. 30-Jun-2026"
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">CAS Deadline Date</label>
-                    <input
-                      type="text"
-                      value={casDeadlineDate}
-                      onChange={(e) => setCasDeadlineDate(e.target.value)}
-                      placeholder="e.g. 10-Aug-2026"
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Univ Start Date</label>
-                    <input
-                      type="text"
-                      value={univStartDate}
-                      onChange={(e) => setUnivStartDate(e.target.value)}
-                      placeholder="e.g. 15-Sep-2026"
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                {/* 3. FINANCES & LENDERS */}
-                <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest border-b pb-1 dark:border-slate-800">Financial Credit Parameters</p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Fintech Assignee Broker</label>
-                    <input
-                      type="text"
-                      value={assignee}
-                      onChange={(e) => setAssignee(e.target.value)}
-                      placeholder="e.g. Sunil / Priya"
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Preferred Lending NBFC</label>
-                    <select
-                      value={nbfc}
-                      onChange={(e) => setNbfc(e.target.value)}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-650 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    >
-                      {['Poonawalla', 'Credila', 'Avanse', 'ICICI', 'HDFC Credila', 'Self Funding', 'Other'].map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Visa Stage</label>
+                    <select value={visaStage} onChange={e => setVisaStage(e.target.value as StudentVisaStage)} className={select}>
+                      {VISA_STAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Sanctioned Amount</label>
-                    <input
-                      type="text"
-                      value={sanctionedAmount}
-                      onChange={(e) => setSanctionedAmount(e.target.value)}
-                      placeholder="e.g. ₹25,00,000"
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    />
+                {/* Error banner */}
+                {error && (
+                  <div className="rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 px-3 py-2 text-red-600 dark:text-red-400 text-[11px] font-medium">
+                    {error}
                   </div>
+                )}
 
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Disbursement Release</label>
-                    <input
-                      type="text"
-                      value={disbursedAmount}
-                      onChange={(e) => setDisbursedAmount(e.target.value)}
-                      placeholder="e.g. ₹15,00,000"
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                 {/* 4. PROCESS & VISA STATUS TRACKING */}
-                <p className="text-[10px] uppercase font-black text-slate-400 tracking-widest border-b pb-1 dark:border-slate-800">Process & Visa Status Tracking</p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Application Status</label>
-                    <select
-                      value={appStatus}
-                      onChange={(e) => setAppStatus(e.target.value)}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-650 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'
-                      }`}
-                    >
-                      {['Draft', 'Applied', 'Pending', 'Offer Received', 'Priority Offer Received', 'Conditional Offer', 'Unconditional Offer', 'Rejected', 'Deferred'].map(opt => (
-                        <option key={opt} value={opt} className="bg-white dark:bg-slate-900 text-slate-800">{opt}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Deposit status</label>
-                    <select
-                      value={depositStatus}
-                      onChange={(e) => setDepositStatus(e.target.value)}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-650 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'
-                      }`}
-                    >
-                      {['Deposit Paid', 'Deposit Not Paid', 'Paid', 'Pending', 'Waived'].map(opt => (
-                        <option key={opt} value={opt} className="bg-white dark:bg-slate-900 text-slate-800">{opt}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">IHS & Visa Paid Status</label>
-                    <select
-                      value={ihsPayment}
-                      onChange={(e) => setIhsPayment(e.target.value)}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-650 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'
-                      }`}
-                    >
-                      {['Paid', 'Pending', 'Not Required'].map(opt => (
-                        <option key={opt} value={opt} className="bg-white dark:bg-slate-900 text-slate-800">{opt}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Interview Status</label>
-                    <select
-                      value={interviewStatus}
-                      onChange={(e) => setInterviewStatus(e.target.value)}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-650 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'
-                      }`}
-                    >
-                      {['Completed', 'Pending', 'Waived'].map(opt => (
-                        <option key={opt} value={opt} className="bg-white dark:bg-slate-900 text-slate-800">{opt}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">CAS Status</label>
-                    <select
-                      value={casStatus}
-                      onChange={(e) => setCasStatus(e.target.value)}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-650 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'
-                      }`}
-                    >
-                      {['CAS Received', 'CAS Under Review', 'CAS Not Applied', 'Received', 'Pending', 'Not Required'].map(opt => (
-                        <option key={opt} value={opt} className="bg-white dark:bg-slate-900 text-slate-800">{opt}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Visa Status</label>
-                    <select
-                      value={visaStatus}
-                      onChange={(e) => setVisaStatus(e.target.value)}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-650 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'
-                      }`}
-                    >
-                      {['Visa Approved', 'Visa Applied', 'Visa Decision Pending', 'Visa Rejected', 'Draft Pending', 'Approved', 'Applied', 'Decision Pending', 'Rejected'].map(opt => (
-                        <option key={opt} value={opt} className="bg-white dark:bg-slate-900 text-slate-800">{opt}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Loan Status</label>
-                    <select
-                      value={loanStatus}
-                      onChange={(e) => setLoanStatus(e.target.value)}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-650 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'
-                      }`}
-                    >
-                      {['Pending', 'Under Review', 'Approved', 'Rejected', 'Sanctioned', 'Disbursed'].map(opt => (
-                        <option key={opt} value={opt} className="bg-white dark:bg-slate-900 text-slate-800">{opt}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">PF Status</label>
-                    <select
-                      value={pfStatus}
-                      onChange={(e) => setPfStatus(e.target.value)}
-                      className={`w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-650 ${
-                        isDarkMode ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-800'
-                      }`}
-                    >
-                      {['Paid', 'Pending', 'Waived', 'Not Applicable'].map(opt => (
-                        <option key={opt} value={opt} className="bg-white dark:bg-slate-900 text-slate-800">{opt}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Submit action button */}
-                <button type="submit" className="hidden" id="addedit-submit-btn-tag" />
               </form>
             </div>
 
-            {/* Bottom Form Actions */}
-            <div className="p-4 border-t border-inherit flex gap-3 bg-slate-50 dark:bg-slate-900/40">
+            {/* ── Footer ── */}
+            <div className={`p-4 flex gap-3 border-t ${isDarkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50'}`}>
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-850 text-slate-400 text-xs font-extrabold inline-flex items-center justify-center transition-colors"
+                disabled={loading}
+                className={`flex-1 py-2.5 rounded-xl border text-xs font-extrabold transition-colors ${isDarkMode
+                  ? 'border-slate-800 hover:bg-slate-800 text-slate-400'
+                  : 'border-slate-200 hover:bg-slate-100 text-slate-500'
+                  }`}
               >
                 Cancel
               </button>
 
               <button
-                type="button"
-                onClick={() => document.getElementById('addedit-submit-btn-tag')?.click()}
-                className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl shadow-lg shadow-red-600/15 inline-flex items-center justify-center gap-1.5 uppercase tracking-wide transition-all cursor-pointer"
+                type="submit"
+                form="student-form"
+                disabled={loading || success}
+                className={`flex-1 py-2.5 text-white text-xs font-black rounded-xl shadow-lg inline-flex items-center justify-center gap-1.5 uppercase tracking-wide transition-all ${success
+                  ? 'bg-emerald-600 shadow-emerald-600/20'
+                  : 'bg-red-600 hover:bg-red-700 shadow-red-600/20'
+                  } disabled:opacity-60`}
               >
-                <Save className="h-4 w-4" />
-                <span>Commit Case Folder</span>
+                {loading ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…</>
+                ) : success ? (
+                  <>✓ Saved</>
+                ) : (
+                  <><Save className="h-3.5 w-3.5" /> {isEditing ? 'Update Student' : 'Create Student'}</>
+                )}
               </button>
             </div>
-
           </motion.div>
         </>
       )}
