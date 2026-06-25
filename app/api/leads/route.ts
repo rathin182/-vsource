@@ -14,8 +14,6 @@ import {
   buildMeta,
 } from "@/lib/api-helpers";
 import { LeadStatus, Gender, IntakeSeason, Qualification, LeadStage } from "@/lib/generated/prisma/enums";
-import { getAuthorizedUser } from "@/lib/rbac";
-import { MODULES, PERMISSIONS } from "@/lib/module-codes";
 import { z } from "zod";
 
 const LeadCreateSchema = z.object({
@@ -193,14 +191,6 @@ export async function GET(req: NextRequest) {
               select: {
                 id: true,
                 name: true,
-                description: true,
-                users: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                  },
-                },
               },
             },
 

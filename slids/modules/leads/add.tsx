@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/slids/components/ui/select";
 import { toast } from "sonner";
+import { Branch, Counselor } from "@/slids/types";
 
 const leadFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -80,8 +81,8 @@ const statusOptions = ["NEW", "CONTACTED", "QUALIFIED", "CONVERTED", "LOST"];
 export default function AddLeadPage() {
   const router = useRouter();
 
-  const [branches, setBranches] = useState([]);
-  const [counselors, setCounselors] = useState([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [counselors, setCounselors] = useState<Counselor[]>([]);
   const [loading, setLoading] = useState(true);
 
   const { control, register, handleSubmit, reset, formState: { errors, isSubmitting }, } = useForm<LeadFormValues>({
@@ -119,7 +120,7 @@ export default function AddLeadPage() {
       const [branchRes, counselorRes] =
         await Promise.all([
           fetch("/api/branches"),
-          fetch("/api/users/counselors"),
+          fetch("/api/users/counsellor"),
         ]);
       const branch = await branchRes.json();
       const counselor = await counselorRes.json();
@@ -599,22 +600,14 @@ export default function AddLeadPage() {
           >
             Reset
           </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            className="w-full sm:w-auto"
-            onClick={handleSubmit((values) => onSubmit(values, false))}
-            disabled={isSubmitting}
-          >
-            Save Lead
-          </Button>
+
           <Button
             type="button"
             className="w-full sm:w-auto"
             onClick={handleSubmit((values) => onSubmit(values, true))}
             disabled={isSubmitting}
           >
-            Save & Continue
+            Save Lead
           </Button>
         </div>
       </CardContent>

@@ -130,12 +130,12 @@ interface Count {
 
 export interface University {
   _count: Count;
-  address: string | null;
+  address: string;
   applicationFee: string;
   city: string;
-  contactEmail: string | null;
-  contactPerson: string | null;
-  contactPhone: string | null;
+  contactEmail: string;
+  contactPerson: string;
+  contactPhone: string;
   country: Country;
   countryId: string;
   createdAt: string;
@@ -152,6 +152,7 @@ export interface University {
   status: "active" | "inactive";
   updatedAt: string;
   website: string;
+  tier: string
 }
 
 export interface Application {

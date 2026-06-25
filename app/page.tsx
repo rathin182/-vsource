@@ -3,11 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/slids/store";
-import { getCurrentUser } from "@/lib/auth"
 
 export default function RootPage() {
   const router = useRouter();
-  const user = getCurrentUser();
   const { isAuthenticated } = useAuth();
   const [authenticated, setAuthenticated] = useState(true);
   const [hydrated, setHydrated] = useState(false);

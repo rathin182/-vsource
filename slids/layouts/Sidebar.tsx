@@ -29,6 +29,7 @@ import { useUi } from "@/slids/store";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/vsourcess.png";
 import { toast } from "sonner";
+import axios from "axios";
 
 const items = [
   {
@@ -135,22 +136,14 @@ export function Sidebar() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const response = await fetch(
-          "/api/auth/me",
-          {
-            method: "GET",
-            credentials: "include",
-          }
+        const response = await axios.get(
+          "/api/auth/me"
         );
-const data = await response.json();
-        if (!response.ok) {
-          toast.error(
-      data.message || "Failed to fetch user"
-    );
-    return;
+        if (response.status === 200) {
+          const data = response.data
+          setUser(data);
         }
 
-        setUser(data);
       } catch (error) {
         console.error(
           "Error fetching user:",

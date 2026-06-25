@@ -754,11 +754,18 @@ model LeadUniversity {
   updatedAt DateTime @updatedAt
 }
 
+enum Tier {
+  T1
+  T2
+  T3
+  T4
+}
+
 model University {
   id String @id @default(uuid())
 
-  name String
-
+  name      String
+  tier      Tier    @default(T1)
   countryId String
   country   Country @relation(fields: [countryId], references: [id])
 
@@ -791,7 +798,7 @@ model University {
   contactPerson String?
   contactEmail  String?
   contactPhone  String?
-  intakeNotes   String?  @db.Text
+  intakeNotes   String?
 
   @@unique([name, countryId])
   @@index([countryId])
@@ -811,37 +818,38 @@ enum DegreeType {
 }
 
 model UniversityCourse {
-  id String @id @default(uuid())
-  name String
-  degree DegreeType
-  durationMonths Int?
-  annualTuitionFee Decimal? @db.Decimal(12, 2)
-  totalTuitionFee Decimal? @db.Decimal(12, 2)
-  currency String?
-  intakeId String?
-  intake   Intake? @relation(fields: [intakeId], references: [id])
-  minimumPercentage Float?
-  backlogLimit Int?
-  englishRequirement String?
-  ieltsOverall   Float?
-  ieltsListening Float?
-  ieltsReading   Float?
-  ieltsWriting   Float?
-  ieltsSpeaking  Float?
-  greRequired         Boolean   @default(false)
-  gmatRequired        Boolean   @default(false)
+  id                  String                  @id @default(uuid())
+  name                String
+  degree              DegreeType
+  durationMonths      Int?
+  annualTuitionFee    Decimal?                @db.Decimal(12, 2)
+  totalTuitionFee     Decimal?                @db.Decimal(12, 2)
+  currency            String?
+  intakeId            String?
+  intake              Intake?                 @relation(fields: [intakeId], references: [id])
+  minimumPercentage   Float?
+  backlogLimit        Int?
+  englishRequirement  String?
+  ieltsOverall        Float?
+  ieltsListening      Float?
+  ieltsReading        Float?
+  ieltsWriting        Float?
+  ieltsSpeaking       Float?
+  greRequired         Boolean                 @default(false)
+  gmatRequired        Boolean                 @default(false)
   courseCode          String?
-  description         String?   @db.Text
+  description         String?                 @db.Text
   applicationDeadline DateTime?
-  status              Boolean   @default(true)
-  scholarships UniversityScholarship[]
+  status              Boolean                 @default(true)
+  scholarships        UniversityScholarship[]
 
   universityId String
   university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
-  @@index([universityId])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([universityId])
 }
 
 enum UniversityStatus {

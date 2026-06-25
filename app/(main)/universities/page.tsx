@@ -4,7 +4,6 @@ import {
   PageHeader,
   PageTransition,
 } from "@/slids/components/common/PageHeader";
-import { Card, CardContent } from "@/slids/components/ui/card";
 import { Input } from "@/slids/components/ui/input";
 import { Label } from "@/slids/components/ui/label";
 import { Badge } from "@/slids/components/ui/badge";
@@ -32,6 +31,8 @@ import type { University } from "@/slids/types";
 import { toast } from "sonner";
 import axios from "axios";
 import Link from "next/link";
+import {UniversityCard} from "@/slids/components/universities/UniversityCard";
+import { useRouter } from "next/navigation";
 
 interface MetaData {
   totalPages: number,
@@ -63,31 +64,22 @@ export default function UniversitiesPage() {
   const [isDetOpen, setIsDetOpen] = useState(false)
   const [metaData, setMetaData] = useState<MetaData>()
   const [page, setPage] = useState(1)
+
+  const router = useRouter()
   const filtered = list.filter(
     (u) =>
       u.name.toLowerCase().includes(q.toLowerCase()) ||
       u.country.name.toLowerCase().includes(q.toLowerCase()),
   );
 
-  // const add = () => {
-  //   if (!form.name || !form.city) return toast.error("Name and city are required");
-  //   const u: University = {
-  //     id: `U${Date.now()}`, name: form.name, country: form.country, city: form.city,
-  //     ranking: Number(form.ranking), tuitionFee: Number(form.tuitionFee), duration: form.duration,
-  //     intakes: form.intakes.split(",").map((s) => s.trim()).filter(Boolean),
-  //     scholarships: form.scholarships, programs: ["MS", "MBA"],
-  //   };
-  //   setList([u, ...list]);
-  //   setOpen(false); setForm(empty);
-  //   toast.success("University added");
-  // };
 
   const fetchData = () =>
     startTransition(async () => {
       const req = await axios.get(`/api/universities?page=${page}`);
       if (req.status === 200) {
-        setList(req.data.data);
-        setMetaData(req.data.meta)
+        console.log(req.data.data);
+        setList(req.data.data.universities);
+        setMetaData(req.data.data.pagination)
 
       }
     });
@@ -112,102 +104,9 @@ export default function UniversitiesPage() {
         title="Universities & Courses"
         description="Search, shortlist and compare universities worldwide."
         actions={
-          <>
-            <Badge variant="secondary">{shortlist.length} shortlisted</Badge>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">
+                <Button onClick={() => router.push("/universities/action")} size="sm">
                   <Plus className="size-4 mr-1.5" /> Add University
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add university</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-3 py-2">
-                  <div className="grid gap-1.5">
-                    <Label>Name</Label>
-                    <Input
-                      value={form.name}
-                      onChange={(e) =>
-                        setForm({ ...form, name: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="grid gap-1.5">
-                      <Label>Country</Label>
-                      <Input
-                        value={form.country}
-                        onChange={(e) =>
-                          setForm({ ...form, country: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label>City</Label>
-                      <Input
-                        value={form.city}
-                        onChange={(e) =>
-                          setForm({ ...form, city: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="grid gap-1.5">
-                      <Label>Ranking</Label>
-                      <Input
-                        type="number"
-                        value={form.ranking}
-                        onChange={(e) =>
-                          setForm({ ...form, ranking: Number(e.target.value) })
-                        }
-                      />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label>Tuition $</Label>
-                      <Input
-                        type="number"
-                        value={form.tuitionFee}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            tuitionFee: Number(e.target.value),
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label>Duration</Label>
-                      <Input
-                        value={form.duration}
-                        onChange={(e) =>
-                          setForm({ ...form, duration: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label>Intakes (comma-separated)</Label>
-                    <Input
-                      value={form.intakes}
-                      onChange={(e) =>
-                        setForm({ ...form, intakes: e.target.value })
-                      }
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="ghost" onClick={() => setOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button>Create</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            
-          </>
+                </Button>          
         }
       />
 
@@ -225,75 +124,8 @@ export default function UniversitiesPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map((u) => {
-          const isShort = shortlist.includes(u.id);
           return (
-            <Card
-              key={u.id}
-              className="hover:shadow-md transition-all overflow-hidden group"
-            >
-              <div className="h-24 bg-[image:var(--gradient-primary)] relative">
-                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_20%_20%,white_1px,transparent_1px)] [background-size:18px_18px]" />
-                <button
-                  onClick={() => {
-                    setShortlist(
-                      isShort
-                        ? shortlist.filter((i) => i !== u.id)
-                        : [...shortlist, u.id],
-                    );
-                    toast.success(
-                      isShort ? "Removed from shortlist" : "Added to shortlist",
-                    );
-                  }}
-                  className="absolute top-3 right-3 size-8 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white hover:bg-white/30"
-                >
-                  <Heart className={`size-4 ${isShort ? "fill-white" : ""}`} />
-                </button>
-                <div className="absolute bottom-2 left-4 flex items-center gap-1.5 text-white text-xs">
-                  <Star className="size-3 fill-current" /> Rank #{u.ranking}
-                </div>
-              </div>
-              <CardContent className="p-4">
-                <div className="font-bold leading-tight">{u.name}</div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                  <MapPin className="size-3" /> {u.state}, {u.city},{" "}
-                  {u.country.name}
-                </div>
-                <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-                  <div className="rounded-lg bg-secondary/50 p-2">
-                    <div className="text-muted-foreground text-[10px]">
-                      Application Fees
-                    </div>
-                    <div className="font-semibold">${u.applicationFee}</div>
-                  </div>
-                  <div className="rounded-lg bg-secondary/50 p-2">
-                    <div className="text-muted-foreground text-[10px]">
-                      Established Year
-                    </div>
-                    <div className="font-semibold">{u.establishedYear}</div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1 mt-3">
-                  <p className="text-xs text-gray-400">
-                    {u.intakeNotes ?? "Not Provided"}
-                  </p>
-                </div>
-                <div className="flex gap-2 mt-4">
-                  {u.website && (
-                    <Link href={u.website}>
-                      <Button size="sm" variant="outline" className="flex-1">
-                        <LucideArrowUpRight className="size-3.5 mr-1" /> Visit
-                        Website
-                      </Button>
-                    </Link>
-                  )}
-                  <Button size="sm" className="flex-1" onClick={() => {
-                    setIsDetOpen(true) 
-                    setSpecData(u)}}>
-                    View Details
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <UniversityCard key={u.id} university={u}/>
           );
         })}
       </div>

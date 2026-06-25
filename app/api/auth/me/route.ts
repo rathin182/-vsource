@@ -29,10 +29,12 @@ export async function GET() {
             }
         );
     }
+    console.log(payload);
+    
 
-const user = await prisma.user.findUnique({
+const user = await prisma.user.findMany({
         where: {
-            id: payload.userId as string,
+            id: payload.userId,
         },
         include: {
             role: {
@@ -48,5 +50,5 @@ const user = await prisma.user.findUnique({
         },
     });
 
-    return NextResponse.json(user);
+    return NextResponse.json(user[0]);
 }
