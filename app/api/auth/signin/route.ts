@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const user = await db.user.findUnique({
+    const u = await db.user.findMany({
       where: {
         email,
       },
@@ -29,6 +29,7 @@ export async function POST(req: Request) {
       },
     });
 
+    const user = u[0]
     if (!user) {
       return NextResponse.json(
         {

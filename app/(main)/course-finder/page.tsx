@@ -24,51 +24,8 @@ import {
   SheetDescription,
 } from "@/slids/components/ui/sheet";
 import { Eye, SearchX } from "lucide-react";
-import Image from "next/image";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type DegreeType = string; // map to your prisma enum if exported
-
-interface Intake {
-  id: string;
-  month?: string;
-  year?: string;
-  label?: string;
-}
-
-interface University {
-  id: string;
-  name: string;
-  logo?: string;
-  country?: string;
-}
-
-interface UniversityCourse {
-  id: string;
-  name: string;
-  degree: DegreeType;
-  durationMonths?: number | null;
-  annualTuitionFee?: number | null;
-  totalTuitionFee?: number | null;
-  currency?: string | null;
-  intake?: Intake | null;
-  minimumPercentage?: number | null;
-  backlogLimit?: number | null;
-  englishRequirement?: string | null;
-  ieltsOverall?: number | null;
-  ieltsListening?: number | null;
-  ieltsReading?: number | null;
-  ieltsWriting?: number | null;
-  ieltsSpeaking?: number | null;
-  greRequired?: boolean;
-  gmatRequired?: boolean;
-  courseCode?: string | null;
-  description?: string | null;
-  applicationDeadline?: string | null;
-  status?: boolean;
-  university: University;
-}
+import CourseDetailSheet from "./details";
+import { formatDuration, formatFee, formatIntake, UniversityCourse } from "./common";
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 
@@ -86,31 +43,13 @@ async function fetchCourses(params: FetchCoursesParams): Promise<UniversityCours
   Object.entries(params).forEach(([k, v]) => {
     if (v && v !== "all" && v !== "any") query.set(k, v);
   });
-  const res = await fetch(`/api/courses?${query.toString()}`);
+  const res = await fetch(`/api/courses/finder?courseName=${query.toString()}`);
+  
   if (!res.ok) throw new Error("Failed to load courses");
   const json = await res.json();
-  // Support { data: [] } or bare array
+  console.log(json);
+  
   return Array.isArray(json) ? json : (json.data ?? []);
-}
-
-// ─── Small helpers ─────────────────────────────────────────────────────────────
-
-function formatFee(amount?: number | null, currency?: string | null) {
-  if (!amount) return "N/A";
-  return currency
-    ? `${currency} ${Number(amount).toLocaleString()}`
-    : Number(amount).toLocaleString();
-}
-
-function formatDuration(months?: number | null) {
-  if (!months) return "N/A";
-  if (months % 12 === 0) return `${months / 12} ${months / 12 === 1 ? "Year" : "Years"}`;
-  return `${months} Months`;
-}
-
-function formatIntake(intake?: Intake | null) {
-  if (!intake) return "N/A";
-  return intake.label ? [intake.month, intake.year].filter(Boolean).join(" ") : "N/A";
 }
 
 // ─── Skeleton card ─────────────────────────────────────────────────────────────
@@ -158,7 +97,7 @@ function CourseCard({
     <Card className="overflow-hidden rounded-2xl border border-border transition hover:shadow-md">
       <div className="flex items-center gap-3 border-b border-border px-5 py-4">
         {course.university.logo ? (
-          <Image
+          <img
             src={course.university.logo}
             alt={course.university.name}
             width={48}
@@ -173,7 +112,7 @@ function CourseCard({
         <div className="min-w-0">
           <div className="truncate font-semibold">{course.university.name}</div>
           <div className="text-sm text-muted-foreground">
-            {course.university.country ?? "—"}
+            {course.university.country.name ?? "—"}
           </div>
         </div>
       </div>
@@ -189,7 +128,7 @@ function CourseCard({
         <div className="grid gap-1.5 text-sm text-muted-foreground">
           <div>
             <span className="text-foreground font-medium">Annual tuition:</span>{" "}
-            {formatFee(course.annualTuitionFee, course.currency)}
+            {formatFee(Number(course.annualTuitionFee), course.currency)}
           </div>
           <div>
             <span className="text-foreground font-medium">Intake:</span>{" "}
@@ -232,112 +171,111 @@ function CourseCard({
 
 // ─── Detail sheet ──────────────────────────────────────────────────────────────
 
-function CourseDetailSheet({
-  course,
-  onClose,
-}: {
-  course: UniversityCourse | null;
-  onClose: () => void;
-}) {
-  return (
-    <Sheet open={!!course} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="overflow-y-auto">
-        {course && (
-          <>
-            <SheetHeader>
-              <SheetTitle>{course.name}</SheetTitle>
-              <SheetDescription>{course.university.name}</SheetDescription>
-            </SheetHeader>
+// function CourseDetailSheet({
+//   course,
+//   onClose,
+// }: {
+//   course: UniversityCourse | null;
+//   onClose: () => void;
+// }) {
+//   return (
+//     // <div className=""></div>
+//     <Sheet open={!!course} onOpenChange={(open) => !open && onClose()}>
+//       <SheetContent className="overflow-y-auto">
+//         {course && (
+//           <>
+//             <SheetHeader>
+//               <SheetTitle>{course.name}</SheetTitle>
+//               <SheetDescription>{course.university.name}</SheetDescription>
+//             </SheetHeader>
 
-            <div className="space-y-5 px-4 py-4">
-              {/* University logo / banner */}
-              {course.university.logo && (
-                <Image
-                  src={course.university.logo}
-                  alt={course.university.name}
-                  width={600}
-                  height={200}
-                  className="h-24 w-full rounded-2xl object-cover"
-                />
-              )}
+//             <div className="space-y-5 px-4 py-4">
+//               {/* University logo / banner */}
+//               {course.university.logo && (
+//                 <img
+//                   src={course.university.logo}
+//                   alt={course.university.name}
+//                   className="h-24 w-full rounded-2xl object-cover"
+//                 />
+//               )}
 
-              {/* Core info */}
-              <div className="grid gap-2 text-sm text-muted-foreground">
-                {[
-                  ["Country", course.university.country],
-                  ["Degree", course.degree],
-                  ["Duration", formatDuration(course.durationMonths)],
-                  ["Intake", formatIntake(course.intake)],
-                  ["Annual Tuition", formatFee(course.annualTuitionFee, course.currency)],
-                  ["Total Tuition", formatFee(course.totalTuitionFee, course.currency)],
-                  [
-                    "Application Deadline",
-                    course.applicationDeadline
-                      ? new Date(course.applicationDeadline).toLocaleDateString()
-                      : null,
-                  ],
-                  ["Course Code", course.courseCode],
-                  ["Min Percentage", course.minimumPercentage != null ? `${course.minimumPercentage}%` : null],
-                  ["Max Backlogs", course.backlogLimit?.toString()],
-                  ["English Requirement", course.englishRequirement],
-                ]
-                  .filter(([, v]) => v)
-                  .map(([label, value]) => (
-                    <div key={label as string}>
-                      <span className="font-semibold text-foreground">{label}:</span> {value}
-                    </div>
-                  ))}
-              </div>
+//               {/* Core info */}
+//               <div className="grid gap-2 text-sm text-muted-foreground">
+//                 {[
+//                   ["Country", course.university.country],
+//                   ["Degree", course.degree],
+//                   ["Duration", formatDuration(course.durationMonths)],
+//                   ["Intake", formatIntake(course.intake)],
+//                   ["Annual Tuition", formatFee(course.annualTuitionFee, course.currency)],
+//                   ["Total Tuition", formatFee(course.totalTuitionFee, course.currency)],
+//                   [
+//                     "Application Deadline",
+//                     course.applicationDeadline
+//                       ? new Date(course.applicationDeadline).toLocaleDateString()
+//                       : null,
+//                   ],
+//                   ["Course Code", course.courseCode],
+//                   ["Min Percentage", course.minimumPercentage != null ? `${course.minimumPercentage}%` : null],
+//                   ["Max Backlogs", course.backlogLimit?.toString()],
+//                   ["English Requirement", course.englishRequirement],
+//                 ]
+//                   .filter(([, v]) => v)
+//                   .map(([label, value]) => (
+//                     <div key={label as string}>
+//                       <span className="font-semibold text-foreground">{label}:</span> {value}
+//                     </div>
+//                   ))}
+//               </div>
 
-              {/* English test scores */}
-              <div>
-                <div className="mb-2 text-sm font-semibold">English Test Requirements</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      ["IELTS Overall", course.ieltsOverall],
-                      ["IELTS Listening", course.ieltsListening],
-                      ["IELTS Reading", course.ieltsReading],
-                      ["IELTS Writing", course.ieltsWriting],
-                      ["IELTS Speaking", course.ieltsSpeaking],
-                    ] as [string, number | null | undefined][]
-                  )
-                    .filter(([, v]) => v != null)
-                    .map(([label, value]) => (
-                      <div key={label} className="rounded-2xl border border-border p-3">
-                        <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                          {label}
-                        </div>
-                        <div className="mt-1 font-semibold">{value}</div>
-                      </div>
-                    ))}
-                </div>
-              </div>
+//               {/* English test scores */}
+//               <div>
+//                 <div className="mb-2 text-sm font-semibold">English Test Requirements</div>
+//                 <div className="grid grid-cols-2 gap-2">
+//                   {(
+//                     [
+//                       ["IELTS Overall", course.ieltsOverall],
+//                       ["IELTS Listening", course.ieltsListening],
+//                       ["IELTS Reading", course.ieltsReading],
+//                       ["IELTS Writing", course.ieltsWriting],
+//                       ["IELTS Speaking", course.ieltsSpeaking],
+//                     ] as [string, number | null | undefined][]
+//                   )
+//                     .filter(([, v]) => v != null)
+//                     .map(([label, value]) => (
+//                       <div key={label} className="rounded-2xl border border-border p-3">
+//                         <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+//                           {label}
+//                         </div>
+//                         <div className="mt-1 font-semibold">{value}</div>
+//                       </div>
+//                     ))}
+//                 </div>
+//               </div>
 
-              {/* Entrance exams */}
-              {(course.greRequired || course.gmatRequired) && (
-                <div className="flex gap-2">
-                  {course.greRequired && <Badge variant="secondary">GRE Required</Badge>}
-                  {course.gmatRequired && <Badge variant="secondary">GMAT Required</Badge>}
-                </div>
-              )}
+//               {/* Entrance exams */}
+//               {(course.greRequired || course.gmatRequired) && (
+//                 <div className="flex gap-2">
+//                   {course.greRequired && <Badge variant="secondary">GRE Required</Badge>}
+//                   {course.gmatRequired && <Badge variant="secondary">GMAT Required</Badge>}
+//                 </div>
+//               )}
 
-              {/* Description */}
-              {course.description && (
-                <div>
-                  <div className="mb-2 text-sm font-semibold">About the Program</div>
-                  <div className="rounded-2xl border border-border bg-background p-4 text-sm text-muted-foreground leading-relaxed">
-                    {course.description}
-                  </div>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </SheetContent>
-    </Sheet>
-  );
-}
+//               {/* Description */}
+//               {course.description && (
+//                 <div>
+//                   <div className="mb-2 text-sm font-semibold">About the Program</div>
+//                   <div className="rounded-2xl border border-border bg-background p-4 text-sm text-muted-foreground leading-relaxed">
+//                     {course.description}
+//                   </div>
+//                 </div>
+//               )}
+//             </div>
+//           </>
+//         )}
+//       </SheetContent>
+//     </Sheet>
+//   );
+// }
 
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
@@ -410,6 +348,7 @@ export default function CourseFinderPage() {
         title="Course Finder"
         description="Search programs across international universities."
       />
+
 
       {/* ── Filters ── */}
       <Card className="mb-6">
@@ -573,8 +512,8 @@ export default function CourseFinderPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         {loading
           ? Array.from({ length: 6 }).map((_, i) => <CourseCardSkeleton key={i} />)
-          : courses.map((course) => (
-              <CourseCard key={course.id} course={course} onView={setSelectedCourse} />
+          : courses.map((course, i) => (
+              <CourseCard key={i} course={course} onView={setSelectedCourse} />
             ))}
       </div>
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(req: NextRequest) {
+export async function GET(req: NextRequest) { 
   try {
     const { searchParams } = new URL(req.url);
 
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
     const where = {
       // ── Core filter: no counsellor assigned ──────────────────────────────
-      counselorId: undefined,
+      counselorId: null,
 
       // ── Optional filters ─────────────────────────────────────────────────
       ...(stage    && { leadStage: stage as never }),
@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
           source:          true,
           referralSource:  true,
           status:          true,
+          // counselorId:      true,
           country:         true,
           notes:           true,
           createdAt:       true,
@@ -151,6 +152,7 @@ export async function POST(req: NextRequest) {
         lastName:   true,
         email:      true,
         leadStage:  true,
+        country: true,
         counselor: {
           select: { id: true, name: true },
         },

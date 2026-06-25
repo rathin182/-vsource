@@ -6,8 +6,30 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const searchParams = req.nextUrl.searchParams
+    const few = searchParams.get("few")
+
+    if (few) {
+          const counselors = await prisma.user.findMany({
+      where: {
+        role: {
+          name: "Counsellor", // must match DB value exactly
+        },
+      },
+      select: {
+        name: true,
+        id: true,
+        email: true
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return ok(counselors);
+    }
     const counselors = await prisma.user.findMany({
       where: {
         role: {

@@ -242,10 +242,10 @@ model Lead {
   country String?
 
   branchId    String
-  counselorId String
+  counselorId String?
 
   branch    Branch @relation(fields: [branchId], references: [id])
-  counselor User   @relation(fields: [counselorId], references: [id])
+  counselor User?   @relation(fields: [counselorId], references: [id])
 
   createdById String?
   updatedById String?
