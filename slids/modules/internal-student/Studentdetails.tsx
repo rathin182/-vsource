@@ -276,6 +276,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
   const [isLoanLoading, setIsLoanLoading] = useState(false);
   const [loanAssignee, setLoanAssignee] = useState("");
   const [stageModal, setStageModal] = useState(false);
+  const [loanId, setLoanId] = useState("");
   const [selectedStage, setSelectedStage] =
     useState<StudentVisaStage | null>(null);
   const [confirmationText, setConfirmationText] = useState("");
@@ -811,61 +812,106 @@ export default function StudentData({ student, reloadStudent, }: any) {
     }
   };
 
-  const handleSaveLoan = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSaveLoan = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (!student.id || !loanBank.trim() || !loanAmount || !loanEmi) {
-      return toast.error("Please fill all required fields.");
-    }
+  if (loanId) {
+    return handleUpdateLoan();
+  }
 
-    try {
-      setIsLoanLoading(true);
+  if (!student.id || !loanBank.trim() || !loanAmount || !loanEmi) {
+    return toast.error("Please fill all required fields.");
+  }
 
-      const payload = {
-        bank: loanBank,
-        amount: Number(loanAmount),
-        emi: Number(loanEmi),
-        status: loanStatus,
-        assignee: loanAssignee
-      };
+  try {
+    setIsLoanLoading(true);
 
-      const res = await fetch(
-        `/api/student/loaninquiry?id=${student.id}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+    const payload = {
+      bank: loanBank,
+      amount: Number(loanAmount),
+      emi: Number(loanEmi),
+      status: loanStatus,
+      assignee: loanAssignee,
+    };
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        return toast.error(
-          data.message || "Failed to save loan."
-        );
+    const res = await fetch(
+      `/api/student/loaninquiry?id=${student.id}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       }
+    );
 
-      toast.success("Loan inquiry added.");
+    const data = await res.json();
 
-      // Reset form
-      setLoanBank("");
-      setLoanAmount("");
-      setLoanEmi("");
-      setLoanStatus("PENDING");
-
-      // Refresh student data
-      await reloadStudent();
-    } catch (error) {
-      console.error(error);
-
-      toast.error("Something went wrong.");
-    } finally {
-      setIsLoanLoading(false);
+    if (!res.ok) {
+      return toast.error(data.message || "Failed to save loan.");
     }
-  };
+
+    toast.success("Loan inquiry added.");
+
+    setLoanBank("");
+    setLoanAmount("");
+    setLoanEmi("");
+    setLoanStatus("PENDING");
+
+    await reloadStudent();
+  } catch (error) {
+    console.error(error);
+    toast.error("Something went wrong.");
+  } finally {
+    setIsLoanLoading(false);
+  }
+};
+
+const handleUpdateLoan = async () => {
+  try {
+    setIsLoanLoading(true);
+
+    const payload = {
+      bank: loanBank,
+      amount: Number(loanAmount),
+      emi: Number(loanEmi),
+      status: loanStatus,
+      assignee: loanAssignee,
+    };
+
+    const res = await fetch(
+      `/api/student/loaninquiry?id=${loanId}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      return toast.error(data.message || "Failed to update loan.");
+    }
+
+    toast.success("Loan inquiry updated.");
+
+    setLoanId("");
+    setLoanBank("");
+    setLoanAmount("");
+    setLoanEmi("");
+    setLoanStatus("PENDING");
+
+    await reloadStudent();
+  } catch (error) {
+    console.error(error);
+    toast.error("Something went wrong.");
+  } finally {
+    setIsLoanLoading(false);
+  }
+};
 
   // MULTIPLE UNIVERSITY APPLICATIONS WORKFLOW IMPLEMENTATION (TAB 3)
   const handleTriggerAddApp = () => {
@@ -1031,20 +1077,20 @@ export default function StudentData({ student, reloadStudent, }: any) {
   };
 
   const handleVisaSubmit = async () => {
-  await fetch(`/api/visa-detail?studentId=${student.id}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(visaForm),
-  });
-};
+    await fetch(`/api/visa-detail?studentId=${student.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(visaForm),
+    });
+  };
 
   useEffect(() => {
     if (!student?.loanInquiries?.length) return;
 
     const loan = student.loanInquiries[0];
-
+    setLoanId(loan.id || "");
     setLoanAssignee(loan.assignee || "");
     setLoanBank(loan.bank || "");
     setLoanAmount(String(loan.amount || ""));
@@ -1059,9 +1105,9 @@ export default function StudentData({ student, reloadStudent, }: any) {
     step => step.value === currentStage
   );
 
-  const currentIndex = STEPS.findIndex(
-    step => step.value === student.visaStage
-  );
+const currentIndex = STEPS.findIndex(
+  (step) => step.value === student.visaStage
+);
 
   // UI tab definitions (Home-style horizontal pill tabs, mapped onto StudentData's own tab keys)
   const tabs = [
@@ -1074,7 +1120,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
   ];
 
   const activeTabLabel = tabs.find(tab => tab.key === detailTab)?.label ?? 'Module';
-
+  const studentName = student.firstName + " " + student.lastName
   return (
     <div className={`flex min-h-screen bg-background text-foreground transition-colors duration-200`}>
       <div className="grow flex flex-col min-w-0 min-h-screen">
@@ -1099,8 +1145,8 @@ export default function StudentData({ student, reloadStudent, }: any) {
                   <div className="h-8 w-px bg-slate-200 dark:bg-slate-800" />
 
                   <div>
-                    <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                      {student.studentName ?? 'Unnamed Student'}
+                    <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+                      {studentName || "N/A"}
                     </h2>
 
                     <p className="text-xs text-slate-500">
@@ -1124,12 +1170,12 @@ export default function StudentData({ student, reloadStudent, }: any) {
                   {STEPS.map((step, index) => {
                     const isCompleted = index < currentIndex;
                     const isActive = index === currentIndex;
-                    const isLocked = index < currentIndex;
+                    const isBlocked = index <= currentIndex;
 
                     return (
                       <button
                         key={step.value}
-                        disabled={isLocked}
+                        disabled={isBlocked}
                         onClick={() => {
                           setSelectedStage(step.value);
                           setConfirmationText("");
@@ -1142,7 +1188,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
                               ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900"
                               : "bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-950 dark:border-slate-850 dark:text-slate-500"
                           }
-        ${isLocked
+        ${isBlocked
                             ? "cursor-not-allowed opacity-70"
                             : "cursor-pointer hover:scale-[1.03]"
                           }
@@ -1216,15 +1262,15 @@ export default function StudentData({ student, reloadStudent, }: any) {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {[
-                          { label: 'Student Identification ID', val: `STU${100 + Number(student.id)}`, icon: User },
+                          { label: 'Student Identification ID', val: `LD${student.id?.slice(-6).toUpperCase()}`, icon: User },
                           { label: 'Assigned Adviser/Counsellor', val: student.counselor?.name, icon: Briefcase },
                           { label: 'Admission Enrollment Date', val: new Date(student.createdAt).toLocaleDateString("en-IN"), icon: Calendar },
                           { label: 'Degree Track Program', val: student.preferredCourse, icon: GraduationCap },
-                          { label: 'Passport Registration ID', val: student.passportNumber, icon: FileSignature },
-                          { label: 'Admissions Mobile Number', val: student.mobileNumber, icon: Globe2 },
-                          { label: 'Registered Email Address', val: student.emailId, icon: FileText },
+                          { label: 'Passport Registration ID', val: student.passport, icon: FileSignature },
+                          { label: 'Admissions Mobile Number', val: student.phone, icon: Globe2 },
+                          { label: 'Registered Email Address', val: student.email, icon: FileText },
                           { label: 'Target Country Location', val: student.preferredCountry, icon: MapPin },
-                          { label: 'Target Intake Cycle', val: student.intake, icon: Calendar },
+                          { label: 'Target Intake Cycle', val: student.intakeSeason, icon: Calendar },
                           { label: 'XII English Score / Waiver Medium', val: student.twelfthEnglishMoi || 'MOI Waiver Letter', icon: FileCheck2 }
                         ].map((v, i) => {
                           const ItemIcon = v.icon;
@@ -1254,7 +1300,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
 
                       <DMSSection
                         studentId={student.id}
-                        studentName={student.studentName}
+                        studentName={studentName}
                         documents={student.docs || []}
                         isDarkMode={isDarkMode}
                         reloadStudent={reloadStudent}
@@ -1662,8 +1708,12 @@ export default function StudentData({ student, reloadStudent, }: any) {
                             className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-black px-6 py-2.5 rounded-xl uppercase tracking-wider shadow"
                           >
                             {isLoanLoading
-                              ? "Saving..."
-                              : "Save Loan"}
+                              ? loanId
+                                ? "Updating..."
+                                : "Saving..."
+                              : loanId
+                                ? "Update Loan"
+                                : "Save Loan"}
                           </button>
                         </div>
                       </form>
@@ -1986,24 +2036,24 @@ export default function StudentData({ student, reloadStudent, }: any) {
 
       {stageModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-3xl bg-slate-900 border border-red-500/30 p-6 shadow-2xl">
+          <div className="w-full max-w-lg rounded-3xl bg-slate-100  dark:bg-slate-900 border border-red-500/30 p-6 shadow-2xl">
             <div className="mb-4">
-              <h2 className="text-xl font-black text-red-500">
+              <h2 className="text-xl font-semibold text-[#ef4242]">
                 Compliance Confirmation
               </h2>
 
-              <p className="mt-2 text-sm text-slate-300">
+              <p className="mt-2 text-sm text-slate-500 dark:text-slate-300">
                 You are about to update the student's visa stage.
               </p>
             </div>
 
-            <div className="rounded-2xl bg-slate-950 p-4 border border-slate-800 space-y-2">
+            <div className="rounded-2xl bg-slate-100  dark:bg-slate-900 p-4 border dark:border-slate-800 space-y-2">
               <div className="flex justify-between">
                 <span className="text-slate-400">
                   Current Stage
                 </span>
 
-                <span className="font-bold text-white">
+                <span className="font-semibold">
                   {
                     STEPS.find(
                       s => s.value === student.visaStage
@@ -2017,7 +2067,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
                   New Stage
                 </span>
 
-                <span className="font-bold text-red-400">
+                <span className="font-semibold text-red-400">
                   {
                     STEPS.find(
                       s => s.value === selectedStage
@@ -2037,7 +2087,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
                 onChange={(e) =>
                   setConfirmationText(e.target.value)
                 }
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white"
+                className="mt-2 w-full rounded-xl border dark:border-slate-700 bg-slate-100  dark:bg-slate-900 px-4 py-3"
                 placeholder="CONFIRM"
               />
             </div>
@@ -2045,7 +2095,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => setStageModal(false)}
-                className="px-4 py-2 rounded-xl border border-slate-700 text-slate-300"
+                className="px-4 py-2 rounded-xl border border-slate-700 dark:text-slate-300"
               >
                 Cancel
               </button>
@@ -2105,6 +2155,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
         onClose={() => setIsAddEditOpen(false)}
         isDarkMode={isDarkMode}
         studentToEdit={student}
+        studentNames={studentName}
         onSave={handleSaveStudentPayload}
       />
     </div>

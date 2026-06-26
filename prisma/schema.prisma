@@ -241,11 +241,23 @@ model Lead {
 
   country String?
 
+  visaStage StudentVisaStage @default(APPLICATION_SUBMITTED)
+
+  passport                  String?
+  admissionDate             DateTime?
+  currentStage              Studentstage      @default(PURSUING)
+  englishWaiverType         EnglishWaiverType @default(NONE)
+  applicationType           ApplicationType   @default(BACHELOR)
+  immigrationPortalPassword String?
+  depositDeadline           DateTime?
+  casDeadline               DateTime?
+  universityStart           DateTime?
+
   branchId    String
   counselorId String?
 
   branch    Branch @relation(fields: [branchId], references: [id])
-  counselor User?   @relation(fields: [counselorId], references: [id])
+  counselor User?  @relation(fields: [counselorId], references: [id])
 
   createdById String?
   updatedById String?
@@ -257,9 +269,14 @@ model Lead {
   notes String?
 
   // Conversion
-  student    Student?
-  timelines  LeadTimeline[]
-  counselors LeadCounselor[]
+  student        Student?
+  timelines      LeadTimeline[]
+  counselors     LeadCounselor[]
+  docs           Doc[]
+  loanInquiries  LoanInquiry[]
+  remarks        Remark[]
+  studentCourses StudentCourses[]
+  visaDetail     VisaDetail[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -270,7 +287,7 @@ model Lead {
 model VisaDetail {
   id String @id @default(uuid())
 
-  studentId String @unique
+  // studentId String @unique
 
   visaType String?
 
@@ -287,7 +304,10 @@ model VisaDetail {
 
   expiryDate DateTime?
 
-  student Student @relation(fields: [studentId], references: [id])
+  // student Student @relation(fields: [studentId], references: [id])
+
+  leadId String? @unique
+  lead   Lead?   @relation(fields: [leadId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -298,7 +318,7 @@ model VisaDetail {
 model Remark {
   id String @id @default(uuid())
 
-  studentId String
+  // studentId String
 
   title   String?
   message String
@@ -307,9 +327,12 @@ model Remark {
 
   createdById String?
 
-  student Student @relation(fields: [studentId], references: [id])
+  // student Student @relation(fields: [studentId], references: [id])
 
   createdBy User? @relation(fields: [createdById], references: [id])
+
+  leadId String? @unique
+  lead   Lead?   @relation(fields: [leadId], references: [id])
 
   createdAt DateTime @default(now())
 
@@ -340,8 +363,11 @@ model Application {
 model LoanInquiry {
   id String @id @default(uuid())
 
-  studentId String
-  student   Student @relation(fields: [studentId], references: [id])
+  // studentId String
+  // student   Student @relation(fields: [studentId], references: [id])
+
+  leadId String? @unique
+  lead   Lead?   @relation(fields: [leadId], references: [id])
 
   assignee String?
   bank     String
@@ -575,30 +601,30 @@ model Student {
   emailId      String?
   dob          DateTime?
 
-  preferredCountry String?
-  preferredCourse  String?
-  intake           String?
-  status           StudentStatus    @default(active)
-  visaStage        StudentVisaStage @default(APPLICATION_SUBMITTED)
+  // preferredCountry String?
+  // preferredCourse  String?
+  // intake           String?
+  status StudentStatus @default(active)
+  // visaStage        StudentVisaStage @default(APPLICATION_SUBMITTED)
 
-  passport                  String?
-  admissionDate             DateTime?
-  currentStage              Studentstage      @default(PURSUING)
-  englishWaiverType         EnglishWaiverType @default(NONE)
-  applicationType           ApplicationType   @default(BACHELOR)
-  immigrationPortalPassword String?
-  depositDeadline           DateTime?
-  casDeadline               DateTime?
-  universityStart           DateTime?
+  // passport                  String?
+  // admissionDate             DateTime?
+  // currentStage              Studentstage      @default(PURSUING)
+  // englishWaiverType         EnglishWaiverType @default(NONE)
+  // applicationType           ApplicationType   @default(BACHELOR)
+  // immigrationPortalPassword String?
+  // depositDeadline           DateTime?
+  // casDeadline               DateTime?
+  // universityStart           DateTime?
 
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  visaDetail     VisaDetail?
-  remarks        Remark[]
-  applications   Application[]
-  loanInquiries  LoanInquiry[]
-  studentCourses StudentCourses[]
-  docs           Doc[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  // visaDetail     VisaDetail?
+  // remarks        Remark[]
+  applications Application[]
+  // loanInquiries  LoanInquiry[]
+  // studentCourses StudentCourses[]
+  // docs           Doc[]
 
   @@index([branchId])
   @@index([counselorId])
@@ -611,8 +637,11 @@ model Doc {
   address String
   type    String?
 
-  studentId String
-  student   Student @relation(fields: [studentId], references: [id])
+  // studentId String?
+  // student   Student? @relation(fields: [studentId], references: [id])
+
+  leadId String?
+  lead   Lead?   @relation(fields: [leadId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -639,8 +668,10 @@ model StudentCourses {
   applicationDate   DateTime
   applicationStatus StudentcoursesStatus @default(PENDING)
 
-  studentId String
-  student   Student @relation(fields: [studentId], references: [id])
+  // studentId String
+  // student   Student @relation(fields: [studentId], references: [id])
+  leadId String? @unique
+  lead   Lead?   @relation(fields: [leadId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -14,19 +14,30 @@ export default function Page() {
   const router = useRouter();
   const params = useParams();
   const [student, setStudent] = useState({});
+  const [loading, setLoading] = useState(true);
   const selectedStudentId = params.students as string;
 
   const studentfetch = async () => {
-    const res = await fetch(`/api/student?id=${selectedStudentId}`, {
-      method: "GET",
-    });
+    try {
+      setLoading(true);
 
-    const data = await res.json();
+      const res = await fetch(`/api/student?id=${selectedStudentId}`);
 
-    if (!res.ok) {
-      return toast.error(data.message);
+      const data = await res.json();
+
+      console.log(data, "lead data");
+
+      if (!res.ok) {
+        toast.error(data.message);
+        return;
+      }
+
+      setStudent(data.data);
+    } catch (error) {
+      toast.error("Failed to fetch student.");
+    } finally {
+      setLoading(false);
     }
-    setStudent(data.data);
   };
 
   useEffect(() => {

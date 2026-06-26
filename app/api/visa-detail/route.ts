@@ -3,9 +3,9 @@ import db from "@/lib/prisma";
 
 export async function PATCH(req: NextRequest) {
   try {
-    const studentId = req.nextUrl.searchParams.get("studentId");
+    const leadId = req.nextUrl.searchParams.get("studentId");
 
-    if (!studentId) {
+    if (!leadId) {
       return NextResponse.json(
         {
           success: false,
@@ -19,7 +19,7 @@ export async function PATCH(req: NextRequest) {
 
     const visaDetail = await db.visaDetail.upsert({
       where: {
-        studentId,
+        leadId,
       },
       update: {
         visaType: body.visaType || null,
@@ -51,7 +51,7 @@ export async function PATCH(req: NextRequest) {
           : null,
       },
       create: {
-        studentId,
+        leadId,
 
         visaType: body.visaType || null,
 

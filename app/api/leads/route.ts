@@ -4,7 +4,7 @@
  * POST /api/leads  — create a lead
  */
 
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/prisma";
 import {
   ok,
@@ -388,7 +388,7 @@ export async function POST(req: NextRequest) {
           body.branchId,
 
         counselorId:
-          body.counselorId,
+          body.counselorId || undefined,
 
         notes:
           body.notes,
@@ -411,8 +411,28 @@ export async function POST(req: NextRequest) {
       "Lead created successfully"
     );
   } catch (err: any) {
-
+    console.log(err.message);
+    
     return handleError(err);
 
   }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const sp = req.nextUrl.searchParams;
+    const id = sp.get("id") as string;
+    const deletedLead = await db.lead.delete({
+      where: {
+        id,
+      },
+    });
+
+    return NextResponse.json({ success: true, data: deletedLead }, { status: 200 })
+  } catch (error: any) {
+    console.log(error.message);
+    
+    return NextResponse.json({ success: false, error: "Failed to delete leads." }, { status: 500 });
+  }
+
 }

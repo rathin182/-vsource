@@ -42,12 +42,14 @@ export interface Counselor {
 
 export interface StudentFormData {
   id?: string;
+  firstName: string;
+  lastName:string;
   studentNumber?: string;
   counselorId?: string;
   counselor?: Counselor | null;
   studentName: string;
-  mobileNumber?: string;
-  emailId?: string;
+  phone?: string;
+  email?: string;
   dob?: string;                    // ISO date string from <input type="date">
   preferredCountry?: string;
   preferredCourse?: string;
@@ -111,7 +113,7 @@ const COUNTRIES = [
 ];
 
 const INTAKES = [
-  'Sep 2025', 'Jan 2026', 'May 2026', 'Sep 2026', 'Jan 2027', 'May 2027', 'Sep 2027',
+  'WINTER', 'FALL', 'SUMMER', 'SPRING'
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -138,6 +140,7 @@ interface AddEditModalProps {
   onClose: () => void;
   isDarkMode?: boolean;
   studentToEdit?: StudentFormData | null;
+  studentNames?: string;
   /** Called with the server-returned student on success */
   onSuccess?: (student: StudentFormData) => void;
 }
@@ -149,16 +152,19 @@ export function AddEditModal({
   onClose,
   isDarkMode = false,
   studentToEdit = null,
+  studentNames,
   onSuccess,
 }: AddEditModalProps) {
   const isEditing = Boolean(studentToEdit?.id);
 
   // ── form state ──
   const [studentName, setStudentName] = useState('');
+  const [firstName, setFirstname]= useState('');
+  const [lastName, setLastname]= useState('');
   const [counselorId, setCounselorId] = useState('');
   const [selectedCounselor, setSelectedCounselor] = useState("");
   const [preferredCountry, setPreferredCountry] = useState('United Kingdom');
-  const [intake, setIntake] = useState('Sep 2026');
+  const [intake, setIntake] = useState('');
   const [admissionDate, setAdmissionDate] = useState('');
   const [applicationType, setApplicationType] = useState<ApplicationType>('MASTER');
   const [passport, setPassport] = useState('');
@@ -199,18 +205,20 @@ export function AddEditModal({
     setError(null);
     setSuccess(false);
     fetchCounsellor();
+    console.log((studentToEdit), 'studentToEdit');
     
     if (studentToEdit) {
-      setStudentName(studentToEdit.studentName ?? '');
+      setFirstname(studentToEdit.firstName ?? '');
+      setLastname(studentToEdit.lastName ?? '');
       setCounselorId(studentToEdit.counselorId ?? '');
       setSelectedCounselor(studentToEdit.counselor?.id ?? '');
       setPreferredCountry(studentToEdit.preferredCountry ?? 'United Kingdom');
-      setIntake(studentToEdit.intake ?? 'Sep 2026');
+      setIntake(studentToEdit.intakeSeason ?? 'Sep 2026');
       setAdmissionDate(toInputDate(studentToEdit.admissionDate));
       setApplicationType(studentToEdit.applicationType ?? 'MASTER');
       setPassport(studentToEdit.passport ?? '');
-      setMobileNumber(studentToEdit.mobileNumber ?? '');
-      setEmailId(studentToEdit.emailId ?? '');
+      setMobileNumber(studentToEdit.phone ?? '');
+      setEmailId(studentToEdit.email ?? '');
       setDob(toInputDate(studentToEdit.dob));
       setPreferredCourse(studentToEdit.preferredCourse ?? '');
       setImmigrationPortalPassword(studentToEdit.immigrationPortalPassword ?? '');
@@ -247,9 +255,11 @@ export function AddEditModal({
   // ── submit ──
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!studentName.trim()) return;
+    // if (!studentName.trim()) return;
 
     const payload: Partial<StudentFormData> = {
+      firstName,
+      lastName,
       studentName,
       counselorId: selectedCounselor || undefined,
       preferredCountry,
@@ -257,8 +267,8 @@ export function AddEditModal({
       admissionDate: admissionDate || undefined,
       applicationType,
       passport: passport || undefined,
-      mobileNumber: mobileNumber || undefined,
-      emailId: emailId || undefined,
+      phone: mobileNumber || undefined,
+      email: emailId || undefined,
       dob: dob || undefined,
       preferredCourse: preferredCourse || undefined,
       immigrationPortalPassword: immigrationPortalPassword || undefined,
@@ -373,18 +383,34 @@ export function AddEditModal({
                 <p className={sectionLabel}>Basic Information</p>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
+                  <div className='col-span-2 flex items-center justify-between'>
+                    <div className="col-span-2">
                     <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">
-                      Student Full Name <span className="text-red-500">*</span>
+                      First Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      value={studentName}
-                      onChange={e => setStudentName(e.target.value)}
+                      value={firstName}
+                      onChange={e => setFirstname(e.target.value)}
                       placeholder="Legal name as on passport"
                       className={input}
                       required
                     />
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">
+                      Last Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={lastName}
+                      onChange={e => setLastname(e.target.value)}
+                      placeholder="Legal name as on passport"
+                      className={input}
+                      required
+                    />
+                  </div>
                   </div>
 
                   <div>

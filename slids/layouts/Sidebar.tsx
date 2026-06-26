@@ -56,7 +56,7 @@ const items = [
   },
   {
     to: "/students",
-    label: "Students",
+    label: "Visa",
     icon: GraduationCap,
     roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN"],
   },

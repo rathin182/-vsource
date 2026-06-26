@@ -6,13 +6,13 @@ import { verifyToken } from "@/lib/jwt";
 
 export async function POST(req: NextRequest) {
   try {
-    const studentId= req.nextUrl.searchParams.get("id") as string;
+    const leadId= req.nextUrl.searchParams.get("id") as string;
     const token: string | undefined = (await cookies()).get("access_token")?.value;
     if (!token) throw new Error("Unauthorized");
     const payload = verifyToken(token) as any;
     const userId = payload.id;
 
-    if (!studentId && !userId) {
+    if (!leadId && !userId) {
       return NextResponse.json(
         {
           success: false,
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     const remark = await db.remark.create({
       data: {
-        studentId,
+        leadId,
 
         title: title || null,
 

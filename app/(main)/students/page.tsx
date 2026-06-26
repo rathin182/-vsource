@@ -49,6 +49,7 @@ export default function StudentsPage() {
         },
       });
       const data = await response.json();
+console.log(data,"visa data");
 
       setList(data.data || []);
     } catch (error) {
@@ -113,11 +114,7 @@ export default function StudentsPage() {
     }
   };
 
-  const filtered = list.filter((s: any) =>
-    s.studentName
-      ?.toLowerCase()
-      .includes(q.toLowerCase())
-  );
+  const filtered = list;
 
   // const add = () => {
   //   if (!form.name || !form.email) return toast.error("Name and email are required");
@@ -135,7 +132,7 @@ export default function StudentsPage() {
   return (
     <PageTransition>
       <PageHeader
-        title="Students"
+        title="Visa"
         description="Complete profile management with academic & visa history."
         actions={<>
           <Button variant="outline" size="sm"><Filter className="size-4 mr-1.5" /> Filter</Button>
@@ -217,7 +214,7 @@ export default function StudentsPage() {
               <div className="flex items-start gap-3">
                 <Avatar className="size-12">
                   <AvatarFallback className="bg-[image:var(--gradient-primary)] text-white font-semibold">
-                    {(s.studentName || "NA")
+                    {(s.firstName || "NA")
                       .split(" ")
                       .map((p: string) => p[0])
                       .join("")
@@ -227,11 +224,11 @@ export default function StudentsPage() {
 
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold truncate">
-                    {s.studentName}
+                    {s.firstName} {s.lastName}
                   </div>
 
                   <div className="text-xs text-muted-foreground truncate">
-                    {s.studentNumber}
+                    {s.admissionDate || "N/A"}
                   </div>
                 </div>
 
@@ -239,7 +236,7 @@ export default function StudentsPage() {
                   variant="outline"
                   className="text-[10px] capitalize"
                 >
-                  {s.status}
+                  {s.status || "N/A"}
                 </Badge>
               </div>
 
@@ -251,12 +248,12 @@ export default function StudentsPage() {
 
                 <div className="flex items-center gap-2">
                   <Mail className="size-3.5" />
-                  {s.emailId || "No Email"}
+                  {s.email || "No Email"}
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Phone className="size-3.5" />
-                  {s.mobileNumber || "No Phone"}
+                  {s.phone || "No Phone"}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -282,7 +279,7 @@ export default function StudentsPage() {
               </div>
 
               <div className="mt-4 border-t pt-3 text-[11px] text-muted-foreground">
-                Lead No: {s.lead?.leadNumber || "N/A"}
+                Lead No: {s.id ? s.id.slice(-6).toUpperCase() : "N/A"}
               </div>
             </CardContent>
           </Card>
@@ -306,9 +303,9 @@ export default function StudentsPage() {
                   </Avatar>
 
                   <div className="flex-1">
-                    <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-2">
                       <SheetTitle>
-                        {sel.studentName}
+                        {sel.firstName} {sel.lastName}
                       </SheetTitle>
 
                       <Button
@@ -322,8 +319,8 @@ export default function StudentsPage() {
                       </Button>
                     </div>
 
-                    <SheetDescription>
-                      {sel.studentNumber} ·{" "}
+                    <SheetDescription className="">
+                      {sel.admissionDate || "N/A"} ·{" "}
                       {sel.preferredCountry || "N/A"} ·{" "}
                       {sel.status}
                     </SheetDescription>
@@ -375,7 +372,7 @@ export default function StudentsPage() {
 
                         <div className="flex items-center gap-1.5 mt-1">
                           <Mail className="size-3.5" />
-                          {sel.emailId || "N/A"}
+                          {sel.email || "N/A"}
                         </div>
                       </div>
 
@@ -386,7 +383,7 @@ export default function StudentsPage() {
 
                         <div className="flex items-center gap-1.5 mt-1">
                           <Phone className="size-3.5" />
-                          {sel.mobileNumber || "N/A"}
+                          {sel.phone || "N/A"}
                         </div>
                       </div>
 
@@ -450,7 +447,7 @@ export default function StudentsPage() {
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center rounded-lg border border-border p-3 text-sm">
+                    {/* <div className="flex justify-between items-center rounded-lg border border-border p-3 text-sm">
                       <span className="text-muted-foreground flex items-center gap-2">
                         <Award className="size-4" />
                         Student Number
@@ -459,7 +456,7 @@ export default function StudentsPage() {
                       <span className="font-medium">
                         {sel.studentNumber}
                       </span>
-                    </div>
+                    </div> */}
                   </TabsContent>
 
                   <TabsContent
@@ -472,7 +469,7 @@ export default function StudentsPage() {
                       </div>
 
                       <div className="font-medium mt-1">
-                        {sel.lead?.leadNumber}
+                        {sel.id ? sel.id.slice(-6).toUpperCase() : "N/A"}
                       </div>
                     </div>
 
@@ -482,7 +479,7 @@ export default function StudentsPage() {
                       </div>
 
                       <div className="font-medium mt-1">
-                        {sel.lead?.source}
+                        {sel.createdBy?.name || "N/A"}
                       </div>
                     </div>
                   </TabsContent>

@@ -44,7 +44,7 @@ const leadFormSchema = z.object({
   budget: z.string().min(1, "Budget is required"),
   leadSource: z.string().min(1, "Lead source is required"),
   branch: z.string().min(1, "Branch is required"),
-  assignedCounselor: z.string().min(1, "Assigned counselor is required"),
+  assignedCounselor: z.string().optional(),
   leadStatus: z.string().min(1, "Lead status is required"),
   referralSource: z.string().optional(),
   notes: z.string().optional(),
@@ -608,6 +608,7 @@ export default function AddLeadPage() {
             className="w-full sm:w-auto"
             onClick={handleSubmit(
               (values) => onSubmit(values, true),
+              (errors) => console.log(errors),
             )}
             disabled={isSubmitting}
           >

@@ -65,103 +65,50 @@ export default function AllLeadsPage() {
   const [counselor, setCounselor] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const [selectedLeadId, setSelectedLeadId] = useState("");
+  const [deleteing, setDeleting] = useState(false)
   const statuses = leadStatuses;
 
   const fetchLeads = async () => {
-  try {
-    setIsLoading(true);
+    try {
+      setIsLoading(true);
 
-    const params = new URLSearchParams();
+      const params = new URLSearchParams();
 
-    params.append("page", page.toString());
-    params.append("limit", "10");
+      params.append("page", page.toString());
+      params.append("limit", "10");
 
-    if (query.trim()) {
-      params.append("search", query);
-    }
+      const response = await fetch(`/api/leads/allleads`, { credentials: "include", });
 
-    if (status !== "all") {
-      params.append("status", status);
-    }
-
-    if (branch !== "all") {
-      params.append("branchId", branch);
-    }
-
-    if (source !== "all") {
-      params.append("source", source);
-    }
-
-    if (country !== "all") {
-      params.append(
-        "preferredCountry",
-        country
-      );
-    }
-
-    if (leadStage !== "all") {
-      params.append(
-        "leadStage",
-        leadStage
-      );
-    }
-
-    if (counselor !== "all") {
-      params.append(
-        "counselorId",
-        counselor
-      );
-    }
-
-    if (fromDate) {
-      params.append(
-        "from",
-        fromDate
-      );
-    }
-
-    if (toDate) {
-      params.append(
-        "to",
-        toDate
-      );
-    }
-
-    const response = await fetch(
-      `/api/leads?${params.toString()}`,
-      {
-        credentials: "include",
+      if (!response.ok) {
+        throw new Error(
+          "Failed to fetch leads"
+        );
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(
-        "Failed to fetch leads"
+      const result = await response.json();
+console.log(result);
+
+      setLeads(result.data);
+
+      // setTotalPages(
+      //   result.meta?.totalPages ??
+      //     Math.ceil(
+      //       result.meta.total /
+      //         result.meta.limit
+      //     )
+      // );
+    } catch (error) {
+      console.error(error);
+
+      toast.error(
+        "Failed to load leads"
       );
+    } finally {
+      setIsLoading(false);
     }
-
-    const result =
-      await response.json();
-
-    setLeads(result.data);
-
-    setTotalPages(
-      result.meta?.totalPages ??
-        Math.ceil(
-          result.meta.total /
-            result.meta.limit
-        )
-    );
-  } catch (error) {
-    console.error(error);
-
-    toast.error(
-      "Failed to load leads"
-    );
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
   const fetchBranches = async () => {
     try {
       setIsLoading(true);
@@ -224,17 +171,24 @@ export default function AllLeadsPage() {
 
         const matchQuery =
           !queryValue ||
-          item.studentName
+          item.firstName
             ?.toLowerCase()
             .includes(queryValue) ||
-          item.emailId
+            item.lastName
             ?.toLowerCase()
             .includes(queryValue) ||
-          item.mobileNumber
+          item.email
+            ?.toLowerCase()
+            .includes(queryValue) ||
+          item.phone
             ?.includes(queryValue) ||
-          item.leadNumber
+          item.preferredCountry
             ?.toLowerCase()
             .includes(queryValue);
+            item.preferredCourse
+            ?.includes(queryValue) ||
+            item.intakeSeason
+            ?.includes(queryValue)
 
         const matchStatus =
           status === "all" ||
@@ -273,9 +227,54 @@ export default function AllLeadsPage() {
   const uniqueBranches = Array.from(new Set(seedLeads.map((item) => item.branch)));
   const uniqueSources = Array.from(new Set(seedLeads.map((item) => item.source)));
 
-  const removeLead = (id: string) => {
-    setLeads((current) => current.filter((item) => item.id !== id));
-    toast.success("Lead deleted");
+  const removeLead = async () => {
+    try {
+      if (!selectedLeadId) {
+        toast.error("Could not found Lead Id");
+      }
+      setDeleting(true)
+      console.log(selectedLeadId, "leadIddd");
+
+      const res = await fetch(
+        `/api/leads?id=${selectedLeadId.toString()}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type":
+              "application/json",
+          }
+        }
+      );
+
+      const data = await res.json();
+    } catch (error) {
+      toast.error("Failed to Delete Lead");
+    } finally {
+      setDeleting(false)
+      setShowDeletePopup(false);
+      fetchLeads();
+    }
+  };
+
+  const openDeletePopup = (id: any) => {
+    console.log(id, "leadid");
+
+    setSelectedLeadId(id);
+    setShowDeletePopup(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedLeadId) return;
+
+    await removeLead(selectedLeadId);
+
+    setShowDeletePopup(false);
+    setSelectedLeadId(null);
+  };
+
+  const cancelDelete = () => {
+    setShowDeletePopup(false);
+    setSelectedLeadId(null);
   };
 
   return (
@@ -554,12 +553,12 @@ export default function AllLeadsPage() {
                 className="border-b border-border hover:bg-secondary/40"
               >
                 {/* ID */}
-                <td className="px-4 py-4 font-medium">
+                <td className="px-4 py-4 font-medium text-sm">
                   {lead.id.slice(0, 8)}
                 </td>
 
                 {/* Name */}
-                <td className="px-4 py-4">
+                <td className="px-4 py-4 text-md">
                   <div className="flex items-center gap-3">
                     <Avatar className="size-8">
                       <AvatarFallback>
@@ -581,37 +580,37 @@ export default function AllLeadsPage() {
                 </td>
 
                 {/* Phone */}
-                <td className="px-4 py-4">
-                  {lead.phone}
+                <td className="px-4 py-4 text-sm">
+                  {lead.phone ?? "—"}
                 </td>
 
                 {/* Email */}
-                <td className="px-4 py-4 hidden lg:table-cell text-muted-foreground">
-                  {lead.email}
+                <td className="px-4 py-4 hidden lg:table-cell text-muted-foreground text-sm">
+                  {lead.email ?? "—"}
                 </td>
 
                 {/* Source */}
-                <td className="px-4 py-4">
-                  {lead.source}
+                <td className="px-4 py-4 text-sm">
+                  {lead.source ?? "—"}
                 </td>
 
                 {/* Branch */}
-                <td className="px-4 py-4 hidden lg:table-cell">
+                <td className="px-4 py-4 hidden lg:table-cell text-sm">
                   {lead.branch?.name ?? "—"}
                 </td>
 
                 {/* Counselor */}
-                <td className="px-4 py-4 hidden xl:table-cell">
+                <td className="px-4 py-4 hidden xl:table-cell text-sm">
                   {lead.counselor?.name ?? "Unassigned"}
                 </td>
 
                 {/* Preferred Country */}
-                <td className="px-4 py-4">
+                <td className="px-4 py-4 text-sm">
                   {lead.preferredCountry ?? "—"}
                 </td>
 
                 {/* Status */}
-                <td className="px-4 py-4">
+                <td className="px-4 py-4 text-sm">
                   <Badge
                     variant="outline"
                     className={`capitalize ${statusStyle[
@@ -619,19 +618,19 @@ export default function AllLeadsPage() {
                     ]
                       }`}
                   >
-                    {lead.status}
+                    {lead.status ?? "—"}
                   </Badge>
                 </td>
 
                 {/* Created Date */}
-                <td className="px-4 py-4 hidden xl:table-cell">
+                <td className="px-4 py-4 hidden xl:table-cell text-sm">
                   {new Date(
                     lead.createdAt
                   ).toLocaleDateString()}
                 </td>
 
                 {/* Student Conversion */}
-                <td className="px-4 py-4 hidden xl:table-cell">
+                <td className="px-4 py-4 hidden xl:table-cell text-sm">
                   {lead.student ? (
                     <Badge>
                       Converted
@@ -658,9 +657,7 @@ export default function AllLeadsPage() {
                     size="icon"
                     variant="ghost"
                     className="size-8 text-destructive"
-                    onClick={() =>
-                      removeLead(lead.id)
-                    }
+                    onClick={() => openDeletePopup(lead.id)}
                   >
                     <Trash2 className="size-4" />
                   </Button>
@@ -697,6 +694,34 @@ export default function AllLeadsPage() {
           </Button>
         </div>
       </div>
+
+      {showDeletePopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-[400px] rounded-lg bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold">
+              Delete Lead
+            </h2>
+
+            <p className="mt-2 text-sm text-gray-600">
+              Are you sure you want to delete this lead? This action cannot be undone.
+            </p>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={cancelDelete}>
+                Cancel
+              </Button>
+
+              <Button
+                variant="destructive"
+                disabled={deleteing}
+                onClick={() => { removeLead(); }}
+              >
+                {deleteing ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Sheet
         open={!!selected}

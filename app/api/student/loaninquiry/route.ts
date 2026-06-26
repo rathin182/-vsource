@@ -4,9 +4,9 @@ import { LoanStatus } from "@/lib/generated/prisma/client";
 
 export async function POST(req: NextRequest) {
     try {
-        const studentId = req.nextUrl.searchParams.get("id");
+        const leadId = req.nextUrl.searchParams.get("id");
 
-        if (!studentId) {
+        if (!leadId) {
             return NextResponse.json(
                 {
                     success: false,
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
         const loan = await db.loanInquiry.create({
             data: {
-                studentId,
+                leadId,
                 bank,
                 amount,
                 assignee,
@@ -71,4 +71,93 @@ export async function POST(req: NextRequest) {
             }
         );
     }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const loanId = req.nextUrl.searchParams.get("id");
+
+    if (!loanId) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Loan ID is required.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const body = await req.json();
+
+    const {
+      bank,
+      amount,
+      emi,
+      status,
+      assignee,
+    } = body;
+
+    if (!bank || !amount || !emi) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "All fields are required.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const existingLoan = await db.loanInquiry.findUnique({
+      where: {
+        id: loanId,
+      },
+    });
+
+    if (!existingLoan) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Loan inquiry not found.",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const updatedLoan = await db.loanInquiry.update({
+      where: {
+        id: loanId,
+      },
+      data: {
+        bank,
+        amount,
+        emi,
+        assignee,
+        status: (status || "PENDING").toUpperCase() as LoanStatus,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: updatedLoan,
+      message: "Loan inquiry updated successfully.",
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to update loan inquiry.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }

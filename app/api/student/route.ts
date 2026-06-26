@@ -1,102 +1,78 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/prisma";
 import {
-  StudentStatus,
-  Studentstage,
-  StudentVisaStage,
-  EnglishWaiverType,
-  Application,
+    StudentStatus,
+    Studentstage,
+    StudentVisaStage,
+    EnglishWaiverType,
+    Application,
+    IntakeSeason,
+  LeadStatus,
 } from "@/lib/generated/prisma/client";
+import { cookies } from "next/headers";
+import { verifyToken } from "@/lib/jwt";
 
 
 
 export async function GET(req: NextRequest) {
     try {
-        const studentId =
-            req.nextUrl.searchParams.get("id");
+        const token = (await cookies()).get("access_token")?.value;
 
-        const few = req.nextUrl.searchParams.get("few")
-        if (few) {
-            const students = await db.student.findMany({
-                select: {
-                    id: true,
-                    studentName: true,
-                    studentNumber: true,
-                    emailId: true,
-                }
-            })
-        return NextResponse.json({
-                success: true,
-                data: students,
-            });
+        if (!token) {
+            return NextResponse.json(
+                { success: false, message: "Unauthorized" },
+                { status: 401 }
+            );
         }
-        if (studentId) {
-            const student =
-                await db.student.findUnique({
-                    where: {
-                        id: studentId,
+
+        const payload = await verifyToken(token);
+
+        if (!payload) {
+            return NextResponse.json(
+                { success: false, message: "Unauthorized" },
+                { status: 401 }
+            );
+        }
+
+        const role = payload.role.toUpperCase();
+        const leadId = req.nextUrl.searchParams.get("id");
+
+        // ======================================================
+        // 1. IF ID IS PROVIDED -> RETURN THAT LEAD ONLY
+        // ======================================================
+
+        if (leadId) {
+            const lead = await db.lead.findUnique({
+                where: {
+                    id: leadId,
+                },
+                include: {
+                    branch: true,
+                    counselor: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true
+                        }
                     },
-                    include: {
-                        branch: {
-                            select: {
-                                id: true,
-                                name: true,
-                                code: true,
-                            },
-                        },
 
-                        counselor: {
-                            select: {
-                                id: true,
-                                name: true,
-                                email: true,
-                            },
-                        },
+                    createdBy: true,
+                    updatedBy: true,
+                    student: true,
+                    timelines: true,
+                    remarks: true,
+                    docs: true,
+                    loanInquiries: true,
+                    visaDetail: true,
+                    studentCourses:true,
+                },
+            });
 
-                        lead: {
-                            select: {
-                                id: true,
-                                firstName: true,
-                                lastName: true,
-                                email: true,
-                                phone: true,
-                                preferredCountry: true,
-                                preferredCourse: true,
-                                status: true,
-                                source: true,
-                            },
-                        },
-                        remarks: true,
-                        docs: true,
-                        loanInquiries: true,
-
-                        studentCourses: {
-                            select: {
-                                id: true,
-                                universityName: true,
-                                courseName: true,
-                                immigrationPortal: true,
-                                applicationDate: true,
-                                applicationStatus: true,
-                                studentId: true,
-                                createdAt: true,
-                                updatedAt: true,
-                            },
-                        },
-
-                        _count: {
-                            select: {
-                                timeline: true,
-                            },
-                        },
-                    },
-                });
-
-            if (!student) {
+            if (!lead) {
                 return NextResponse.json(
                     {
                         success: false,
-                        message: "Student not found",
+                        message: "Lead not found",
                     },
                     {
                         status: 404,
@@ -106,70 +82,66 @@ export async function GET(req: NextRequest) {
 
             return NextResponse.json({
                 success: true,
-                data: student,
+                data: lead,
             });
         }
 
-        const students = await db.student.findMany({
+        // ======================================================
+        // 2. COUNSELOR -> ONLY HIS LEADS
+        // ======================================================
+
+        if (role === "COUNSELLOR") {
+            const leads = await db.lead.findMany({
+                where: {
+                    counselorId: payload.id,
+                },
+                orderBy: {
+                    createdAt: "desc",
+                },
+                include: {
+                    branch: true,
+                    counselor: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true
+                        }
+                    }
+                },
+            });
+
+            return NextResponse.json({
+                success: true,
+                data: leads,
+            });
+        }
+
+        // ======================================================
+        // 3. ADMIN/SUPERADMIN -> ALL LEADS
+        // ======================================================
+
+        const leads = await db.lead.findMany({
             orderBy: {
                 createdAt: "desc",
             },
             include: {
-                branch: {
-                    select: {
-                        id: true,
-                        name: true,
-                        code: true,
-                    },
-                },
-
+                branch: true,
                 counselor: {
                     select: {
                         id: true,
                         name: true,
-                        email: true,
-                    },
-                },
-
-                lead: {
-                    select: {
-                        id: true,
-                        firstName: true,
-                        lastName: true,
-                        email: true,
-                        phone: true,
-                        preferredCountry: true,
-                        preferredCourse: true,
-                        status: true,
-                        source: true,
-                    },
-                },
-
-                studentCourses: {
-                    select: {
-                        id: true,
-                        universityName: true,
-                        courseName: true,
-                        immigrationPortal: true,
-                        applicationDate: true,
-                        applicationStatus: true,
-                        studentId: true,
-                        createdAt: true,
-                        updatedAt: true,
-                    },
-                },
-
-                _count: {
-                    select: {
-                        timeline: true,
-                    },
+                        email: true
+                    }
                 },
             },
         });
 
+        console.log(leads, "leadss");
+
+
         return NextResponse.json({
             success: true,
-            data: students,
+            data: leads,
         });
     } catch (error) {
         console.error(error);
@@ -234,174 +206,163 @@ export async function POST(req: Request) {
 export async function PATCH(req: NextRequest) {
   try {
     const id = req.nextUrl.searchParams.get("id");
+
     if (!id) {
       return NextResponse.json(
-        { success: false, message: "Student ID is required." },
-        { status: 400 }
+        {
+          success: false,
+          message: "Lead ID is required.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
     const body = await req.json();
 
-    // ── Helper: parse a date string or return null (never throw) ──────────────
-    const toDate = (val: unknown): Date | null => {
-      if (!val || val === "undefined" || val === "null") return null;
-      const d = new Date(val as string);
-      return isNaN(d.getTime()) ? null : d;
+    const toDate = (value: unknown): Date | null => {
+      if (!value) return null;
+
+      const date = new Date(value as string);
+
+      return isNaN(date.getTime()) ? null : date;
     };
 
-    // ── Helper: validate enum value or return undefined (skip the field) ──────
-    function validEnum<T extends string>(
-      value: unknown,
-      allowed: readonly T[]
-    ): T | undefined {
-      return allowed.includes(value as T) ? (value as T) : undefined;
-    }
-
-    const STATUS_VALUES = [
-      "active",
-      "visa_process",
-      "loan_process",
-      "admitted",
-      "enrolled",
-      "completed",
-      "dropped",
-    ] as const;
-
-    const VISA_STAGE_VALUES = [
-      "LEAD_CREATED",
-      "APPLICATION_SUBMITTED",
-      "OFFER_RECEIVED",
-      "DEPOSIT_PAID",
-      "INTERVIEW_COMPLETED",
-      "CAS_RECEIVED",
-      "VISA_APPLIED",
-      "VISA_APPROVED",
-    ] as const;
-
-    const ENGLISH_WAIVER_VALUES = [
-      "NONE",
-      "CLASS_12_ENGLISH",
-      "MOI",
-    ] as const;
-
-    const APPLICATION_TYPE_VALUES = [
-      "BACHELOR",
-      "MASTER",
-      "PHD",
-    ] as const;
-
-    const CURRENT_STAGE_VALUES = ["GRADUATE", "PURSUING"] as const;
-
-    // ── Build update payload — only include fields present in body ────────────
-    // Using `any` typed partial so Prisma doesn't complain about missing required
-    // fields (studentName is the only required String — we guard it below).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: Record<string, any> = {};
 
-    // studentName — required in schema but optional in PATCH
-    if (typeof body.studentName === "string" && body.studentName.trim()) {
-      data.studentName = body.studentName.trim();
-    }
+    // Personal
+    if ("firstName" in body) data.firstName = body.firstName?.trim();
+    if ("lastName" in body) data.lastName = body.lastName || null;
 
-    // counselor relation
-    if (typeof body.counselorId === "string" && body.counselorId.trim()) {
-      data.counselor = { connect: { id: body.counselorId.trim() } };
-    } else if (body.counselorId === null || body.counselorId === "") {
-      data.counselor = { disconnect: true };
-    }
-    // if counselorId is undefined → omit entirely (no change)
+    if ("phone" in body) data.phone = body.phone || null;
+    if ("email" in body) data.email = body.email || null;
 
-    // Nullable strings — include only when key exists in body
-    const nullableStrings = [
-      "preferredCountry",
-      "preferredCourse",
-      "intake",
-      "mobileNumber",
-      "emailId",
-      "passport",
-      "immigrationPortalPassword",
-    ] as const;
+    if ("passport" in body) data.passport = body.passport || null;
 
-    for (const key of nullableStrings) {
-      if (key in body) {
-        const val = body[key];
-        data[key] =
-          val === undefined || val === null || val === "" || val === "undefined"
-            ? null
-            : String(val).trim();
+    // Relations
+    if ("counselorId" in body) {
+      if (body.counselorId) {
+        data.counselor = {
+          connect: {
+            id: body.counselorId,
+          },
+        };
+      } else {
+        data.counselor = {
+          disconnect: true,
+        };
       }
     }
 
-    // DateTime fields
-    const dateFields = [
-      "dob",
-      "admissionDate",
-      "depositDeadline",
-      "casDeadline",
-      "universityStart",
-    ] as const;
+    // Study Preferences
+    if ("preferredCountry" in body)
+      data.preferredCountry = body.preferredCountry || null;
 
-    for (const key of dateFields) {
-      if (key in body) {
-        data[key] = toDate(body[key]);
-      }
+    if ("preferredCourse" in body)
+      data.preferredCourse = body.preferredCourse || null;
+
+    if ("intake" in body) {
+      data.intakeSeason = body.intake
+        ? body.intake.toUpperCase() as IntakeSeason
+        : null;
     }
 
-    // Enum fields — skip if value is missing/invalid so Prisma doesn't throw
-    const statusVal = validEnum(body.status, STATUS_VALUES);
-    if (statusVal !== undefined) data.status = statusVal as StudentStatus;
+    // Dates
+    if ("dob" in body) data.dob = toDate(body.dob);
 
-    const visaStageVal = validEnum(body.visaStage, VISA_STAGE_VALUES);
-    if (visaStageVal !== undefined) data.visaStage = visaStageVal as StudentVisaStage;
+    if ("admissionDate" in body)
+      data.admissionDate = toDate(body.admissionDate);
 
-    const englishWaiverVal = validEnum(body.englishWaiverType, ENGLISH_WAIVER_VALUES);
-    if (englishWaiverVal !== undefined) data.englishWaiverType = englishWaiverVal as EnglishWaiverType;
+    if ("depositDeadline" in body)
+      data.depositDeadline = toDate(body.depositDeadline);
 
-    const applicationTypeVal = validEnum(body.applicationType, APPLICATION_TYPE_VALUES);
-    if (applicationTypeVal !== undefined) data.applicationType = applicationTypeVal;
+    if ("casDeadline" in body)
+      data.casDeadline = toDate(body.casDeadline);
 
-    const currentStageVal = validEnum(body.currentStage, CURRENT_STAGE_VALUES);
-    if (currentStageVal !== undefined) data.currentStage = currentStageVal as Studentstage;
+    if ("universityStart" in body)
+      data.universityStart = toDate(body.universityStart);
 
-    // ── Nothing to update? ────────────────────────────────────────────────────
+    // Enums
+    if ("status" in body && body.status) {
+      data.status = body.status as LeadStatus;
+    }
+
+    if ("visaStage" in body && body.visaStage) {
+      data.visaStage = body.visaStage as StudentVisaStage;
+    }
+
+    if ("applicationType" in body && body.applicationType) {
+      data.applicationType =
+        body.applicationType as Application;
+    }
+
+    if ("englishWaiverType" in body && body.englishWaiverType) {
+      data.englishWaiverType =
+        body.englishWaiverType as EnglishWaiverType;
+    }
+
+    if ("currentStage" in body && body.currentStage) {
+      data.currentStage =
+        body.currentStage as Studentstage;
+    }
+
+    if ("immigrationPortalPassword" in body) {
+      data.immigrationPortalPassword =
+        body.immigrationPortalPassword || null;
+    }
+
     if (Object.keys(data).length === 0) {
       return NextResponse.json(
-        { success: false, message: "No valid fields provided to update." },
-        { status: 400 }
+        {
+          success: false,
+          message: "No fields provided to update.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    // ── Perform update ────────────────────────────────────────────────────────
-    const student = await db.student.update({
-      where: { id },
+    const lead = await db.lead.update({
+      where: {
+        id,
+      },
       data,
+      include: {
+        branch: true,
+        counselor: true,
+      },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Student updated successfully.",
-      data: student,
+      message: "Lead updated successfully.",
+      data: lead,
     });
-  } catch (error: unknown) {
-    console.error("Student update error:", error);
+  } catch (error: any) {
+    console.error(error);
 
-    // Prisma P2025 = record not found
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { code: string }).code === "P2025"
-    ) {
+    if (error.code === "P2025") {
       return NextResponse.json(
-        { success: false, message: "Student not found." },
-        { status: 404 }
+        {
+          success: false,
+          message: "Lead not found.",
+        },
+        {
+          status: 404,
+        }
       );
     }
 
     return NextResponse.json(
-      { success: false, message: "Failed to update student." },
-      { status: 500 }
+      {
+        success: false,
+        message: "Failed to update lead.",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }

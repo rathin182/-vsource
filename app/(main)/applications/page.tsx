@@ -28,6 +28,9 @@ export default function ApplicationsPage() {
   const [filter, setFilter] = useState("today");
   const empty = { studentName: "", university: "", program: "MS Computer Science", intake: "Fall 2026", counselor: "Aditi Rao" };
   const [form, setForm] = useState(empty);
+  const [role, setRole] = useState("");
+  const [counselors, setCounselors] = useState<any[]>([]);
+  const [selectedCounselor, setSelectedCounselor] = useState("");
 
   const me = async () => {
     try {
@@ -36,13 +39,21 @@ export default function ApplicationsPage() {
       );
 
       const user = await response.json();
-      const role = user?.role?.id
+      const role = user?.role?.name.toUpperCase()
+      let id = user?.id
+      setRole(role)
       const leadRes = await fetch(
-        `/api/leads/leadsforcounsoler?counselorId=${role}`
+        `/api/leads/leadsforcounsoler?role=${role}&counselorId=${id}`
       );
-
+      if (!leadRes.ok) {
+        toast.error("something went wrong");
+        return;
+      }
 
       const leadData = await leadRes.json();
+      console.log(leadData, "leadData");
+
+
 
       // const formatted = leadData.data.map((lead: any) => ({
       //   id: lead.id,
@@ -58,6 +69,7 @@ export default function ApplicationsPage() {
       //   counselor:
       //     lead.counselor?.name ?? "N/A",
       // }));
+console.log(leadData.data, "leadd");
 
       const formatted = leadData.data.map((lead: any) => ({
         id: lead.id,
@@ -71,7 +83,7 @@ export default function ApplicationsPage() {
         intake:
           lead.intakeSeason ?? "N/A",
         counselor:
-          lead.counselor?.name ?? "N/A",
+          lead.counselor?.id ?? "N/A",
         createdAt: lead.createdAt,
       }));
       setApps(formatted || []);
@@ -82,8 +94,6 @@ export default function ApplicationsPage() {
       );
     }
   };
-
-
 
   const moveTo = async (
     id: string,
@@ -115,16 +125,44 @@ export default function ApplicationsPage() {
     }
   };
 
+  const fetchCounsellor = async () => {
+    try {
+      const res = await fetch(`/api/users/counsellor`);
+      if (!res.ok) {
+        toast.error("Counsellor not found");
+      }
+      const data = await res.json();
+      setCounselors(data.data || []);
+    } catch (error: any) {
+      toast.error("Failed to load counselors");
+    }
+  }
+
+  useEffect(() => {
+    console.log("calleddddd");
+
+    fetchCounsellor()
+  }, [role === "ADMIN" || role === "SUPER ADMIN"]);
+
   const add = () => {
     if (!form.studentName || !form.university) return toast.error("Student and university required");
-    setApps([{ id: `AP${Date.now()}`, ...form, stage: "inquiry", updatedAt: new Date().toISOString() }, ...apps]);
+    // setApps([{ id: `AP${Date.now()}`, ...form, stage: "inquiry", updatedAt: new Date().toISOString() }, ...apps]);
     setOpen(false); setForm(empty);
     toast.success("Application created");
   };
 
   const filteredApps = apps.filter((app) => {
-    const created = new Date(app.createdAt);
+    console.log(selectedCounselor, "selectedCounselor", app.counselor);
+    
+    // Filter by counselor first
+    if (
+      selectedCounselor &&
+      app.counselor !== selectedCounselor
+    ) {
+      return false;
+    }
 
+    const created = new Date(app.createdAt);
     const today = new Date();
 
     if (filter === "today") {
@@ -135,22 +173,17 @@ export default function ApplicationsPage() {
 
     if (filter === "yesterday") {
       const yesterday = new Date();
-
-      yesterday.setDate(
-        yesterday.getDate() - 1
-      );
+      yesterday.setDate(yesterday.getDate() - 1);
 
       return (
-        created.toDateString() === yesterday.toDateString()
+        created.toDateString() ===
+        yesterday.toDateString()
       );
     }
 
     if (filter === "7days") {
       const last7 = new Date();
-
-      last7.setDate(
-        last7.getDate() - 7
-      );
+      last7.setDate(last7.getDate() - 7);
 
       return created >= last7;
     }
@@ -211,6 +244,30 @@ export default function ApplicationsPage() {
           </div>
         }
       />
+      {
+        (role === "ADMIN" || role === "SUPER ADMIN") && (
+          <div className="mb-4">
+            <label className="mb-1 block text-sm font-medium">
+              Select Counselor
+            </label>
+
+            <select
+              value={selectedCounselor}
+              onChange={(e) =>
+                setSelectedCounselor(e.target.value)
+              }
+            >
+              <option value="">All Counselors</option>
+
+              {counselors.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
+      }
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {STAGES.map((stage) => {
@@ -219,7 +276,9 @@ export default function ApplicationsPage() {
             <div
               key={stage.key}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={() => dragId && moveTo(dragId, stage.key)}
+              onDrop={() =>
+                role === "COUNSELLOR" && dragId && moveTo(dragId, stage.key)
+              }
               className="rounded-2xl bg-secondary/40 border border-border p-3 min-h-[420px]"
             >
               <div className="flex items-center justify-between mb-3">

@@ -4,9 +4,9 @@ import { StudentcoursesStatus } from "@/lib/generated/prisma/client";
 
 export async function POST(req: NextRequest) {
     try {
-        const studentId = req.nextUrl.searchParams.get("id");
+        const leadId = req.nextUrl.searchParams.get("id");
 
-        if (!studentId) {
+        if (!leadId) {
             return NextResponse.json(
                 {
                     success: false,
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
                 applicationStatus: status.toUpperCase().replaceAll(" ", "_") as StudentcoursesStatus,
 
-                studentId,
+                leadId,
             },
         });
 

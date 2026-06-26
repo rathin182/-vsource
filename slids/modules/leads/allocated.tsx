@@ -147,7 +147,7 @@ export default function AllocatedLeadsPage() {
       }
 
       const res = await fetch(
-        `/api/leads?${params.toString()}`,
+        `/api/leads/allocated`,
         {
           credentials: "include",
         }
@@ -497,7 +497,7 @@ export default function AllocatedLeadsPage() {
                         <Eye className="size-4" />
                       </Button>
 
-                      <Dialog
+                      {/* <Dialog
                         open={
                           reassignLead?.id ===
                           lead.id
@@ -596,7 +596,7 @@ export default function AllocatedLeadsPage() {
                             </Button>
                           </DialogFooter>
                         </DialogContent>
-                      </Dialog>
+                      </Dialog> */}
                     </td>
                   </tr>
                 ))

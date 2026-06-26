@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const student = await db.student.update({
+    const student = await db.lead.update({
       where: {
         id: studentId,
       },

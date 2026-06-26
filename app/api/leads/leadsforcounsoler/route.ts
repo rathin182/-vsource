@@ -5,42 +5,63 @@ export async function GET(req: NextRequest) {
   try {
     const sp = req.nextUrl.searchParams;
 
+    const role = sp.get("role");
+
     const counselorId =
       sp.get("counselorId");
 
-   const leads = await db.lead.findMany({
-  where: {
-    counselorId: counselorId ?? undefined,
-  },
-  include: {
-    branch: {
-      select: {
-        id: true,
-        name: true,
-        city: true,
-      },
-    },
-    counselor: {
-      select: {
-        id: true,
-        name: true,
-        description: true,
-      },
-    },
-    student: {
-      select: {
-        id: true,
-        studentName: true,
-        emailId: true,
-        mobileNumber: true,
-        status: true,
-      },
-    },
-  },
-  orderBy: {
-    createdAt: "desc",
-  },
-});
+    if (counselorId && role== "COUNSELLOR") {
+      const leads = await db.lead.findMany({
+        where: {
+          counselorId: counselorId ?? undefined,
+        },
+        include: {
+          branch: {
+            select: {
+              id: true,
+              name: true,
+              city: true,
+            },
+          },
+          counselor: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+            },
+          },
+          student: {
+            select: {
+              id: true,
+              studentName: true,
+              emailId: true,
+              mobileNumber: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+      return NextResponse.json({
+        success: true,
+        data: leads,
+      });
+    }
+
+    const leads = await db.lead.findMany({
+         orderBy: {
+                createdAt: "desc",
+            },
+            include: {
+                branch: true,
+                counselor: true,
+                student: true,
+            },
+      });
+
+
 
     return NextResponse.json({
       success: true,
