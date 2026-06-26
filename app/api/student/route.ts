@@ -15,6 +15,21 @@ export async function GET(req: NextRequest) {
         const studentId =
             req.nextUrl.searchParams.get("id");
 
+        const few = req.nextUrl.searchParams.get("few")
+        if (few) {
+            const students = await db.student.findMany({
+                select: {
+                    id: true,
+                    studentName: true,
+                    studentNumber: true,
+                    emailId: true,
+                }
+            })
+        return NextResponse.json({
+                success: true,
+                data: students,
+            });
+        }
         if (studentId) {
             const student =
                 await db.student.findUnique({
@@ -344,7 +359,7 @@ export async function PATCH(req: NextRequest) {
     if (englishWaiverVal !== undefined) data.englishWaiverType = englishWaiverVal as EnglishWaiverType;
 
     const applicationTypeVal = validEnum(body.applicationType, APPLICATION_TYPE_VALUES);
-    if (applicationTypeVal !== undefined) data.applicationType = applicationTypeVal as Application;
+    if (applicationTypeVal !== undefined) data.applicationType = applicationTypeVal;
 
     const currentStageVal = validEnum(body.currentStage, CURRENT_STAGE_VALUES);
     if (currentStageVal !== undefined) data.currentStage = currentStageVal as Studentstage;

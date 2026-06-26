@@ -105,9 +105,9 @@ export interface Course {
 
 export interface Student {
   id: string;
-  name: string;
-  email: string;
-  phone: string;
+  studentName: string;
+  emailId: string;
+  studentNumber: string;
   dob: string;
   country: string;
   program: string;
@@ -208,11 +208,12 @@ export interface CoachingBatch {
 
 export interface LoanInquiry {
   id: string;
-  student: string;
+  student: Student;
   bank: string;
   amount: number;
   status: "pending" | "approved" | "rejected" | "disbursed";
   emi: number;
+  assignee?: string;
   appliedAt: string;
 }
 

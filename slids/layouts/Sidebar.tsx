@@ -32,7 +32,6 @@ import {
 import { useUi } from "@/slids/store";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/vsourcess.png";
-import { toast } from "sonner";
 import axios from "axios";
 
 const items = [
@@ -73,12 +72,6 @@ const items = [
     icon: BarChart3,
     roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN"],
   },
-  {
-    to: "/profile",
-    label: "Profile",
-    icon: User,
-    roles: ["ADMIN", "RECEPTIONIST", "COUNSELOR", "SUPER ADMIN"],
-  },
 
   // Admin only
   {
@@ -94,27 +87,9 @@ const items = [
     roles: ["ADMIN", "SUPER ADMIN"],
   },
   {
-    to: "/promotional",
-    label: "Promotional",
-    icon: Megaphone,
-    roles: ["ADMIN", "SUPER ADMIN"],
-  },
-  {
     to: "/users",
     label: "User Management",
     icon: UserCog,
-    roles: ["ADMIN", "SUPER ADMIN"],
-  },
-  {
-    to: "/roles",
-    label: "Roles & Permissions",
-    icon: ShieldCheck,
-    roles: ["ADMIN", "SUPER ADMIN"],
-  },
-  {
-    to: "/master-settings",
-    label: "Master Settings",
-    icon: Settings2,
     roles: ["ADMIN", "SUPER ADMIN"],
   },
   {
@@ -146,6 +121,12 @@ const items = [
     label: "counsellor Management",
     icon: FolderKanban,
     roles: ["ADMIN", "SUPER ADMIN"],
+  },
+    {
+    to: "/profile",
+    label: "Profile",
+    icon: User,
+    roles: ["ADMIN", "RECEPTIONIST", "COUNSELOR", "SUPER ADMIN"],
   },
   {
     to: "/settings",
