@@ -15,8 +15,8 @@ import Image from "next/image";
 function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState("admin@vsourcecrm.com");
-  const [password, setPassword] = useState("Admin@123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -238,7 +238,7 @@ const onSubmit = async (
                 </button>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            {/* <div className="flex items-center gap-2">
               <Checkbox
                 id="remember"
                 checked={remember}
@@ -247,20 +247,20 @@ const onSubmit = async (
               <Label htmlFor="remember" className="text-sm font-normal cursor-pointer">
                 Remember me for 30 days
               </Label>
-            </div>
+            </div> */}
             <Button type="submit" className="w-full h-11" disabled={loading}>
               {loading ? <Loader2 className="size-4 animate-spin" /> : "Sign in"}
             </Button>
           </form>
 
-          <div className="mt-6 rounded-xl border border-border bg-secondary/40 p-4 text-xs space-y-2">
+          {/* <div className="mt-6 rounded-xl border border-border bg-secondary/40 p-4 text-xs space-y-2">
             <div className="font-semibold">Demo credentials</div>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => {
-                  setEmail("admin@vsourcecrm.com");
-                  setPassword("Admin@123");
+                  setEmail("");
+                  setPassword("");
                 }}
                 className="rounded-lg border border-border bg-background p-2 text-left hover:border-primary transition-colors"
               >
@@ -279,7 +279,7 @@ const onSubmit = async (
                 <div className="text-muted-foreground">counselor@vsourcecrm.com</div>
               </button>
             </div>
-          </div>
+          </div> */}
         </motion.div>
       </div>
     </div>
