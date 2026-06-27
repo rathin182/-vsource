@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BasicDetails, Course, Scholarship, UniversityFormData } from "@/slids/types/university.types";
 import BasicDetailsForm from "@/slids/components/universities/BasicDetails";
@@ -113,7 +113,7 @@ const STEPS = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function AddUniversityPage() {
+function AddUniversityContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -355,5 +355,20 @@ export default function AddUniversityPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AddUniversityPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-red-200 border-t-red-600" />
+          <p className="text-sm text-slate-500">Loading…</p>
+        </div>
+      </div>
+    }>
+      <AddUniversityContent />
+    </Suspense>
   );
 }

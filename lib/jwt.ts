@@ -15,3 +15,6 @@ export const createToken = (payload: AppJwtPayload) => {
 export const verifyToken = (token: string): AppJwtPayload => {
   return jwt.verify(token, process.env.JWT_SECRET!) as AppJwtPayload;
 };
+
+/** Alias for createToken – kept for backward compatibility */
+export const generateToken = createToken;
