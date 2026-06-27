@@ -27,6 +27,7 @@ import {
   Search,
   Headset,
   FolderKanban,
+  Activity,
 } from "lucide-react";
 
 import { useUi } from "@/slids/store";
@@ -35,12 +36,12 @@ import logo from "@/assets/vsourcess.png";
 import axios from "axios";
 
 const items = [
-  {
-    to: "/dashboard",
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    roles: ["ADMIN", "SUPER ADMIN"],
-  },
+  // {
+  //   to: "/dashboard",
+  //   label: "Dashboard",
+  //   icon: LayoutDashboard,
+  //   roles: ["ADMIN", "SUPER ADMIN"],
+  // },
   {
     to: "/leads",
     label: "Leads",
@@ -55,8 +56,14 @@ const items = [
     ],
   },
   {
-    to: "/students",
+    to: "/visa",
     label: "Visa",
+    icon: Activity,
+    roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN"],
+  },
+   {
+    to: "/students",
+    label: "Students",
     icon: GraduationCap,
     roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN"],
   },

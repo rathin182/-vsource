@@ -16,29 +16,44 @@ import {
 } from "@/slids/components/ui/dialog";
 import { Label } from "@/slids/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/slids/components/ui/select";
+import {
   Search, Plus, Pencil, Trash2, Shield, LucideLoader2,
-  LucideArrowLeftCircle,
   LucideArrowLeft,
+  X,
 } from "lucide-react";
 import axios from "axios";
+import { toast } from "sonner";
 
 interface Role {
   id: string;
   name: string;
 }
 
-interface MetaData {
-  totalPages: number,
-  total: number,
-  limit: number,
-  page: number
+interface Branch {
+  id: string;
+  name: string;
 }
+
+interface MetaData {
+  totalPages: number;
+  total: number;
+  limit: number;
+  page: number;
+}
+
 interface UserRow {
   id: string;
   name: string;
   email: string;
+  phone?: string | null;
   role: Role;
-  branches: { id: string; name: string }[];
+  branches: Branch[];
   createdAt: string;
   updatedAt: string;
 }
@@ -47,9 +62,10 @@ export default function Users() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [q, setQ] = useState("");
   const [isPending, startTransition] = useTransition();
-  const [metaData, setMetaData] = useState<MetaData>()
-  const [page, setPage] = useState(1)
-    // Edit state
+  const [metaData, setMetaData] = useState<MetaData>();
+  const [page, setPage] = useState(1);
+
+  // Edit state
   const [editOpen, setEditOpen] = useState(false);
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [editName, setEditName] = useState("");
@@ -61,6 +77,23 @@ export default function Users() {
   const [deleteUser, setDeleteUser] = useState<UserRow | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // ── Add User state ──────────────────────────────────────────────────────
+  const [addOpen, setAddOpen] = useState(false);
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newRoleId, setNewRoleId] = useState("");
+  const [newBranchIds, setNewBranchIds] = useState<string[]>([]);
+
   const filtered = users.filter(
     (u) =>
       u.name.toLowerCase().includes(q.toLowerCase()) ||
@@ -70,10 +103,10 @@ export default function Users() {
   const fetchData = () =>
     startTransition(async () => {
       const req = await axios.get(`/api/users?page=${page}`);
-      
+
       if (req.status === 200) {
         setUsers(req.data.data);
-        setMetaData(req.data.meta)
+        setMetaData(req.data.meta);
       }
     });
 
@@ -81,7 +114,96 @@ export default function Users() {
     fetchData();
   }, [page]);
 
-  // Edit handlers
+  // ── Add User handlers ───────────────────────────────────────────────────
+
+  const resetAddForm = () => {
+    setNewName("");
+    setNewEmail("");
+    setNewPhone("");
+    setNewPassword("");
+    setNewRoleId("");
+    setNewBranchIds([]);
+    setAddError(null);
+  };
+
+  const openAdd = async () => {
+    setAddOpen(true);
+    resetAddForm();
+
+    // Fetch roles and branches in parallel, only if not already loaded
+    if (branches.length === 0) {
+      setBranchesLoading(true);
+      try {
+        const res = await axios.get("/api/branches/all");
+        if (res.status === 200) {
+          // adjust this line if your branches/all response shape differs
+          setBranches(res.data.data ?? res.data);
+        }
+      } catch {
+        // non-fatal — branch select will just be empty
+      } finally {
+        setBranchesLoading(false);
+      }
+    }
+
+    if (roles.length === 0) {
+      setRolesLoading(true);
+      try {
+        const res = await axios.get("/api/roles/allrole");
+        if (res.status === 200) {
+          setRoles(res.data.data ?? res.data);
+        }
+      } catch {
+        // non-fatal — role select will just be empty
+      } finally {
+        setRolesLoading(false);
+      }
+    }
+  };
+
+  const toggleBranch = (branchId: string) => {
+    setNewBranchIds((prev) =>
+      prev.includes(branchId)
+        ? prev.filter((id) => id !== branchId)
+        : [...prev, branchId]
+    );
+  };
+
+  const createUser = async () => {
+    setAddError(null);
+
+    if (!newName || !newEmail || !newPassword || !newRoleId) {
+      setAddError("Name, email, password, and role are required.");
+      return;
+    }
+
+    setAddSaving(true);
+    try {
+      const res = await axios.post("/api/users", {
+        name: newName,
+        email: newEmail,
+        password: newPassword,
+        phone: newPhone || undefined,
+        roleId: newRoleId,
+        branches: newBranchIds,
+      });
+
+      if (res.status === 201 || res.status === 200) {
+        // Prepend new user locally so it shows immediately without a refetch
+        setUsers((prev) => [res.data.data, ...prev]);
+        setAddOpen(false);
+        resetAddForm();
+      }
+    } catch (err: any) {
+      setAddError(
+        err?.response?.data?.error ?? "Failed to create user. Please try again."
+      );
+    } finally {
+      setAddSaving(false);
+    }
+  };
+
+  // ── Edit handlers ────────────────────────────────────────────────────────
   const openEdit = (u: UserRow) => {
     setEditUser(u);
     setEditName(u.name);
@@ -89,28 +211,44 @@ export default function Users() {
     setEditOpen(true);
   };
 
+
   const saveEdit = async () => {
     if (!editUser) return;
+
     setEditSaving(true);
+
     try {
-      const res = await axios.patch(`/api/users/${editUser.id}`, {
+      const res = await axios.put(`/api/users?id=${editUser.id}`, {
         name: editName,
         email: editEmail,
       });
-      if (res.status === 200) {
-        setUsers((prev) =>
-          prev.map((u) =>
-            u.id === editUser.id ? { ...u, name: editName, email: editEmail } : u
-          )
-        );
-        setEditOpen(false);
-      }
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === editUser.id
+            ? { ...u, name: editName, email: editEmail }
+            : u
+        )
+      );
+
+      setEditOpen(false);
+
+      toast.success(
+        res.data?.message || "User updated successfully."
+      );
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Failed to update user."
+      );
     } finally {
       setEditSaving(false);
     }
   };
 
-  // Delete handlers
+  // ── Delete handlers ──────────────────────────────────────────────────────
   const openDelete = (u: UserRow) => {
     setDeleteUser(u);
     setDeleteOpen(true);
@@ -118,13 +256,25 @@ export default function Users() {
 
   const confirmDelete = async () => {
     if (!deleteUser) return;
+
     setDeleteLoading(true);
+
     try {
-      const res = await axios.delete(`/api/users/${deleteUser.id}`);
-      if (res.status === 200) {
-        setUsers((prev) => prev.filter((u) => u.id !== deleteUser.id));
-        setDeleteOpen(false);
-      }
+      const res = await axios.delete(`/api/users?id=${deleteUser.id}`);
+
+      setUsers((prev) => prev.filter((u) => u.id !== deleteUser.id));
+      setDeleteOpen(false);
+
+      toast.success(
+        res.data?.message || "User deleted successfully."
+      );
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Failed to delete user."
+      );
     } finally {
       setDeleteLoading(false);
     }
@@ -144,7 +294,7 @@ export default function Users() {
         title="User Management"
         description="Add staff, map to branches and control access."
         actions={
-          <Button size="sm">
+          <Button size="sm" onClick={openAdd}>
             <Plus className="size-4 mr-1.5" /> Add User
           </Button>
         }
@@ -237,21 +387,141 @@ export default function Users() {
               </tbody>
             </table>
           </div>
-    
         </CardContent>
       </Card>
 
-            <div className="w-full flex justify-between items-center my-4 px-2">
-              <p className="text-sm text-gray-400">Showing: {users.length} / {metaData && metaData.total}</p>
-              <div className=""></div>
-              <div className="text-sm text-gray-400 flex justify-center items-center gap-2">
-                <button onClick={() => setPage(page + 1)} disabled={metaData?.page === 1}  className="px-2 py-2 text-primary  rounded-full"><LucideArrowLeft size={16}/></button>
-                {metaData && metaData.page} / {metaData && metaData.totalPages}
-                <button onClick={() => setPage(page + 1)} disabled={metaData?.page === metaData?.totalPages} className="px-2 py-2 bg-primary rotate-180 text-white rounded-full"><LucideArrowLeft size={16}/></button>
-                </div>
+      <div className="w-full flex justify-between items-center my-4 px-2">
+        <p className="text-sm text-gray-400">Showing: {users.length} / {metaData && metaData.total}</p>
+        <div className=""></div>
+        <div className="text-sm text-gray-400 flex justify-center items-center gap-2">
+          <button onClick={() => setPage(page + 1)} disabled={metaData?.page === 1} className="px-2 py-2 text-primary  rounded-full"><LucideArrowLeft size={16} /></button>
+          {metaData && metaData.page} / {metaData && metaData.totalPages}
+          <button onClick={() => setPage(page + 1)} disabled={metaData?.page === metaData?.totalPages} className="px-2 py-2 bg-primary rotate-180 text-white rounded-full"><LucideArrowLeft size={16} /></button>
+        </div>
+      </div>
+
+      {/* Add User dialog */}
+      <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) resetAddForm(); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add user</DialogTitle>
+            <DialogDescription>
+              Create a staff account and assign their role and branches.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 py-2 max-h-[60vh] overflow-y-auto pr-1 pl-2">
+            {addError && (
+              <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">
+                {addError}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="add-name">Name</Label>
+              <Input
+                id="add-name"
+                placeholder="Jane Doe"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+              />
             </div>
 
-            
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="add-email">Email</Label>
+              <Input
+                id="add-email"
+                type="email"
+                placeholder="jane@example.com"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="add-phone">Phone</Label>
+              <Input
+                id="add-phone"
+                type="tel"
+                placeholder="+91 90000 00000"
+                value={newPhone}
+                onChange={(e) => setNewPhone(e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="add-password">Password</Label>
+              <Input
+                id="add-password"
+                type="password"
+                placeholder="Temporary password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Role</Label>
+              <Select value={newRoleId} onValueChange={setNewRoleId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={rolesLoading ? "Loading roles…" : "Select a role…"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Branches</Label>
+              {branchesLoading ? (
+                <p className="text-xs text-muted-foreground">Loading branches…</p>
+              ) : branches.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">No branches found.</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {branches.map((b) => {
+                    const selected = newBranchIds.includes(b.id);
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => toggleBranch(b.id)}
+                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${selected
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-transparent text-muted-foreground border-border hover:border-foreground/30"
+                          }`}
+                      >
+                        {b.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {newBranchIds.length > 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  {newBranchIds.length} branch{newBranchIds.length > 1 ? "es" : ""} selected
+                </p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)} disabled={addSaving}>
+              Cancel
+            </Button>
+            <Button onClick={createUser} disabled={addSaving}>
+              {addSaving && <LucideLoader2 className="size-3.5 mr-1.5 animate-spin" />}
+              Create user
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-md">

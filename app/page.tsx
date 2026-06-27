@@ -49,7 +49,7 @@ export default function RootPage() {
     useEffect(() => {
     if (authenticated) {
 
-      router.replace("/dashboard");
+      router.replace("/assign-leads");
     } else {
       router.replace("/login");
     }

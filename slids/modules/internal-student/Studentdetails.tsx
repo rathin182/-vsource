@@ -1136,7 +1136,7 @@ const currentIndex = STEPS.findIndex(
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <button
-                    onClick={() => Router.push('/students')}
+                    onClick={() => Router.push('/visa')}
                     className="inline-flex items-center gap-1.5 text-xs font-black text-red-600 hover:underline"
                   >
                     ← Back

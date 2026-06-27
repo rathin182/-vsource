@@ -34,6 +34,7 @@ import axios from "axios";
 import { Select } from "@/slids/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/slids/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/slids/components/ui/command";
+import { toast } from "sonner";
 
 interface Role {
   id: string;
@@ -187,13 +188,30 @@ export default function Users() {
 
   const confirmDelete = async () => {
     if (!deleteUser) return;
+
     setDeleteLoading(true);
+
     try {
-      const res = await axios.delete(`/api/users/${deleteUser.id}`);
-      if (res.status === 200) {
-        setUsers((prev) => prev.filter((u) => u.id !== deleteUser.id));
-        setDeleteOpen(false);
-      }
+      const res = await axios.delete("/api/users", {
+        params: {
+          id: deleteUser.id,
+        },
+      });
+
+      setUsers((prev) => prev.filter((u) => u.id !== deleteUser.id));
+      setDeleteOpen(false);
+
+      toast.success("User deleted successfully.");
+    } catch (err: any) {
+      const message =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Failed to delete user.";
+
+      toast.error(message);
+
+      console.error(err);
     } finally {
       setDeleteLoading(false);
     }
@@ -441,8 +459,8 @@ export default function Users() {
                         >
                           <Check
                             className={`mr-2 h-4 w-4 ${branchIds.includes(branch.id)
-                                ? "opacity-100"
-                                : "opacity-0"
+                              ? "opacity-100"
+                              : "opacity-0"
                               }`}
                           />
 
@@ -577,8 +595,8 @@ export default function Users() {
                       >
                         <Check
                           className={`mr-2 h-4 w-4 ${branchIds.includes(branch.id)
-                              ? "opacity-100"
-                              : "opacity-0"
+                            ? "opacity-100"
+                            : "opacity-0"
                             }`}
                         />
 

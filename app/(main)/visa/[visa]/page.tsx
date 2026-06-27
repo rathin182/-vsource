@@ -15,17 +15,15 @@ export default function Page() {
   const params = useParams();
   const [student, setStudent] = useState({});
   const [loading, setLoading] = useState(true);
-  const selectedStudentId = params.students as string;
+  const selectedStudentId = params.visa as string;
 
   const studentfetch = async () => {
     try {
       setLoading(true);
 
-      const res = await fetch(`/api/student?id=${selectedStudentId}`);
+      const res = await fetch(`/api/visaDetails/leadsdata?id=${selectedStudentId}`);
 
       const data = await res.json();
-
-      console.log(data, "lead data");
 
       if (!res.ok) {
         toast.error(data.message);
@@ -44,9 +42,20 @@ export default function Page() {
     studentfetch();
   }, [selectedStudentId]);
 
+
+
   return (
     <div className="w-full h-screen -m-5">
-      <StudentData student={student} reloadStudent={studentfetch} />
+      {loading ? (
+        <div className="flex items-center justify-center h-full">
+          Loading...
+        </div>
+      ) : (
+        <StudentData
+          student={student}
+          reloadStudent={studentfetch}
+        />
+      )}
     </div>
   );
 }

@@ -205,7 +205,6 @@ export function AddEditModal({
     setError(null);
     setSuccess(false);
     fetchCounsellor();
-    console.log((studentToEdit), 'studentToEdit');
     
     if (studentToEdit) {
       setFirstname(studentToEdit.firstName ?? '');

@@ -81,8 +81,6 @@ function CourseCard({ course, index, onUpdate, onRemove }: CourseCardProps) {
   async function getIntake() {
     const req = await axios.get("/api/intakes/all");
     if (req.status === 200) {
-      console.log(req.data.data);
-      
       setIntake(req.data.data)
     }
   }

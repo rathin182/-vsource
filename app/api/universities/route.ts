@@ -226,7 +226,6 @@ export async function POST(req: NextRequest) {
     // createMany doesn't return created records in Prisma, so we need the ids
     // to resolve scholarship → course links. Creating individually is the
     // cleanest approach; course lists are small so N+1 is not a concern here.
-    console.log(createdUniversityId);
     
     const localToRealCourseId = new Map<string, string>();
 

@@ -29,9 +29,9 @@ export async function GET() {
             }
         );
     }
-    
 
-const user = await prisma.user.findMany({
+
+    const user = await prisma.user.findFirst({
         where: {
             id: payload.userId,
         },
@@ -49,5 +49,11 @@ const user = await prisma.user.findMany({
         },
     });
 
-    return NextResponse.json(user[0]);
+    if (!user) {
+        return NextResponse.json(null, { status: 404 });
+    }
+
+    const { password, ...safeUser } = user;
+
+    return NextResponse.json(safeUser);
 }

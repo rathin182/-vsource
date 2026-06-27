@@ -27,7 +27,6 @@ export default function Profile() {
 
       const user = await response.json();
       setUser(user)
-      console.log(user, "leadData");
 
     } catch (error) {
       console.error(
@@ -40,12 +39,7 @@ export default function Profile() {
   useEffect(() => {
     me()
   }, []);
-
-  useEffect(() => {
-    console.log(user, "userr");
-
-  }, [user]);
-
+  
   return (
     <PageTransition>
       <PageHeader

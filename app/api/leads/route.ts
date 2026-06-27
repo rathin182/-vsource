@@ -411,7 +411,6 @@ export async function POST(req: NextRequest) {
       "Lead created successfully"
     );
   } catch (err: any) {
-    console.log(err.message);
     
     return handleError(err);
 
@@ -430,7 +429,6 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: deletedLead }, { status: 200 })
   } catch (error: any) {
-    console.log(error.message);
     
     return NextResponse.json({ success: false, error: "Failed to delete leads." }, { status: 500 });
   }

@@ -50,7 +50,7 @@ useEffect(() => {
     const res = await fetch("/api/me");
 
     if (res.ok) {
-      router.push("/dashboard");
+      router.push("/assign-leads");
     }
   };
 
@@ -95,7 +95,7 @@ const onSubmit = async (
         data.user.name
     );
 
-    router.push("/dashboard");
+    router.push("/assign-leads");
     router.refresh();
   } catch (error) {
     console.error(error);

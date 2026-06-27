@@ -77,32 +77,54 @@ function buildScholarshipData(
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = await params.id
-  
+  const { id } = await params;
   try {
-    const university = await prisma.university.findMany({
-      where: { id: id },
+    const university = await prisma.university.findUnique({
+      where: { id },
       include: {
-        country: { select: { id: true, name: true } },
-        courses: { orderBy: { createdAt: "asc" } },
-        scholarships: { orderBy: { createdAt: "asc" } },
+        country: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        courses: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+        scholarships: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
       },
     });
 
     if (!university) {
-      return NextResponse.json<ApiResponse>(
-        { success: false, error: "University not found." },
+      return NextResponse.json(
+        {
+          success: false,
+          error: "University not found.",
+        },
         { status: 404 }
       );
     }
 
-    return NextResponse.json<ApiResponse>({ success: true, data: university[0] });
+    return NextResponse.json({
+      success: true,
+      data: university,
+    });
   } catch (error) {
-    console.error("[GET /api/universities/:id]", error);
-    return NextResponse.json<ApiResponse>(
-      { success: false, error: "Failed to fetch university." },
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to fetch university.",
+      },
       { status: 500 }
     );
   }
@@ -121,8 +143,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-
   console.log(id);
+  
   if (!id) {
     return NextResponse.json({error: "Id is not avaiable"})
   }

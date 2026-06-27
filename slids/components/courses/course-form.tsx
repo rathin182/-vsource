@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/slids/components/ui/select";
 import { CourseFormData } from "@/slids/types";
+import { toast } from "sonner";
 
 interface University {
   id: string;
@@ -78,6 +79,8 @@ export default function CourseForm() {
   }, []);
 
   async function loadInitialData() {
+    console.log("called");
+
     const [
       universityRes,
       countryRes,
@@ -87,10 +90,14 @@ export default function CourseForm() {
       fetch("/api/countries/all"),
       fetch("/api/intakes/all"),
     ]);
-    
-    setUniversities(await universityRes.json());
-    setCountries(await countryRes.json());
-    setIntakes(await intakeRes.json());
+
+    const universityData = await universityRes.json();
+    const countryData = await countryRes.json();
+    const intakeData = await intakeRes.json();
+
+    setUniversities(universityData.data);
+    setCountries(countryData.data);
+    setIntakes(intakeData.data);
   }
 
   async function onSubmit(data: any) {
@@ -104,7 +111,7 @@ export default function CourseForm() {
     });
 
     if (res.ok) {
-      alert("Course Created");
+      toast.success("Course Created");
     }
   }
 

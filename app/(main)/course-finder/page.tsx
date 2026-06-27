@@ -38,18 +38,53 @@ interface FetchCoursesParams {
   intakeYear?: string;
 }
 
-async function fetchCourses(params: FetchCoursesParams): Promise<UniversityCourse[]> {
-  const query = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => {
-    if (v && v !== "all" && v !== "any") query.set(k, v);
-  });
-  const res = await fetch(`/api/courses/finder?courseName=${query.toString()}`);
-  
+async function fetchCourses(
+  params: FetchCoursesParams
+): Promise<UniversityCourse[]> {
+  const res = await fetch("/api/courses/finder");
+
   if (!res.ok) throw new Error("Failed to load courses");
+
   const json = await res.json();
-  console.log(json);
-  
-  return Array.isArray(json) ? json : (json.data ?? []);
+
+  const courses: UniversityCourse[] = Array.isArray(json)
+    ? json
+    : json.data ?? [];
+
+  return courses.filter((course) => {
+    return Object.entries(params).every(([key, value]) => {
+      if (!value || value === "all" || value === "any") return true;
+
+      const search = String(value).toLowerCase();
+
+      switch (key) {
+        case "search":
+          return (
+            course.name?.toLowerCase().includes(search) ||
+            course.courseCode?.toLowerCase().includes(search)
+          );
+
+        case "university":
+          return course.university?.name
+            ?.toLowerCase()
+            .includes(search);
+
+        case "country":
+          return course.university?.country?.name
+            ?.toLowerCase()
+            .includes(search);
+
+        case "degree":
+          return course.degree?.toLowerCase() === search;
+
+        case "intake":
+          return course.intake?.name?.toLowerCase() === search;
+
+        default:
+          return true;
+      }
+    });
+  });
 }
 
 // ─── Skeleton card ─────────────────────────────────────────────────────────────
@@ -96,7 +131,7 @@ function CourseCard({
   return (
     <Card className="overflow-hidden rounded-2xl border border-border transition hover:shadow-md">
       <div className="flex items-center gap-3 border-b border-border px-5 py-4">
-        {course.university.logo ? (
+        {course.university?.logo ? (
           <img
             src={course.university.logo}
             alt={course.university.name}
@@ -106,13 +141,13 @@ function CourseCard({
           />
         ) : (
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-xs font-semibold text-muted-foreground">
-            {course.university.name.slice(0, 2).toUpperCase()}
+            {course?.university?.name.slice(0, 2).toUpperCase()}
           </div>
         )}
         <div className="min-w-0">
-          <div className="truncate font-semibold">{course.university.name}</div>
+          <div className="truncate font-semibold">{course?.university?.name}</div>
           <div className="text-sm text-muted-foreground">
-            {course.university.country.name ?? "—"}
+            {course?.university?.country?.name ?? "—"}
           </div>
         </div>
       </div>
@@ -376,7 +411,7 @@ export default function CourseFinderPage() {
           {/* Col 3 — Select filters + Reset */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {/* Country */}
-            <div className="grid gap-2">
+            {/* <div className="grid gap-2">
               <Label>Country</Label>
               <Select value={country} onValueChange={setCountry}>
                 <SelectTrigger>
@@ -403,10 +438,10 @@ export default function CourseFinderPage() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
 
             {/* Level */}
-            <div className="grid gap-2">
+            {/* <div className="grid gap-2">
               <Label>Level</Label>
               <Select value={degree} onValueChange={setDegree}>
                 <SelectTrigger>
@@ -431,10 +466,10 @@ export default function CourseFinderPage() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
 
             {/* Intake Month */}
-            <div className="grid gap-2">
+            {/* <div className="grid gap-2">
               <Label>Intake Month</Label>
               <Select value={intakeMonth} onValueChange={setIntakeMonth}>
                 <SelectTrigger>
@@ -455,10 +490,10 @@ export default function CourseFinderPage() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
 
             {/* Intake Year */}
-            <div className="grid gap-2">
+            {/* <div className="grid gap-2">
               <Label>Intake Year</Label>
               <Select value={intakeYear} onValueChange={setIntakeYear}>
                 <SelectTrigger>
@@ -476,7 +511,7 @@ export default function CourseFinderPage() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
 
             {/* Reset */}
             <div className="flex items-end">

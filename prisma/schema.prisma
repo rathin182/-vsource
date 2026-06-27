@@ -106,6 +106,7 @@ model User {
   name     String
   email    String @unique
   password String
+  phone String?
 
   monthlyTarget Int?     @default(0)
   branches      Branch[]
@@ -363,8 +364,8 @@ model Application {
 model LoanInquiry {
   id String @id @default(uuid())
 
-  // studentId String
-  // student   Student @relation(fields: [studentId], references: [id])
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id])
 
   leadId String? @unique
   lead   Lead?   @relation(fields: [leadId], references: [id])
@@ -622,7 +623,7 @@ model Student {
   // visaDetail     VisaDetail?
   // remarks        Remark[]
   applications Application[]
-  // loanInquiries  LoanInquiry[]
+  loanInquiries  LoanInquiry[]
   // studentCourses StudentCourses[]
   // docs           Doc[]
 

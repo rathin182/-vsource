@@ -2,8 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
-  const courseName =
+  const search =
     req.nextUrl.searchParams.get("courseName");
+    const courseName = new URLSearchParams(search ?? "").get("search");
+console.log(courseName, search);
 
   if (courseName) {
     const details =

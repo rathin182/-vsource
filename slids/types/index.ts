@@ -105,8 +105,15 @@ export interface Course {
 
 export interface Student {
   id: string;
-  studentName: string;
-  emailId: string;
+  firstName: string;
+  lastName: string;
+  studentName:string;
+  admissionDate:any;
+  preferredCountry: string;
+  email: string;
+  phone: string;
+  branch: any;
+  counselor: any;
   studentNumber: string;
   dob: string;
   country: string;
@@ -115,6 +122,9 @@ export interface Student {
   status: string;
   progress: number;
   avatar?: string;
+  createdAt: any;
+  createdBy:any;
+  _count:any,
 }
 
 interface Country {

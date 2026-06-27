@@ -1,78 +1,104 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/prisma";
 import {
-    StudentStatus,
-    Studentstage,
-    StudentVisaStage,
-    EnglishWaiverType,
-    Application,
-    IntakeSeason,
+  StudentStatus,
+  Studentstage,
+  StudentVisaStage,
+  EnglishWaiverType,
+  Application,
+  IntakeSeason,
   LeadStatus,
 } from "@/lib/generated/prisma/client";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/jwt";
 
-
-
 export async function GET(req: NextRequest) {
     try {
-        const token = (await cookies()).get("access_token")?.value;
+        const studentId =
+            req.nextUrl.searchParams.get("id");
 
-        if (!token) {
-            return NextResponse.json(
-                { success: false, message: "Unauthorized" },
-                { status: 401 }
-            );
-        }
-
-        const payload = await verifyToken(token);
-
-        if (!payload) {
-            return NextResponse.json(
-                { success: false, message: "Unauthorized" },
-                { status: 401 }
-            );
-        }
-
-        const role = payload.role.toUpperCase();
-        const leadId = req.nextUrl.searchParams.get("id");
-
-        // ======================================================
-        // 1. IF ID IS PROVIDED -> RETURN THAT LEAD ONLY
-        // ======================================================
-
-        if (leadId) {
-            const lead = await db.lead.findUnique({
-                where: {
-                    id: leadId,
-                },
-                include: {
-                    branch: true,
-                    counselor: {
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true
-                        }
-                    },
-
-                    createdBy: true,
-                    updatedBy: true,
-                    student: true,
-                    timelines: true,
-                    remarks: true,
-                    docs: true,
-                    loanInquiries: true,
-                    visaDetail: true,
-                    studentCourses:true,
-                },
+        const few = req.nextUrl.searchParams.get("few")
+        if (few) {
+            const students = await db.student.findMany({
+                select: {
+                    id: true,
+                    studentName: true,
+                    studentNumber: true,
+                    emailId: true,
+                }
+            })
+        return NextResponse.json({
+                success: true,
+                data: students,
             });
+        }
+        if (studentId) {
+            const student =
+                await db.student.findUnique({
+                    where: {
+                        id: studentId,
+                    },
+                    include: {
+                        branch: {
+                            select: {
+                                id: true,
+                                name: true,
+                                code: true,
+                            },
+                        },
 
-            if (!lead) {
+                        counselor: {
+                            select: {
+                                id: true,
+                                name: true,
+                                email: true,
+                            },
+                        },
+
+                        lead: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                lastName: true,
+                                email: true,
+                                phone: true,
+                                preferredCountry: true,
+                                preferredCourse: true,
+                                status: true,
+                                source: true,
+                            },
+                        },
+                        remarks: true,
+                        docs: true,
+                        loanInquiries: true,
+
+                        studentCourses: {
+                            select: {
+                                id: true,
+                                universityName: true,
+                                courseName: true,
+                                immigrationPortal: true,
+                                applicationDate: true,
+                                applicationStatus: true,
+                                studentId: true,
+                                createdAt: true,
+                                updatedAt: true,
+                            },
+                        },
+
+                        _count: {
+                            select: {
+                                timeline: true,
+                            },
+                        },
+                    },
+                });
+
+            if (!student) {
                 return NextResponse.json(
                     {
                         success: false,
-                        message: "Lead not found",
+                        message: "Student not found",
                     },
                     {
                         status: 404,
@@ -82,66 +108,70 @@ export async function GET(req: NextRequest) {
 
             return NextResponse.json({
                 success: true,
-                data: lead,
+                data: student,
             });
         }
 
-        // ======================================================
-        // 2. COUNSELOR -> ONLY HIS LEADS
-        // ======================================================
-
-        if (role === "COUNSELLOR") {
-            const leads = await db.lead.findMany({
-                where: {
-                    counselorId: payload.id,
-                },
-                orderBy: {
-                    createdAt: "desc",
-                },
-                include: {
-                    branch: true,
-                    counselor: {
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true
-                        }
-                    }
-                },
-            });
-
-            return NextResponse.json({
-                success: true,
-                data: leads,
-            });
-        }
-
-        // ======================================================
-        // 3. ADMIN/SUPERADMIN -> ALL LEADS
-        // ======================================================
-
-        const leads = await db.lead.findMany({
+        const students = await db.student.findMany({
             orderBy: {
                 createdAt: "desc",
             },
             include: {
-                branch: true,
+                branch: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                    },
+                },
+
                 counselor: {
                     select: {
                         id: true,
                         name: true,
-                        email: true
-                    }
+                        email: true,
+                    },
+                },
+
+                lead: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true,
+                        preferredCountry: true,
+                        preferredCourse: true,
+                        status: true,
+                        source: true,
+                    },
+                },
+
+                studentCourses: {
+                    select: {
+                        id: true,
+                        universityName: true,
+                        courseName: true,
+                        immigrationPortal: true,
+                        applicationDate: true,
+                        applicationStatus: true,
+                        studentId: true,
+                        createdAt: true,
+                        updatedAt: true,
+                    },
+                },
+
+                _count: {
+                    select: {
+                        timeline: true,
+                    },
                 },
             },
         });
 
-        console.log(leads, "leadss");
-
-
         return NextResponse.json({
             success: true,
-            data: leads,
+            data: students,
         });
     } catch (error) {
         console.error(error);
@@ -159,48 +189,49 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: Request) {
-    try {
-        const body = await req.json();
+  try {
+    const body = await req.json();
 
-        const student = await db.student.create({
-            data: {
-                studentName: body.name,
-                mobileNumber: body.phone,
-                emailId: body.email,
+    const student = await db.student.create({
+      data: {
+        // Relation to Lead
+        leadId: body.id,
 
-                dob: body.dob
-                    ? new Date(body.dob)
-                    : null,
+        // Branch & Counselor
+        branchId: body.branchId,
+        counselorId: body.counselorId,
 
-                preferredCountry: body.country,
-                preferredCourse: body.program,
-                intake: body.intake,
+        // Student Information
+        studentName: `${body.firstName} ${body.lastName}`.trim(),
+        mobileNumber: body.phone,
+        emailId: body.email,
 
-                status: body.status.toLowerCase(),
+        dob: body.dob ? new Date(body.dob) : null,
 
-                branchId: body.branchId,
-            },
+        // Student Status
+        status: "active",
+      },
 
-            include: {
-                branch: true,
-            },
-        });
+      include: {
+        branch: true,
+        counselor: true,
+        lead: true,
+      },
+    });
 
-        return NextResponse.json(student, {
-            status: 201,
-        });
-    } catch (error) {
-        console.error(error);
+    return NextResponse.json(student, { status: 201 });
+  } catch (error) {
+    console.error(error);
 
-        return NextResponse.json(
-            {
-                message: "Failed to create student",
-            },
-            {
-                status: 500,
-            }
-        );
-    }
+    return NextResponse.json(
+      {
+        message: "Failed to create student",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }
 
 export async function PATCH(req: NextRequest) {
@@ -365,4 +396,39 @@ export async function PATCH(req: NextRequest) {
       }
     );
   }
+}
+
+export async function DELETE(req: NextRequest) {
+  const sp = req.nextUrl.searchParams;
+  const id = sp.get("id");
+
+  if (!id) {
+    return NextResponse.json({ success: false, message: "Lead ID is required", }, { status: 400 })
+  }
+
+  const existingStudent = await db.student.findUnique({
+    where: { id },
+  });
+
+  if (!existingStudent) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Lead not found.",
+      },
+      { status: 404 }
+    );
+  }
+
+  const lead = await db.student.delete({
+    where: {
+      id,
+    },
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: "Lead deleted successfully.",
+    data: lead,
+  });
 }

@@ -27,14 +27,13 @@ interface Lead {
   email: string;
   phone: string;
   source: string;
-  country: {name: string};
+  country: { name: string };
   leadStage: LeadStage;
   preferredCourse?: string | null;
   intakeSeason?: string | null;
   intakeYear?: number | null;
   counselorId?: string | null;
 }
-
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -50,15 +49,23 @@ export default function UnassignedLeads() {
     { total: number; limit: number; totalPages: number; page: number }[]
   >([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // FIX: this used to be a single shared string (`selectedCoun`) — meaning
+  // whichever lead's dropdown you touched last set ONE global counselor,
+  // and every "Assign" button used that same value. Now it's keyed per lead.
   const [perLeadCounselor, setPerLeadCounselor] = useState<
     Record<string, string>
   >({});
+
   const [counsellor, setCounsellor] = useState<Counselor[]>([]);
   const [bulkCounselorId, setBulkCounselorId] = useState("");
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<LeadStage | "">("");
   const [toast, setToast] = useState<string | null>(null);
-  const [selectedCoun, setSelectedCoun] = useState<string | null>(null)
+
+  // Loading flags so buttons disable correctly during in-flight requests
+  const [assigningLeadId, setAssigningLeadId] = useState<string | null>(null);
+  const [bulkAssigning, setBulkAssigning] = useState(false);
 
   // Only show leads without a counselor
   const unassigned = leads?.length > 0 ? leads.filter((l) => !l.counselorId) : [];
@@ -68,24 +75,16 @@ export default function UnassignedLeads() {
     if (req.status === 200) {
       setMeta(req.data.meta);
       setLeads(req.data.data);
-      console.log(req.data.data);
     }
   };
-
-  const assignSingleLead = async (selectedLeadId: string) => {
-    await axios.post("/api/leads/unassigned", {
-      leadId: selectedLeadId,
-      counselorId: selectedCoun 
-    })
-  }
 
   const getCons = async () => {
     const req = await axios.get(`/api/users/counsellor?few=${Boolean(true)}`);
     if (req.status === 200) {
-      console.log(req.data.data);
       setCounsellor(req.data.data);
     }
   };
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return unassigned.filter((l) => {
@@ -116,36 +115,80 @@ export default function UnassignedLeads() {
     setSelectedIds(checked ? new Set(filtered.map((l) => l.id)) : new Set());
   }
 
-  function assignSingle(leadId: string) {
-    const counselorId = perLeadCounselor[leadId];
-    if (!counselorId) return;
-    const counselor = counsellor.find((c) => c.id === counselorId);
-    const lead = leads.find((l) => l.id === leadId);
-    setLeads((prev) =>
-      prev.map((l) => (l.id === leadId ? { ...l, counselorId } : l)),
-    );
-    setSelectedIds((prev) => {
-      const n = new Set(prev);
-      n.delete(leadId);
-      return n;
-    });
-    showToast(`${lead?.firstName} assigned to ${counselor?.name}`);
+  // Update only this lead's chosen counselor — never touches any other lead
+  function setLeadCounselor(leadId: string, counselorId: string) {
+    setPerLeadCounselor((prev) => ({ ...prev, [leadId]: counselorId }));
   }
 
-  function assignBulk() {
+  // ── Single-lead assign (per-row dropdown + button) ───────────────────────
+  async function assignSingle(leadId: string) {
+    const counselorId = perLeadCounselor[leadId];
+    if (!counselorId) return;
+
+    const counselor = counsellor.find((c) => c.id === counselorId);
+    const lead = leads.find((l) => l.id === leadId);
+
+    setAssigningLeadId(leadId);
+    try {
+      await axios.post("/api/leads/unassigned", {
+        leadId,
+        counselorId,
+      });
+
+      setLeads((prev) =>
+        prev.map((l) => (l.id === leadId ? { ...l, counselorId } : l)),
+      );
+      setSelectedIds((prev) => {
+        const n = new Set(prev);
+        n.delete(leadId);
+        return n;
+      });
+      // Clean up this lead's local selection now that it's assigned
+      setPerLeadCounselor((prev) => {
+        const n = { ...prev };
+        delete n[leadId];
+        return n;
+      });
+
+      showToast(`${lead?.firstName} assigned to ${counselor?.name}`);
+    } catch (err) {
+      showToast(`Failed to assign ${lead?.firstName}. Try again.`);
+    } finally {
+      setAssigningLeadId(null);
+    }
+  }
+
+  // ── Bulk assign (select multiple leads + one counselor) ──────────────────
+  async function assignBulk() {
     if (!bulkCounselorId || selectedIds.size === 0) return;
+
     const counselor = counsellor.find((c) => c.id === bulkCounselorId);
-    const count = selectedIds.size;
-    setLeads((prev) =>
-      prev.map((l) =>
-        selectedIds.has(l.id) ? { ...l, counselorId: bulkCounselorId } : l,
-      ),
-    );
-    setSelectedIds(new Set());
-    setBulkCounselorId("");
-    showToast(
-      `${count} lead${count > 1 ? "s" : ""} assigned to ${counselor?.name}`,
-    );
+    const idsToAssign = Array.from(selectedIds);
+    const count = idsToAssign.length;
+
+    setBulkAssigning(true);
+    try {
+      // Adjust endpoint/payload shape to match your bulk API route if different
+      await axios.post("/api/leads/unassigned/bulk", {
+        leadIds: idsToAssign,
+        counselorId: bulkCounselorId,
+      });
+
+      setLeads((prev) =>
+        prev.map((l) =>
+          selectedIds.has(l.id) ? { ...l, counselorId: bulkCounselorId } : l,
+        ),
+      );
+      setSelectedIds(new Set());
+      setBulkCounselorId("");
+      showToast(
+        `${count} lead${count > 1 ? "s" : ""} assigned to ${counselor?.name}`,
+      );
+    } catch (err) {
+      showToast(`Failed to assign ${count} lead${count > 1 ? "s" : ""}. Try again.`);
+    } finally {
+      setBulkAssigning(false);
+    }
   }
 
   const allSelected =
@@ -168,7 +211,6 @@ export default function UnassignedLeads() {
             Leads without a counsellor — {unassigned.length} pending
           </p>
         </div>
-
 
         {/* Bulk assign bar */}
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
@@ -204,10 +246,12 @@ export default function UnassignedLeads() {
           </Select>
           <button
             onClick={assignBulk}
-            disabled={!bulkCounselorId || selectedIds.size === 0}
+            disabled={!bulkCounselorId || selectedIds.size === 0 || bulkAssigning}
             className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            Assign {selectedIds.size > 0 ? `(${selectedIds.size})` : ""}
+            {bulkAssigning
+              ? "Assigning…"
+              : `Assign ${selectedIds.size > 0 ? `(${selectedIds.size})` : ""}`}
           </button>
         </div>
 
@@ -246,6 +290,9 @@ export default function UnassignedLeads() {
           <div className="space-y-2">
             {filtered.map((lead) => {
               const isSelected = selectedIds.has(lead.id);
+              const thisLeadCounselor = perLeadCounselor[lead.id] ?? "";
+              const isAssigningThis = assigningLeadId === lead.id;
+
               return (
                 <div
                   key={lead.id}
@@ -298,11 +345,11 @@ export default function UnassignedLeads() {
                     </div>
                   </div>
 
-                  {/* Per-lead assign */}
+                  {/* Per-lead assign — scoped to THIS lead only via perLeadCounselor[lead.id] */}
                   <div className="flex shrink-0 items-center gap-2">
                     <Select
-                      value={selectedCoun ?? ""}
-                      onValueChange={(value) => setSelectedCoun(value)}
+                      value={thisLeadCounselor}
+                      onValueChange={(value) => setLeadCounselor(lead.id, value)}
                     >
                       <SelectTrigger className="w-[220px] text-xs">
                         <SelectValue placeholder="Assign to…" />
@@ -317,11 +364,11 @@ export default function UnassignedLeads() {
                       </SelectContent>
                     </Select>
                     <button
-                      onClick={() => assignSingleLead(lead.id)}
-                      disabled={selectedCoun ? false : true}
+                      onClick={() => assignSingle(lead.id)}
+                      disabled={!thisLeadCounselor || isAssigningThis}
                       className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
-                      Assign
+                      {isAssigningThis ? "Assigning…" : "Assign"}
                     </button>
                   </div>
                 </div>

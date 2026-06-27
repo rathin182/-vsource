@@ -67,8 +67,32 @@ export default function AllLeadsPage() {
   const [toDate, setToDate] = useState("");
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState("");
-  const [deleteing, setDeleting] = useState(false)
+  const [deleteing, setDeleting] = useState(false);
+  const [user, setUser] = useState<any>({});
+  const [convert, setConvert] = useState(false);
   const statuses = leadStatuses;
+
+  const me = async () => {
+    try {
+      const response = await fetch(
+        "/api/auth/me"
+      );
+
+      if (!response.ok) {
+        toast.error("something went wrong");
+        return;
+      }
+
+      const user = await response.json();
+      setUser(user)
+
+    } catch (error) {
+      console.error(
+        "Error fetching data:",
+        error
+      );
+    }
+  };
 
   const fetchLeads = async () => {
     try {
@@ -88,7 +112,6 @@ export default function AllLeadsPage() {
       }
 
       const result = await response.json();
-console.log(result);
 
       setLeads(result.data);
 
@@ -144,6 +167,7 @@ console.log(result);
   useEffect(() => {
     fetchLeads();
     fetchBranches();
+    me();
   }, []);
 
   // const filteredLeads = useMemo(() => {
@@ -174,7 +198,7 @@ console.log(result);
           item.firstName
             ?.toLowerCase()
             .includes(queryValue) ||
-            item.lastName
+          item.lastName
             ?.toLowerCase()
             .includes(queryValue) ||
           item.email
@@ -185,9 +209,9 @@ console.log(result);
           item.preferredCountry
             ?.toLowerCase()
             .includes(queryValue);
-            item.preferredCourse
-            ?.includes(queryValue) ||
-            item.intakeSeason
+        item.preferredCourse
+          ?.includes(queryValue) ||
+          item.intakeSeason
             ?.includes(queryValue)
 
         const matchStatus =
@@ -226,14 +250,12 @@ console.log(result);
 
   const uniqueBranches = Array.from(new Set(seedLeads.map((item) => item.branch)));
   const uniqueSources = Array.from(new Set(seedLeads.map((item) => item.source)));
-
   const removeLead = async () => {
     try {
       if (!selectedLeadId) {
         toast.error("Could not found Lead Id");
       }
       setDeleting(true)
-      console.log(selectedLeadId, "leadIddd");
 
       const res = await fetch(
         `/api/leads?id=${selectedLeadId.toString()}`,
@@ -257,8 +279,6 @@ console.log(result);
   };
 
   const openDeletePopup = (id: any) => {
-    console.log(id, "leadid");
-
     setSelectedLeadId(id);
     setShowDeletePopup(true);
   };
@@ -276,6 +296,50 @@ console.log(result);
     setShowDeletePopup(false);
     setSelectedLeadId(null);
   };
+
+  const handleConvertToStudent = async (leads: any, selectedlead: any) => {
+
+    if (leads !== "CONVERTED") {
+      return toast.error(
+        "Only converted leads can be converted to students."
+      );
+    }
+
+    try {
+      setConvert(true)
+      const res = await fetch(`/api/student`, {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify(selectedlead),
+      });
+
+      if (!res.ok) {
+        toast.error("Convert Error");
+        return;
+      }
+
+      const data = await res.json();
+      toast.success("Success", {
+        description: data.message,
+      });
+    } catch (error) {
+      toast.error("Convert Error");
+    } finally {
+      setConvert(false);
+      fetchLeads();
+    }
+
+
+  };
+
+  const canConvertStudent = [
+    "SUPER ADMIN",
+    "ADMIN",
+    "COUNSELLOR",
+  ].includes(user?.role?.name?.toUpperCase());
 
   return (
     <PageTransition>
@@ -302,7 +366,7 @@ console.log(result);
             <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-10"
-              placeholder="Search leads by name, email or ID"
+              placeholder="Search leads by name email or phone number"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -733,10 +797,32 @@ console.log(result);
           {selected && (
             <>
               <SheetHeader>
-                <SheetTitle>
-                  {selected.firstName}{" "}
-                  {selected.lastName}
-                </SheetTitle>
+                <div className="flex items-center gap-5">
+                  <SheetTitle className="text-xl font-semibold">
+                    {selected.firstName} {selected.lastName}
+                  </SheetTitle>
+
+                  {canConvertStudent && (
+                    <button
+                      disabled={selected?.student?.id}
+                      title={
+                        selected?.student?.id
+                          ? "Already converted to student"
+                          : "Convert to Student"
+                      }
+                      onClick={() =>
+                        handleConvertToStudent(selected.status, selected)
+                      }
+                      className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200
+      ${selected?.student?.id
+                          ? "cursor-not-allowed bg-gray-400 opacity-60"
+                          : "cursor-pointer bg-red-600 hover:bg-red-700 hover:shadow-md active:scale-95"
+                        }`}
+                    >
+                      {selected?.student?.id ? "Already Converted" : "Convert to Student"}
+                    </button>
+                  )}
+                </div>
 
                 <SheetDescription>
                   {selected.email}

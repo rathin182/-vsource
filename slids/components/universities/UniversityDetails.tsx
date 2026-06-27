@@ -182,6 +182,7 @@ export default function UniversityDetailsPage() {
     }
   };
   const universityId = String(params?.id ?? "");
+console.log(universityId);
 
   const [university, setUniversity] = useState<UniversityDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -191,7 +192,6 @@ export default function UniversityDetailsPage() {
     try {
       setIsLoading(true);
       const response = await axios.get(`/api/universities/${universityId}`);
-      console.log(response.data.data);
 
       setUniversity(response.data.data);
       setIsError(false);

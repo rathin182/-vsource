@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { DegreeType } from "@/lib/generated/prisma/client";
 
 export async function GET(req: NextRequest) {
   const courseName =
@@ -108,14 +109,159 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  try {
+    const body = await req.json();
 
-  const course =
-    await prisma.universityCourse.create({
-      data: body,
+    const {
+      name,
+      durationMonths,
+      annualTuitionFee,
+      totalTuitionFee,
+      currency,
+      intakeId,
+      minimumPercentage,
+      backlogLimit,
+      englishRequirement,
+      ieltsOverall,
+      ieltsListening,
+      ieltsReading,
+      ieltsWriting,
+      ieltsSpeaking,
+      greRequired,
+      gmatRequired,
+      courseCode,
+      description,
+      applicationDeadline,
+      status,
+      universityId,
+    } = body;
+const degree = body.degree?.toLowerCase();
+    console.log({
+  name,
+  degree,
+  universityId,
+  validDegrees: Object.values(DegreeType),
+});
+
+    if (!name?.trim()) {
+      return NextResponse.json(
+        { success: false, message: "Course name is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!degree) {
+      return NextResponse.json(
+        { success: false, message: "Degree is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!Object.values(DegreeType).includes(degree)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid degree." },
+        { status: 400 }
+      );
+    }
+
+    if (!universityId) {
+      return NextResponse.json(
+        { success: false, message: "University is required." },
+        { status: 400 }
+      );
+    }
+
+    const course = await prisma.universityCourse.create({
+      data: {
+        name: name.trim(),
+        degree,
+
+        durationMonths:
+          durationMonths !== null && durationMonths !== undefined
+            ? Number(durationMonths)
+            : null,
+
+        annualTuitionFee:
+          annualTuitionFee !== null && annualTuitionFee !== undefined
+            ? annualTuitionFee.toString()
+            : null,
+
+        totalTuitionFee:
+          totalTuitionFee !== null && totalTuitionFee !== undefined
+            ? totalTuitionFee.toString()
+            : null,
+
+        currency: currency || null,
+        intakeId: intakeId || null,
+
+        minimumPercentage:
+          minimumPercentage !== null && minimumPercentage !== undefined
+            ? Number(minimumPercentage)
+            : null,
+
+        backlogLimit:
+          backlogLimit !== null && backlogLimit !== undefined
+            ? Number(backlogLimit)
+            : null,
+
+        englishRequirement: englishRequirement || null,
+
+        ieltsOverall:
+          ieltsOverall !== null && ieltsOverall !== undefined
+            ? Number(ieltsOverall)
+            : null,
+
+        ieltsListening:
+          ieltsListening !== null && ieltsListening !== undefined
+            ? Number(ieltsListening)
+            : null,
+
+        ieltsReading:
+          ieltsReading !== null && ieltsReading !== undefined
+            ? Number(ieltsReading)
+            : null,
+
+        ieltsWriting:
+          ieltsWriting !== null && ieltsWriting !== undefined
+            ? Number(ieltsWriting)
+            : null,
+
+        ieltsSpeaking:
+          ieltsSpeaking !== null && ieltsSpeaking !== undefined
+            ? Number(ieltsSpeaking)
+            : null,
+
+        greRequired: Boolean(greRequired),
+        gmatRequired: Boolean(gmatRequired),
+
+        courseCode: courseCode || null,
+        description: description || null,
+
+        applicationDeadline: applicationDeadline
+          ? new Date(`${applicationDeadline}T00:00:00.000Z`)
+          : null,
+
+        status: Boolean(status),
+
+        universityId,
+      },
     });
 
-  return NextResponse.json(course);
+    return NextResponse.json({
+      success: true,
+      data: course,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to create course.",
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(req: NextRequest) {

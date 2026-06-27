@@ -31,9 +31,11 @@ export default function ApplicationsPage() {
   const [role, setRole] = useState("");
   const [counselors, setCounselors] = useState<any[]>([]);
   const [selectedCounselor, setSelectedCounselor] = useState("");
+  const [isloading, setIsloading] = useState(false)
 
   const me = async () => {
     try {
+      setIsloading(true)
       const response = await fetch(
         "/api/auth/me"
       );
@@ -51,7 +53,6 @@ export default function ApplicationsPage() {
       }
 
       const leadData = await leadRes.json();
-      console.log(leadData, "leadData");
 
 
 
@@ -69,7 +70,6 @@ export default function ApplicationsPage() {
       //   counselor:
       //     lead.counselor?.name ?? "N/A",
       // }));
-console.log(leadData.data, "leadd");
 
       const formatted = leadData.data.map((lead: any) => ({
         id: lead.id,
@@ -92,6 +92,8 @@ console.log(leadData.data, "leadd");
         "Error fetching data:",
         error
       );
+    }finally{
+      setIsloading(false)
     }
   };
 
@@ -139,8 +141,6 @@ console.log(leadData.data, "leadd");
   }
 
   useEffect(() => {
-    console.log("calleddddd");
-
     fetchCounsellor()
   }, [role === "ADMIN" || role === "SUPER ADMIN"]);
 
@@ -152,8 +152,7 @@ console.log(leadData.data, "leadd");
   };
 
   const filteredApps = apps.filter((app) => {
-    console.log(selectedCounselor, "selectedCounselor", app.counselor);
-    
+
     // Filter by counselor first
     if (
       selectedCounselor &&
@@ -194,6 +193,14 @@ console.log(leadData.data, "leadd");
   useEffect(() => {
     me();
   }, []);
+
+    if (isloading) {
+    return(
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-15 w-15 border-b-2 border-red-400"></div>
+      </div>
+    )
+  }
 
   return (
     <PageTransition>

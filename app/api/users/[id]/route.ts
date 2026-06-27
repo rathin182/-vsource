@@ -5,7 +5,7 @@
  * DELETE /api/users/:id
  */
 
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import db from "@/lib/prisma";
 // import { getAuthorizedUser } from "@/lib/rbac";
@@ -83,15 +83,39 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   }
 }
 
-
-export async function DELETE(req: NextRequest, { params }: Ctx) {
+export async function DELETE(req: NextRequest,
+  { params }: { params: { id: string } }) {
   try {
-    // await getAuthorizedUser(req, MODULES.USERS, PERMISSIONS.DELETE);
+     const sp = req.nextUrl.searchParams;
+    const id = sp.get("id") as string;
 
-    const { id } = await params;
-    await db.user.delete({ where: { id } });
-    return noContent();
+    console.log("Deleting user:", id);
+
+    const user = await db.user.findUnique({
+      where: { id },
+    });
+
+    console.log(user);
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "User not found.",
+        },
+        { status: 404 }
+      );
+    }
+
+    await db.user.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({
+      success: true,
+    });
   } catch (err) {
+    console.error(err);
     return handleError(err);
   }
 }

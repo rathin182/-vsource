@@ -114,8 +114,8 @@ export default function Loans() {
     try {
       setLoading(true);
       const { data } = await axios.get("/api/loan");
-      console.log(data.data);
       setList(data.data);
+            console.log(data, "issue");
     } catch {
       toast.error("Failed to load loan inquiries");
     } finally {
@@ -480,9 +480,9 @@ export default function Loans() {
                         <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                           {loan.id.slice(0, 6)}
                         </td>
-                        <td className="px-4 py-0 font-medium">{loan.student.studentName}  <br />
+                        <td className="px-4 py-0 font-medium">{loan?.student?.studentName}  <br />
                           <span className="text-[10px] text-muted-foreground -mt-2">
-                                {loan.student.emailId} {loan.student.studentNumber && "·" + " " + loan.student.studentNumber}
+                                {loan?.student?.emailId} {loan?.student?.studentNumber && "·" + " " + loan.student.studentNumber}
                               </span>
                               </td>
                         <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">
