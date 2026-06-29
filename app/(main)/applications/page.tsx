@@ -17,8 +17,6 @@ const STAGES: { key: ApplicationStage; label: string; color: string }[] = [
   { key: "documents", label: "Documents", color: "bg-warning/15 text-warning" },
   { key: "applied", label: "Applied", color: "bg-primary/10 text-primary" },
   { key: "offer", label: "Offer Received", color: "bg-success/15 text-success" },
-  { key: "visa", label: "Visa Process", color: "bg-chart-5/15 text-chart-5" },
-  { key: "enrolled", label: "Enrolled", color: "bg-success text-white" },
 ];
 
 export default function ApplicationsPage() {
