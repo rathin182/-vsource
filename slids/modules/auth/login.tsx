@@ -72,7 +72,7 @@ const onSubmit = async (
         data.user.name
     );
 
-    router.push("/assign-leads");
+    router.push("/");
     router.refresh();
   } catch (error) {
     console.error(error);

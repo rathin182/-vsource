@@ -30,6 +30,8 @@ export default function RootPage() {
     // Wait until fetch completes — role being set means we got a valid response
     if (role === null) return;
 
+    console.log(role);
+    
     if (authenticated) {
       if (role.toLowerCase() === "counsellor") {
         router.replace("/applications");
