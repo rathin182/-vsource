@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
         }
 
         // ======================================================
-        // 2. COUNSELOR -> ONLY HIS LEADS
+        // 2. COUNSELLOR -> ONLY HIS LEADS
         // ======================================================
 
         if (role === "COUNSELLOR") {

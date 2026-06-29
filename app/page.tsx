@@ -13,8 +13,6 @@ export default function RootPage() {
         const res = await fetch("/api/auth/me");
         const data = await res.json();
         if (res.ok) {
-          console.log(data.role.name);
-          
           setRole(data.role.name);
           setAuthenticated(true);
         } else {

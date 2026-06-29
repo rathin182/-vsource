@@ -810,7 +810,7 @@ export async function GET(req: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("[COUNSELOR_DASHBOARD]", error);
+    console.error("[COUNSELLOR_DASHBOARD]", error);
     return NextResponse.json(
       { success: false, error: "Failed to fetch counselor dashboard" },
       { status: 500 }

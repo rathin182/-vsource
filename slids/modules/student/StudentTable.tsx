@@ -146,7 +146,7 @@ export function StudentTable({
                 <th className={`px-3 py-3 sticky top-0 left-12 z-[40] border-r w-28 ${thBgClass}`}>STUD ID</th>
                 <th className={`px-4 py-3 sticky top-0 left-40 z-[40] border-r w-44 min-w-[170px] ${thBgClass}`}>STUDENT NAME</th>
                 <th className={`px-4 py-3 ${thBgClass}`}>BRANCH</th>
-                <th className={`px-4 py-3 ${thBgClass}`}>COUNSELOR</th>
+                <th className={`px-4 py-3 ${thBgClass}`}>COUNSELLOR</th>
                 <th className={`px-4 py-3 ${thBgClass}`}>MOBILE NUMBER</th>
                 <th className={`px-4 py-3 ${thBgClass}`}>EMAIL ID</th>
                 <th className={`px-4 py-3 ${thBgClass}`}>DOB</th>
