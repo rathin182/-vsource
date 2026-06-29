@@ -59,25 +59,25 @@ const items = [
     to: "/visa",
     label: "Visa",
     icon: Activity,
-    roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN"],
+    roles: ["ADMIN", "COUNSELLOR", "SUPER ADMIN"],
   },
    {
     to: "/students",
     label: "Students",
     icon: GraduationCap,
-    roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN"],
+    roles: ["ADMIN", "COUNSELLOR", "SUPER ADMIN"],
   },
   {
     to: "/applications",
     label: "Applications",
     icon: FileText,
-    roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN"],
+    roles: ["ADMIN", "COUNSELLOR", "SUPER ADMIN"],
   },
   {
     to: "/reports",
     label: "Reports",
     icon: BarChart3,
-    roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN"],
+    roles: ["ADMIN", "COUNSELLOR", "SUPER ADMIN"],
   },
 
   // Admin only
@@ -109,13 +109,13 @@ const items = [
     to: "/courses",
     label: "Courses Management",
     icon: School,
-    roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN"],
+    roles: ["ADMIN", "COUNSELLOR", "SUPER ADMIN"],
   },
    {
     to: "/course-finder",
     label: "Course Finder",
     icon: Search,
-    roles: ["ADMIN", "COUNSELOR", "SUPER ADMIN", "RECEPTIONIST"],
+    roles: ["ADMIN", "COUNSELLOR", "SUPER ADMIN", "RECEPTIONIST"],
   },
   {
     to: "/assign-leads",
@@ -133,7 +133,7 @@ const items = [
     to: "/profile",
     label: "Profile",
     icon: User,
-    roles: ["ADMIN", "RECEPTIONIST", "COUNSELOR", "SUPER ADMIN"],
+    roles: ["ADMIN", "RECEPTIONIST", "COUNSELLOR", "SUPER ADMIN"],
   },
   {
     to: "/settings",
