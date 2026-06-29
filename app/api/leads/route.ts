@@ -95,13 +95,7 @@ export async function GET(req: NextRequest) {
       ...(search && {
         OR: [
           {
-            firstName: {
-              contains: search,
-              mode: "insensitive" as const,
-            },
-          },
-          {
-            lastName: {
+            studentName: {
               contains: search,
               mode: "insensitive" as const,
             },
@@ -192,7 +186,7 @@ export async function GET(req: NextRequest) {
 //     const payload = await req.json();
 
 //     const body = LeadCreateSchema.parse({
-//       firstName: payload.firstName,
+//       studentName: payload.studentName,
 //       lastName: payload.lastName,
 
 //       email: payload.email,
@@ -272,8 +266,8 @@ export async function GET(req: NextRequest) {
 
 //     const lead = await db.lead.create({
 //       data: {
-//         firstName:
-//           body.firstName,
+//         studentName:
+//           body.studentName,
 
 //         lastName:
 //           body.lastName,

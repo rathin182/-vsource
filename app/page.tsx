@@ -38,7 +38,7 @@ export default function RootPage() {
       } else if (role.toLowerCase() === "receptionist") {
         router.replace("/leads/all");
       } else {
-        router.replace("/assign-leads");
+        router.replace("/leads/all");
       }
     } else {
       router.replace("/login");
