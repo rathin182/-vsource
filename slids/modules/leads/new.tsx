@@ -678,16 +678,11 @@ export default function AddNewLead() {
   };
 
   // ── Derived: show overall score input for non-IELTS tests ──
-  const showIeltsSubScores =
-    form.englishTestType === "IELTS" || form.englishTestType === "";
-  const showToeflScore    = form.englishTestType === "TOEFL";
-  const showPteScore      = form.englishTestType === "PTE";
-  const showDuolingoScore = form.englishTestType === "DUOLINGO";
 
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative">
       <div className="mx-auto max-w-6xl px-4 py-8 space-y-6 pb-32">
         {/* Page Header */}
         <div className="space-y-1">
