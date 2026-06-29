@@ -21,41 +21,18 @@ function LoginPage() {
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
 
+
 // useEffect(() => {
-//   if (isAuthenticated) {
-    
-//     router.push("/dashboard");
-//   }
-// }, [isAuthenticated, router]);
+//   const checkAuth = async () => {
+//     const res = await fetch("/api/auth/me");
 
-// const onSubmit = async (e: React.FormEvent) => {
-//   e.preventDefault();
+//     if (res.ok) {
+//       router.push("/assign-leads");
+//     }
+//   };
 
-//   setLoading(true);
-
-//   const res = await login(email, password);
-
-//   setLoading(false);
-
-//   if (res.ok) {
-//     toast.success("Welcome back");
-//     router.push("/dashboard");
-//   } else {
-//     toast.error(res.error ?? "Login failed");
-//   }
-// };
-
-useEffect(() => {
-  const checkAuth = async () => {
-    const res = await fetch("/api/me");
-
-    if (res.ok) {
-      router.push("/assign-leads");
-    }
-  };
-
-  checkAuth();
-}, [router]);
+//   checkAuth();
+// }, [router]);
 
 const onSubmit = async (
   e: React.FormEvent

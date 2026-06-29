@@ -476,261 +476,208 @@ export default function AllLeadsPage() {
       </div>
 
       {/* main card */}
-      <div>
-        <thead>
-          {isLoading ? (
-            <tr className="bg-secondary/30">
-              {Array.from({ length: 12 }).map((_, index) => (
-                <th key={index} className="px-4 py-3">
-                  <Skeleton className="h-4 w-20" />
-                </th>
-              ))}
-            </tr>
-          ) : (
-            <tr className="bg-secondary/30 text-left text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              <th className="px-4 py-3">Lead No</th>
+      {/* <div> */}
+{/* Table Header */}
+<div className="bg-secondary/30">
+  {isLoading ? (
+    <div className="flex px-4 py-3 gap-4">
+      {Array.from({ length: 12 }).map((_, index) => (
+        <div key={index} className="flex-1">
+          <Skeleton className="h-4 w-20" />
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div className="flex px-4 py-3 text-left text-xs uppercase tracking-[0.16em] text-muted-foreground">
+      <div className="w-24 shrink-0">Lead No</div>
+      <div className="flex-1 min-w-[140px]">Student</div>
+      <div className="w-28 shrink-0">Mobile</div>
+      <div className="w-40 shrink-0 hidden lg:block">Email</div>
+      <div className="w-24 shrink-0">Source</div>
+      <div className="w-28 shrink-0 hidden lg:block">Branch</div>
+      <div className="w-28 shrink-0 hidden xl:block">Counselor</div>
+      <div className="w-24 shrink-0">Country</div>
+      <div className="w-24 shrink-0">Status</div>
+      <div className="w-24 shrink-0 hidden xl:block">Created</div>
+      <div className="w-24 shrink-0 hidden xl:block">Follow-up</div>
+      <div className="w-20 shrink-0">Actions</div>
+    </div>
+  )}
+</div>
 
-              <th className="px-4 py-3">
-                Student
-              </th>
+{/* Table Body */}
+<div>
+  {isLoading ? (
+    Array.from({ length: 5 }).map((_, index) => (
+      <div key={index} className="flex items-center px-4 py-4 border-b border-border gap-4">
+        <div className="w-24 shrink-0">
+          <Skeleton className="h-4 w-20" />
+        </div>
 
-              <th className="px-4 py-3">
-                Mobile
-              </th>
+        <div className="flex-1 min-w-[140px]">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-40" />
+            </div>
+          </div>
+        </div>
 
-              <th className="px-4 py-3 hidden lg:table-cell">
-                Email
-              </th>
+        <div className="w-28 shrink-0">
+          <Skeleton className="h-4 w-24" />
+        </div>
 
-              <th className="px-4 py-3">
-                Source
-              </th>
+        <div className="w-40 shrink-0 hidden lg:block">
+          <Skeleton className="h-4 w-40" />
+        </div>
 
-              <th className="px-4 py-3 hidden lg:table-cell">
-                Branch
-              </th>
+        <div className="w-24 shrink-0">
+          <Skeleton className="h-4 w-20" />
+        </div>
 
-              <th className="px-4 py-3 hidden xl:table-cell">
-                Counselor
-              </th>
+        <div className="w-28 shrink-0 hidden lg:block">
+          <Skeleton className="h-4 w-28" />
+        </div>
 
-              <th className="px-4 py-3">
-                Country
-              </th>
+        <div className="w-28 shrink-0 hidden xl:block">
+          <Skeleton className="h-4 w-24" />
+        </div>
 
-              <th className="px-4 py-3">
-                Status
-              </th>
+        <div className="w-24 shrink-0">
+          <Skeleton className="h-4 w-20" />
+        </div>
 
-              <th className="px-4 py-3 hidden xl:table-cell">
-                Created
-              </th>
+        <div className="w-24 shrink-0">
+          <Skeleton className="h-8 w-20 rounded-full" />
+        </div>
 
-              <th className="px-4 py-3 hidden xl:table-cell">
-                Follow-up
-              </th>
+        <div className="w-24 shrink-0 hidden xl:block">
+          <Skeleton className="h-4 w-24" />
+        </div>
 
-              <th className="px-4 py-3">
-                Actions
-              </th>
-            </tr>
-          )}
-        </thead>
+        <div className="w-24 shrink-0 hidden xl:block">
+          <Skeleton className="h-4 w-24" />
+        </div>
 
-        <tbody>
-          {isLoading ? (
-            Array.from({ length: 5 }).map((_, index) => (
-              <tr key={index} className="border-b border-border">
-                <td className="px-4 py-4">
-                  <Skeleton className="h-4 w-20" />
-                </td>
-
-                <td className="px-4 py-4">
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-8 w-8 rounded-full" />
-
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-40" />
-                    </div>
-                  </div>
-                </td>
-
-                <td className="px-4 py-4">
-                  <Skeleton className="h-4 w-24" />
-                </td>
-
-                <td className="px-4 py-4 hidden lg:table-cell">
-                  <Skeleton className="h-4 w-40" />
-                </td>
-
-                <td className="px-4 py-4">
-                  <Skeleton className="h-4 w-20" />
-                </td>
-
-                <td className="px-4 py-4 hidden lg:table-cell">
-                  <Skeleton className="h-4 w-28" />
-                </td>
-
-                <td className="px-4 py-4 hidden xl:table-cell">
-                  <Skeleton className="h-4 w-24" />
-                </td>
-
-                <td className="px-4 py-4">
-                  <Skeleton className="h-4 w-20" />
-                </td>
-
-                <td className="px-4 py-4">
-                  <Skeleton className="h-8 w-20 rounded-full" />
-                </td>
-
-                <td className="px-4 py-4 hidden xl:table-cell">
-                  <Skeleton className="h-4 w-24" />
-                </td>
-
-                <td className="px-4 py-4 hidden xl:table-cell">
-                  <Skeleton className="h-4 w-24" />
-                </td>
-
-                <td className="px-4 py-4">
-                  <div className="flex gap-2">
-                    <Skeleton className="h-8 w-8 rounded-md" />
-                    <Skeleton className="h-8 w-8 rounded-md" />
-                    <Skeleton className="h-8 w-8 rounded-md" />
-                  </div>
-                </td>
-              </tr>
-            ))
-          ) : filteredLeads.length === 0 ? (
-            <tr>
-              <td
-                colSpan={12}
-                className="py-12 text-center text-sm text-muted-foreground"
-              >
-                No leads found.
-              </td>
-            </tr>
-          ) : (
-            filteredLeads.map((lead) => (
-              <tr
-                key={lead.id}
-                className="border-b border-border hover:bg-secondary/40"
-              >
-                {/* ID */}
-                <td className="px-4 py-4 font-medium text-sm">
-                  {lead.id.slice(0, 8)}
-                </td>
-
-                {/* Name */}
-                <td className="px-4 py-4 text-md">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="size-8">
-                      <AvatarFallback>
-                        {`${lead.firstName ?? ""} ${lead.lastName ?? ""}`
-                          .trim()
-                          .split(" ")
-                          .map((part: string) => part[0])
-                          .join("")
-                          .toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div>
-                      <div>
-                        {lead.firstName} {lead.lastName}
-                      </div>
-                    </div>
-                  </div>
-                </td>
-
-                {/* Phone */}
-                <td className="px-4 py-4 text-sm">
-                  {lead.phone ?? "—"}
-                </td>
-
-                {/* Email */}
-                <td className="px-4 py-4 hidden lg:table-cell text-muted-foreground text-sm">
-                  {lead.email ?? "—"}
-                </td>
-
-                {/* Source */}
-                <td className="px-4 py-4 text-sm">
-                  {lead.source ?? "—"}
-                </td>
-
-                {/* Branch */}
-                <td className="px-4 py-4 hidden lg:table-cell text-sm">
-                  {lead.branch?.name ?? "—"}
-                </td>
-
-                {/* Counselor */}
-                <td className="px-4 py-4 hidden xl:table-cell text-sm">
-                  {lead.counselor?.name ?? "Unassigned"}
-                </td>
-
-                {/* Preferred Country */}
-                <td className="px-4 py-4 text-sm">
-                  {lead.preferredCountry ?? "—"}
-                </td>
-
-                {/* Status */}
-                <td className="px-4 py-4 text-sm">
-                  <Badge
-                    variant="outline"
-                    className={`capitalize ${statusStyle[
-                      lead.status as LeadStatus
-                    ]
-                      }`}
-                  >
-                    {lead.status ?? "—"}
-                  </Badge>
-                </td>
-
-                {/* Created Date */}
-                <td className="px-4 py-4 hidden xl:table-cell text-sm">
-                  {new Date(
-                    lead.createdAt
-                  ).toLocaleDateString()}
-                </td>
-
-                {/* Student Conversion */}
-                <td className="px-4 py-4 hidden xl:table-cell text-sm">
-                  {lead.student ? (
-                    <Badge>
-                      Converted
-                    </Badge>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-
-                {/* Actions */}
-                <td className="px-4 py-4 space-x-1 whitespace-nowrap">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-8"
-                    onClick={() =>
-                      setSelected(lead)
-                    }
-                  >
-                    <Eye className="size-4" />
-                  </Button>
-
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-8 text-destructive"
-                    onClick={() => openDeletePopup(lead.id)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
+        <div className="w-20 shrink-0">
+          <div className="flex gap-2">
+            <Skeleton className="h-8 w-8 rounded-md" />
+            <Skeleton className="h-8 w-8 rounded-md" />
+            <Skeleton className="h-8 w-8 rounded-md" />
+          </div>
+        </div>
       </div>
+    ))
+  ) : filteredLeads.length === 0 ? (
+    <div className="py-12 text-center text-sm text-muted-foreground">
+      No leads found.
+    </div>
+  ) : (
+    filteredLeads.map((lead) => (
+      <div
+        key={lead.id}
+        className="flex items-center px-4 py-4 border-b border-border hover:bg-secondary/40 gap-4"
+      >
+        {/* ID */}
+        <div className="w-24 shrink-0 font-medium text-sm">
+          {lead.id.slice(0, 8)}
+        </div>
+
+        {/* Name */}
+        <div className="flex-1 min-w-[140px] text-md">
+          <div className="flex items-center gap-3">
+            <Avatar className="size-8 shrink-0">
+              <AvatarFallback>
+                {`${lead.firstName ?? ""} ${lead.lastName ?? ""}`
+                  .trim()
+                  .split(" ")
+                  .map((part: string) => part[0])
+                  .join("")
+                  .toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              {lead.firstName} {lead.lastName}
+            </div>
+          </div>
+        </div>
+
+        {/* Phone */}
+        <div className="w-28 shrink-0 text-sm">
+          {lead.phone ?? "—"}
+        </div>
+
+        {/* Email */}
+        <div className="w-40 shrink-0 hidden lg:block text-muted-foreground text-sm">
+          {lead.email ?? "—"}
+        </div>
+
+        {/* Source */}
+        <div className="w-24 shrink-0 text-sm">
+          {lead.source ?? "—"}
+        </div>
+
+        {/* Branch */}
+        <div className="w-28 shrink-0 hidden lg:block text-sm">
+          {lead.branch?.name ?? "—"}
+        </div>
+
+        {/* Counselor */}
+        <div className="w-28 shrink-0 hidden xl:block text-sm">
+          {lead.counselor?.name ?? "Unassigned"}
+        </div>
+
+        {/* Preferred Country */}
+        <div className="w-24 shrink-0 text-sm">
+          {lead.preferredCountry ?? "—"}
+        </div>
+
+        {/* Status */}
+        <div className="w-24 shrink-0 text-sm">
+          <Badge
+            variant="outline"
+            className={`capitalize ${statusStyle[lead.status as LeadStatus]}`}
+          >
+            {lead.status ?? "—"}
+          </Badge>
+        </div>
+
+        {/* Created Date */}
+        <div className="w-24 shrink-0 hidden xl:block text-sm">
+          {new Date(lead.createdAt).toLocaleDateString()}
+        </div>
+
+        {/* Follow-up / Student Conversion */}
+        <div className="w-24 shrink-0 hidden xl:block text-sm">
+          {lead.student ? <Badge>Converted</Badge> : "—"}
+        </div>
+
+        {/* Actions */}
+        <div className="w-20 shrink-0 flex gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            onClick={() => setSelected(lead)}
+          >
+            <Eye className="size-4" />
+          </Button>
+
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8 text-destructive"
+            onClick={() => openDeletePopup(lead.id)}
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
+      </div>
+    ))
+  )}
+</div>
+      {/* </div> */}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground">
         <div>
