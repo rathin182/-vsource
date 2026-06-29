@@ -75,7 +75,7 @@ export default function ApplicationsPage() {
         id: lead.id,
         stage: lead.leadStage,
         studentName:
-          `${lead.firstName} ${lead.lastName ?? ""}`.trim(),
+          `${lead.studentName} ${lead.lastName ?? ""}`.trim(),
         university:
           lead.preferredCountry ?? "Not Selected",
         program:

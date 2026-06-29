@@ -1,10 +1,10 @@
-import AddLeadPage from '@/slids/modules/leads/add'
+import AddNewLead from '@/slids/modules/leads/new'
 import React from 'react'
 
 const page = () => {
   return (
     <div>
-        <AddLeadPage />
+        <AddNewLead />
     </div>
   )
 }

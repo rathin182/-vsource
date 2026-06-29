@@ -7,16 +7,7 @@ import {
 import { Card, CardContent } from "@/slids/components/ui/card";
 import { Button } from "@/slids/components/ui/button";
 import { Badge } from "@/slids/components/ui/badge";
-import { Input } from "@/slids/components/ui/input";
-import { Label } from "@/slids/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/slids/components/ui/dialog";
+
 import {
   MapPin,
   Users,
@@ -26,9 +17,10 @@ import {
   TrendingUp,
   LucideLoader2,
   LucideArrowLeft,
+  LucideEdit2,
+  LucideTrash,
 } from "lucide-react";
 import type { Branch } from "@/slids/types";
-import { toast } from "sonner";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 
@@ -41,17 +33,9 @@ interface MetaData {
 
 export default function Branches() {
   const [list, setList] = useState<Branch[]>([]);
-  const [open, setOpen] = useState(false);
   const [transition, startTransition] = useTransition();
-  const empty = {
-    name: "",
-    city: "",
-    manager: "",
-    staff: 5,
-    students: 50,
-    revenue: 1000000,
-  };
-  const [form, setForm] = useState(empty);
+  const [delPrompt, setDelPrompt] = useState(false);
+
   const [metaData, setMetaData] = useState<MetaData>();
   const [page, setPage] = useState(1)
   const router = useRouter()
@@ -64,6 +48,21 @@ export default function Branches() {
         setMetaData(req.data.meta);
       }
     });
+
+  const delData = (id: string) =>
+    startTransition(async () => {
+      const req = await axios.delete(`/api/branches/${id}`);
+      if (req.status === 200) {
+        window.location.reload()
+      }
+    });
+
+  const delAsk = (id: string, name: string) => {
+    const ok = window.confirm(`Are you sure want to delete ${name}`)
+    if (ok) {
+      delData(id)
+    }
+  }
 
   useEffect(() => {
     fetchData();
@@ -136,6 +135,19 @@ export default function Branches() {
                     <div className="text-[10px] text-muted-foreground">
                       Leads
                     </div>
+                  </div>
+                </div>
+
+                <div className="w-full flex pt-3 gap-2.5">
+                  <div className="w-5/6" onClick={() => router.push(`/branches/${b.id}`)}>
+                  <Button variant={"outline"} className="w-full shadow-none">
+                    <LucideEdit2 /> Edit
+                  </Button>
+                  </div>
+                  <div className="w-1/6" onClick={() => delAsk(b.id, b.name)}>
+                  <Button variant={"destructive"} className="w-full shadow-none">
+                    <LucideTrash />
+                  </Button>
                   </div>
                 </div>
               </CardContent>

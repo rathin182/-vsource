@@ -6,7 +6,23 @@ import {
 
 export async function GET(req: NextRequest) {
   try {
+    const params = req.nextUrl.searchParams
+    const withC = params.get("course")
 
+    if (withC) {
+          const data = await db.university.findMany({
+          orderBy: {
+            createdAt: "desc",
+          },
+          select: {
+            id: true,
+            name: true,
+            courses: true
+          }
+        })
+
+    return NextResponse.json({data}, {status: 200})
+    }
     const data = await db.university.findMany({
           orderBy: {
             createdAt: "desc",

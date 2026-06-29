@@ -5,7 +5,7 @@
  * DELETE /api/branches/:id  — delete a branch
  */
 
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/prisma";
 import {
   ok,
@@ -50,8 +50,9 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   try {
     const { id } = await params;
-    await db.branch.delete({ where: { id } });
-    return noContent();
+    const data = await db.branch.delete({ where: { id } });
+    return NextResponse.json({data}, {status: 200})
+    
   } catch (err) {
     return handleError(err);
   }
