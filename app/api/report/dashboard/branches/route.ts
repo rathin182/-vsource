@@ -4,9 +4,23 @@
 //   → Returns full CRM analytics for ALL branches (or a single branch via ?branchId=)
 //
 // Query params:
-//   branchId  (optional) — filter to one branch
+//   branchId  (optional) — filter to one branch. When provided, the response
+//                            also includes `topPerformingCounselors` (top 3).
 //   from      (optional) — ISO date string, default = start of current year
 //   to        (optional) — ISO date string, default = now
+//
+// ─── Top-3 performing counselor ranking rule ────────────────────────────────
+// "Best performing" = visa applications completed, weighed against monthlyTarget:
+//   Tier 1: counselors who MET or EXCEEDED their monthlyTarget
+//           (visaCount >= monthlyTarget, and monthlyTarget > 0)
+//           → sorted by visaCount desc (most visas wins within this tier)
+//   Tier 2: everyone else (target not met, or no target set)
+//           → sorted by a blended score (desc):
+//               targetCompletionRatio = monthlyTarget > 0 ? visaCount / monthlyTarget : 0
+//               relativeVisaVolume    = maxVisaCount > 0 ? visaCount / maxVisaCount : 0
+//               score = (targetCompletionRatio + relativeVisaVolume) / 2
+//   Final ranking = Tier 1 (in order) followed by Tier 2 (in order), take top 3.
+// ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/prisma";
@@ -15,6 +29,54 @@ import db from "@/lib/prisma";
 
 const serializeOverTime = (rows: { month: string; count: bigint }[]) =>
   rows.map((r) => ({ month: r.month, count: Number(r.count) }));
+
+type CounselorVisaRow = {
+  counselorId: string;
+  name: string;
+  email: string;
+  monthlyTarget: number;
+  visaCount: number;
+};
+
+/** Apply the Tier 1 / Tier 2 ranking rule described above and return top N. */
+function rankCounselorsByPerformance(rows: CounselorVisaRow[], topN = 3) {
+  const maxVisaCount = rows.reduce((max, r) => Math.max(max, r.visaCount), 0);
+
+  const tier1 = rows
+    .filter((r) => r.monthlyTarget > 0 && r.visaCount >= r.monthlyTarget)
+    .sort((a, b) => b.visaCount - a.visaCount);
+
+  const tier2 = rows
+    .filter((r) => !(r.monthlyTarget > 0 && r.visaCount >= r.monthlyTarget))
+    .map((r) => {
+      const targetCompletionRatio =
+        r.monthlyTarget > 0 ? Math.min(r.visaCount / r.monthlyTarget, 1) : 0;
+      const relativeVisaVolume = maxVisaCount > 0 ? r.visaCount / maxVisaCount : 0;
+      const score = (targetCompletionRatio + relativeVisaVolume) / 2;
+      return { ...r, _score: score, targetCompletionRatio, relativeVisaVolume };
+    })
+    .sort((a, b) => b._score - a._score);
+
+  const ranked = [
+    ...tier1.map((r) => ({
+      ...r,
+      tier: "target_met" as const,
+      targetCompletionRatio: r.monthlyTarget > 0 ? r.visaCount / r.monthlyTarget : null,
+    })),
+    ...tier2.map((r) => ({
+      counselorId: r.counselorId,
+      name: r.name,
+      email: r.email,
+      monthlyTarget: r.monthlyTarget,
+      visaCount: r.visaCount,
+      tier: "target_not_met" as const,
+      targetCompletionRatio: r.targetCompletionRatio,
+      performanceScore: Number(r._score.toFixed(4)),
+    })),
+  ];
+
+  return ranked.slice(0, topN).map((r, idx) => ({ rank: idx + 1, ...r }));
+}
 
 /** Build a full analytics block for one branchId (or all if null). */
 async function buildBranchAnalytics(branchId: string | null, from: Date, to: Date) {
@@ -29,22 +91,17 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
     leadsByStage,
     leadsBySource,
     leadsByCountry,
-    leadsByQualification,
     leadsByIntakeSeason,
     leadsByVisaStage,
     leadsOverTime,
     convertedLeads,
     upcomingFollowups,
 
-    // ── Student metrics ───────────────────────────────────────────────────────
-    totalStudents,
-    newStudentsThisMonth,
-    studentsByStatus,
-    studentsOverTime,
-
     // ── Counselor metrics ─────────────────────────────────────────────────────
+    totalCounselors,
     topCounselors,
     counselorLeadSummary, // per counselor: leads, converted, followups
+    counselorVisaRows, // per counselor: visa applications done + monthlyTarget
 
     // ── Visa metrics (scoped to this branch's leads) ──────────────────────────
     visaTotal,
@@ -66,10 +123,6 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
 
     // ── Doc counts ────────────────────────────────────────────────────────────
     totalDocs,
-
-    // ── MBBS leads (if applicable) ────────────────────────────────────────────
-    totalMbbsLeads,
-    mbbsLeadsByStatus,
 
     // ── Branch profile itself ─────────────────────────────────────────────────
     branchProfile,
@@ -118,31 +171,24 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
       orderBy: { _count: { country: "desc" } },
     }),
 
-    // ── 7. Leads by qualification ─────────────────────────────────────────────
-    db.lead.groupBy({
-      by: ["qualification"],
-      where: { ...bf, createdAt: dateFilter, qualification: { not: null } },
-      _count: { _all: true },
-    }),
-
-    // ── 8. Leads by intake season ─────────────────────────────────────────────
+    // ── 7. Leads by intake season ─────────────────────────────────────────────
     db.lead.groupBy({
       by: ["intakeSeason"],
       where: { ...bf, createdAt: dateFilter, intakeSeason: { not: null } },
       _count: { _all: true },
     }),
 
-    // ── 9. Leads by visa stage ────────────────────────────────────────────────
+    // ── 8. Leads by visa stage ────────────────────────────────────────────────
     db.lead.groupBy({
       by: ["visaStage"],
       where: { ...bf, createdAt: dateFilter },
       _count: { _all: true },
     }),
 
-    // ── 10. Leads over time (monthly) ─────────────────────────────────────────
+    // ── 9. Leads over time (monthly) ──────────────────────────────────────────
     db.$queryRawUnsafe<{ month: string; count: bigint }[]>(
       `SELECT TO_CHAR("createdAt", 'YYYY-MM') AS month, COUNT(*) AS count
-       FROM leads
+       FROM "leads"
        WHERE "createdAt" >= $1 AND "createdAt" <= $2
          ${branchId ? `AND "branchId" = '${branchId}'` : ""}
        GROUP BY month ORDER BY month ASC`,
@@ -150,12 +196,12 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
       to
     ),
 
-    // ── 11. Converted leads (have a linked student) ───────────────────────────
+    // ── 10. Converted leads (have a linked student) ───────────────────────────
     db.lead.count({
       where: { ...bf, createdAt: dateFilter, student: { isNot: null } },
     }),
 
-    // ── 12. Upcoming follow-ups (next 7 days) ─────────────────────────────────
+    // ── 11. Upcoming follow-ups (next 7 days) ─────────────────────────────────
     db.leadTimeline.count({
       where: {
         lead: { ...bf },
@@ -166,38 +212,16 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
       },
     }),
 
-    // ── 13. Total students ────────────────────────────────────────────────────
-    db.student.count({ where: { ...bf, createdAt: dateFilter } }),
-
-    // ── 14. New students this month ───────────────────────────────────────────
-    db.student.count({
-      where: {
-        ...bf,
-        createdAt: {
-          gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-        },
-      },
+    // ── 12. Total counselors assigned to this branch ──────────────────────────
+    //       (User <-> Branch is many-to-many via the implicit `branches` relation.
+    //        If a branch has no explicit COUNSELLOR-role filter requirement,
+    //        this counts every user attached to the branch. Narrow with
+    //        `role: { name: "COUNSELLOR" }` if you only want counsellor-role users.)
+    db.user.count({
+      where: branchId ? { branches: { some: { id: branchId } } } : {},
     }),
 
-    // ── 15. Students by status ────────────────────────────────────────────────
-    db.student.groupBy({
-      by: ["status"],
-      where: { ...bf, createdAt: dateFilter },
-      _count: { _all: true },
-    }),
-
-    // ── 16. Students over time (monthly) ──────────────────────────────────────
-    db.$queryRawUnsafe<{ month: string; count: bigint }[]>(
-      `SELECT TO_CHAR("createdAt", 'YYYY-MM') AS month, COUNT(*) AS count
-       FROM "Student"
-       WHERE "createdAt" >= $1 AND "createdAt" <= $2
-         ${branchId ? `AND "branchId" = '${branchId}'` : ""}
-       GROUP BY month ORDER BY month ASC`,
-      from,
-      to
-    ),
-
-    // ── 17. Top counselors by lead assignment (this branch) ───────────────────
+    // ── 13. Top counselors by lead assignment (this branch) ───────────────────
     db.leadCounselor.groupBy({
       by: ["counselorId"],
       where: { lead: { ...bf, createdAt: dateFilter } },
@@ -206,7 +230,7 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
       take: 10,
     }),
 
-    // ── 18. Per-counselor lead summary (assigned, converted, followups) ────────
+    // ── 14. Per-counselor lead summary (assigned, converted, followups) ──────
     db.leadCounselor.findMany({
       where: { lead: { ...bf, createdAt: dateFilter } },
       select: {
@@ -222,64 +246,64 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
       },
     }),
 
-    // ── 19. Visa total (leads in this branch) ─────────────────────────────────
+    // ── 15. Per-counselor visa applications done (for performance ranking) ────
+    //       Counted via Lead.counselorId (direct relation) -> VisaDetail,
+    //       scoped to this branch's leads. monthlyTarget pulled from User.
+    db.lead.groupBy({
+      by: ["counselorId"],
+      where: {
+        ...bf,
+        counselorId: { not: null },
+        visaDetail: { some: {} },
+      },
+      _count: { _all: true },
+    }),
+
+    // ── 16. Visa total (leads in this branch) ─────────────────────────────────
     db.visaDetail.count({ where: { lead: { ...bf } } }),
 
-    // ── 20. Visa by status ────────────────────────────────────────────────────
+    // ── 17. Visa by status ────────────────────────────────────────────────────
     db.visaDetail.groupBy({
       by: ["status"],
       where: { lead: { ...bf } },
       _count: { _all: true },
     }),
 
-    // ── 21. Visa by type ──────────────────────────────────────────────────────
-    db.visaDetail.groupBy({
-      by: ["visaType"],
-      where: { lead: { ...bf }, visaType: { not: null } },
-      _count: { _all: true },
-      orderBy: { _count: { visaType: "desc" } },
-    }),
+    // ── 18. Visa by type ──────────────────────────────────────────────────────
+    //      (NOTE: your VisaDetail model has no "visaType" field — stubbed.
+    //       If you want this, add a `visaType String?` column.)
+    Promise.resolve([] as { status: string; _count: { _all: number } }[]),
 
-    // ── 22. Visa approved count ───────────────────────────────────────────────
+    // ── 19. Visa approved count ───────────────────────────────────────────────
     db.visaDetail.count({ where: { lead: { ...bf }, status: "APPROVED" } }),
 
-    // ── 23. Visa rejected count ───────────────────────────────────────────────
+    // ── 20. Visa rejected count ───────────────────────────────────────────────
     db.visaDetail.count({ where: { lead: { ...bf }, status: "REJECTED" } }),
 
-    // ── 24. Upcoming biometrics (next 7 days) ─────────────────────────────────
-    db.visaDetail.count({
-      where: {
-        lead: { ...bf },
-        biometricsDate: {
-          gte: new Date(),
-          lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        },
-      },
-    }),
+    // ── 21. Upcoming biometrics (next 7 days) ─────────────────────────────────
+    //      (NOTE: VisaDetail has no "biometricsDate" field — stubbed to 0.
+    //       Add `biometricsDate DateTime?` if you need this metric.)
+    Promise.resolve(0),
 
-    // ── 25. Upcoming interviews (next 7 days) ─────────────────────────────────
-    db.visaDetail.count({
-      where: {
-        lead: { ...bf },
-        interviewDate: {
-          gte: new Date(),
-          lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        },
-      },
-    }),
+    // ── 22. Upcoming interviews (next 7 days) ─────────────────────────────────
+    //      (NOTE: VisaDetail has no "interviewDate" field — stubbed to 0.
+    //       Add `interviewDate DateTime?` if you need this metric.)
+    Promise.resolve(0),
 
-    // ── 26. Visas expiring soon (next 30 days) ────────────────────────────────
+    // ── 23. Visas expiring soon (next 30 days) ────────────────────────────────
+    //      (NOTE: VisaDetail has no "expiryDate" field — wired to casDeadline
+    //       as the closest equivalent. Change if that's not what you mean.)
     db.visaDetail.count({
       where: {
         lead: { ...bf },
-        expiryDate: {
+        casDeadline: {
           gte: new Date(),
           lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       },
     }),
 
-    // ── 27. Loans by status ───────────────────────────────────────────────────
+    // ── 24. Loans by status ───────────────────────────────────────────────────
     db.loanInquiry.groupBy({
       by: ["status"],
       where: { lead: { ...bf } },
@@ -287,20 +311,20 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
       _sum: { amount: true },
     }),
 
-    // ── 28. Total loan amount approved/disbursed ──────────────────────────────
+    // ── 25. Total loan amount approved/disbursed ──────────────────────────────
     db.loanInquiry.aggregate({
       _sum: { amount: true },
       where: { lead: { ...bf }, status: { in: ["APPROVED", "DISBURSED"] } },
     }),
 
-    // ── 29. Student courses by application status ─────────────────────────────
+    // ── 26. Student courses by application status ─────────────────────────────
     db.studentCourses.groupBy({
       by: ["applicationStatus"],
       where: { lead: { ...bf } },
       _count: { _all: true },
     }),
 
-    // ── 30. Top 10 universities applied to (from StudentCourses) ──────────────
+    // ── 27. Top 10 universities applied to (from StudentCourses) ──────────────
     db.studentCourses.groupBy({
       by: ["universityName"],
       where: { lead: { ...bf } },
@@ -309,22 +333,10 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
       take: 10,
     }),
 
-    // ── 31. Total documents uploaded ──────────────────────────────────────────
+    // ── 28. Total documents uploaded ──────────────────────────────────────────
     db.doc.count({ where: { lead: { ...bf } } }),
 
-    // ── 32. Total MBBS leads ──────────────────────────────────────────────────
-    db.mbbsLead.count({
-      where: branchId ? { branchId } : {},
-    }),
-
-    // ── 33. MBBS leads by status ──────────────────────────────────────────────
-    db.mbbsLead.groupBy({
-      by: ["status"],
-      where: branchId ? { branchId } : {},
-      _count: { _all: true },
-    }),
-
-    // ── 34. Branch profile(s) ─────────────────────────────────────────────────
+    // ── 29. Branch profile(s) ─────────────────────────────────────────────────
     db.branch.findMany({
       where: branchId ? { id: branchId } : {},
       select: {
@@ -372,6 +384,38 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
       (counselorSummaryMap[cid].statuses[s] ?? 0) + 1;
   }
 
+  // ── Build top-3 performing counselors (only meaningful for single-branch mode,
+  //    but computed here so it's available wherever buildBranchAnalytics is called) ──
+  let topPerformingCounselors: ReturnType<typeof rankCounselorsByPerformance> = [];
+  if (counselorVisaRows.length > 0) {
+    const visaCounselorIds = counselorVisaRows
+      .map((r) => r.counselorId)
+      .filter((id): id is string => !!id);
+
+    const visaCounselorDetails = await db.user.findMany({
+      where: { id: { in: visaCounselorIds } },
+      select: { id: true, name: true, email: true, monthlyTarget: true },
+    });
+    const visaCounselorMap = Object.fromEntries(
+      visaCounselorDetails.map((u) => [u.id, u])
+    );
+
+    const rows: CounselorVisaRow[] = counselorVisaRows
+      .filter((r) => r.counselorId && visaCounselorMap[r.counselorId])
+      .map((r) => {
+        const u = visaCounselorMap[r.counselorId as string];
+        return {
+          counselorId: u.id,
+          name: u.name,
+          email: u.email,
+          monthlyTarget: u.monthlyTarget ?? 0,
+          visaCount: r._count._all,
+        };
+      });
+
+    topPerformingCounselors = rankCounselorsByPerformance(rows, 3);
+  }
+
   // ── Derived KPIs ──────────────────────────────────────────────────────────
   const conversionRate =
     totalLeads > 0
@@ -389,13 +433,11 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
     summary: {
       totalLeads,
       newLeadsThisMonth,
-      totalStudents,
-      newStudentsThisMonth,
+      totalCounselors,
       convertedLeads,
       conversionRate,
       upcomingFollowups,
       totalDocs,
-      totalMbbsLeads,
       totalLoanAmountApproved: totalLoanApproved._sum.amount ?? 0,
       totalVisaApplications: visaTotal,
       visaApproved,
@@ -408,10 +450,6 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
       byStage: leadsByStage.map((r) => ({ stage: r.leadStage, count: r._count._all })),
       bySource: leadsBySource.map((r) => ({ source: r.source, count: r._count._all })),
       byCountry: leadsByCountry.map((r) => ({ country: r.country, count: r._count._all })),
-      byQualification: leadsByQualification.map((r) => ({
-        qualification: r.qualification,
-        count: r._count._all,
-      })),
       byIntakeSeason: leadsByIntakeSeason.map((r) => ({
         season: r.intakeSeason,
         count: r._count._all,
@@ -423,25 +461,17 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
       overTime: serializeOverTime(leadsOverTime),
     },
 
-    students: {
-      byStatus: studentsByStatus.map((r) => ({
-        status: r.status,
-        count: r._count._all,
-      })),
-      overTime: serializeOverTime(studentsOverTime),
-    },
-
     visa: {
       total: visaTotal,
       approved: visaApproved,
       rejected: visaRejected,
       approvalRate: visaApprovalRate,
       byStatus: visaByStatus.map((r) => ({ status: r.status, count: r._count._all })),
-      byType: visaByType.map((r) => ({ visaType: r.visaType, count: r._count._all })),
+      byType: visaByType, // currently always [] — see NOTE on query #18
       upcoming: {
-        biometricsNext7Days: upcomingBiometrics,
-        interviewsNext7Days: upcomingInterviews,
-        expiringNext30Days: visasExpiringSoon,
+        biometricsNext7Days: upcomingBiometrics, // currently always 0 — see NOTE on query #21
+        interviewsNext7Days: upcomingInterviews, // currently always 0 — see NOTE on query #22
+        expiringNext30Days: visasExpiringSoon, // wired to casDeadline — see NOTE on query #23
       },
     },
 
@@ -464,15 +494,8 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
       })),
     },
 
-    mbbsLeads: {
-      total: totalMbbsLeads,
-      byStatus: mbbsLeadsByStatus.map((r) => ({
-        status: r.status,
-        count: r._count._all,
-      })),
-    },
-
     counselors: {
+      total: totalCounselors,
       topByLeadAssignments: topCounselors.map((r) => ({
         counselorId: r.counselorId,
         counselor: counselorMap[r.counselorId] ?? null,
@@ -492,6 +515,9 @@ async function buildBranchAnalytics(branchId: string | null, from: Date, to: Dat
           leadStatusBreakdown: counselorSummaryMap[r.counselorId].statuses,
         }),
       })),
+      // Top 3 best performing counselors by visa applications done vs monthlyTarget.
+      // See ranking rule documented at the top of this file.
+      topPerformingCounselors,
     },
   };
 }
@@ -558,8 +584,8 @@ export async function GET(req: NextRequest) {
         (acc, b) => acc + b.analytics.summary.totalLeads,
         0
       );
-      const globalTotalStudents = branchAnalytics.reduce(
-        (acc, b) => acc + b.analytics.summary.totalStudents,
+      const globalTotalCounselors = branchAnalytics.reduce(
+        (acc, b) => acc + b.analytics.summary.totalCounselors,
         0
       );
       const globalConverted = branchAnalytics.reduce(
@@ -579,7 +605,7 @@ export async function GET(req: NextRequest) {
           branchId: b.branchId,
           branchName: b.branchName,
           totalLeads: b.analytics.summary.totalLeads,
-          totalStudents: b.analytics.summary.totalStudents,
+          totalCounselors: b.analytics.summary.totalCounselors,
           conversionRate: b.analytics.summary.conversionRate,
           visaApproved: b.analytics.summary.visaApproved,
           visaApprovalRate: b.analytics.summary.visaApprovalRate,
@@ -598,7 +624,7 @@ export async function GET(req: NextRequest) {
             },
             globalSummary: {
               totalLeads: globalTotalLeads,
-              totalStudents: globalTotalStudents,
+              totalCounselors: globalTotalCounselors,
               convertedLeads: globalConverted,
               conversionRate: globalConversionRate,
             },

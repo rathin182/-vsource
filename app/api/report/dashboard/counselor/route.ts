@@ -1,6 +1,6 @@
-// app/api/dashboard/counselors/route.ts
+// app/api/report/dashboard/counselor/route.ts
 //
-// GET /api/dashboard/counselors
+// GET /api/report/dashboard/counselor
 //   → Returns full CRM analytics for ALL counselors (or a single counselor via ?counselorId=)
 //
 // Query params:
@@ -37,7 +37,7 @@ async function buildCounselorAnalytics(
 ) {
   const dateFilter = { gte: from, lte: to };
 
-  // When scoping by branch we add branchId to the lead filter
+  // Lead filter — scoped by counselorId, date range, and optionally branchId
   const leadFilter = {
     counselorId,
     createdAt: dateFilter,
@@ -62,7 +62,6 @@ async function buildCounselorAnalytics(
     leadsByStage,
     leadsBySource,
     leadsByCountry,
-    leadsByQualification,
     leadsByIntakeSeason,
     leadsByVisaStage,
     leadsOverTime,
@@ -80,12 +79,13 @@ async function buildCounselorAnalytics(
     // ── Visa metrics ──────────────────────────────────────────────────────────
     visaTotal,
     visaByStatus,
-    visaByType,
     visaApproved,
     visaRejected,
-    upcomingBiometrics,
-    upcomingInterviews,
-    visasExpiringSoon,
+
+    // Upcoming deadlines derived from Lead fields (depositDeadline, casDeadline, universityStart)
+    upcomingDeposits,
+    upcomingCasDeadlines,
+    upcomingUniversityStarts,
 
     // ── Loan metrics ──────────────────────────────────────────────────────────
     loansByStatus,
@@ -180,6 +180,7 @@ async function buildCounselorAnalytics(
     }),
 
     // ── 8. Leads by country ───────────────────────────────────────────────────
+    // NOTE: Uses `country` (String?) field on Lead — not a relation
     db.lead.groupBy({
       by: ["country"],
       where: { ...leadFilter, country: { not: null } },
@@ -187,31 +188,26 @@ async function buildCounselorAnalytics(
       orderBy: { _count: { country: "desc" } },
     }),
 
-    // ── 9. Leads by qualification ─────────────────────────────────────────────
-    db.lead.groupBy({
-      by: ["qualification"],
-      where: { ...leadFilter, qualification: { not: null } },
-      _count: { _all: true },
-    }),
-
-    // ── 10. Leads by intake season ────────────────────────────────────────────
+    // ── 9. Leads by intake season ─────────────────────────────────────────────
+    // NOTE: `qualification` does NOT exist on Lead. Using `intakeSeason` instead.
     db.lead.groupBy({
       by: ["intakeSeason"],
       where: { ...leadFilter, intakeSeason: { not: null } },
       _count: { _all: true },
     }),
 
-    // ── 11. Leads by visa stage ───────────────────────────────────────────────
+    // ── 10. Leads by visa stage ───────────────────────────────────────────────
     db.lead.groupBy({
       by: ["visaStage"],
       where: leadFilter,
       _count: { _all: true },
     }),
 
-    // ── 12. Leads over time (monthly) ─────────────────────────────────────────
+    // ── 11. Leads over time (monthly) ─────────────────────────────────────────
+    // NOTE: table is mapped as "leads" in schema (@@map("leads"))
     db.$queryRawUnsafe<RawMonthRow[]>(
       `SELECT TO_CHAR("createdAt", 'YYYY-MM') AS month, COUNT(*) AS count
-       FROM leads
+       FROM "leads"
        WHERE "counselorId" = $1
          AND "createdAt" >= $2
          AND "createdAt" <= $3
@@ -222,7 +218,7 @@ async function buildCounselorAnalytics(
       to
     ),
 
-    // ── 13. Upcoming follow-ups (next 7 days) ─────────────────────────────────
+    // ── 12. Upcoming follow-ups (next 7 days) ─────────────────────────────────
     db.leadTimeline.count({
       where: {
         lead: leadFilter,
@@ -230,7 +226,7 @@ async function buildCounselorAnalytics(
       },
     }),
 
-    // ── 14. Overdue follow-ups (past, not yet acted on) ───────────────────────
+    // ── 13. Overdue follow-ups (past, not yet acted on) ───────────────────────
     db.leadTimeline.count({
       where: {
         lead: leadFilter,
@@ -238,7 +234,7 @@ async function buildCounselorAnalytics(
       },
     }),
 
-    // ── 15. Total students ────────────────────────────────────────────────────
+    // ── 14. Total students ────────────────────────────────────────────────────
     db.student.count({
       where: {
         counselorId,
@@ -247,7 +243,7 @@ async function buildCounselorAnalytics(
       },
     }),
 
-    // ── 16. New students this month ───────────────────────────────────────────
+    // ── 15. New students this month ───────────────────────────────────────────
     db.student.count({
       where: {
         counselorId,
@@ -256,7 +252,7 @@ async function buildCounselorAnalytics(
       },
     }),
 
-    // ── 17. Students by status ────────────────────────────────────────────────
+    // ── 16. Students by status ────────────────────────────────────────────────
     db.student.groupBy({
       by: ["status"],
       where: {
@@ -267,7 +263,8 @@ async function buildCounselorAnalytics(
       _count: { _all: true },
     }),
 
-    // ── 18. Students over time (monthly) ──────────────────────────────────────
+    // ── 17. Students over time (monthly) ──────────────────────────────────────
+    // NOTE: Student model has no @@map so Prisma uses "Student" as table name
     db.$queryRawUnsafe<RawMonthRow[]>(
       `SELECT TO_CHAR("createdAt", 'YYYY-MM') AS month, COUNT(*) AS count
        FROM "Student"
@@ -281,46 +278,51 @@ async function buildCounselorAnalytics(
       to
     ),
 
-    // ── 19. Visa total ────────────────────────────────────────────────────────
+    // ── 18. Visa total ────────────────────────────────────────────────────────
+    // VisaDetail is linked via lead → lead.counselorId
     db.visaDetail.count({ where: { lead: leadFilter } }),
 
-    // ── 20. Visa by status ────────────────────────────────────────────────────
+    // ── 19. Visa by status ────────────────────────────────────────────────────
     db.visaDetail.groupBy({
       by: ["status"],
       where: { lead: leadFilter },
       _count: { _all: true },
     }),
 
-    // ── 21. Visa by type ──────────────────────────────────────────────────────
-    db.visaDetail.groupBy({
-      by: ["visaType"],
-      where: { lead: leadFilter, visaType: { not: null } },
-      _count: { _all: true },
-      orderBy: { _count: { visaType: "desc" } },
-    }),
-
-    // ── 22. Visa approved ─────────────────────────────────────────────────────
+    // ── 20. Visa approved ─────────────────────────────────────────────────────
     db.visaDetail.count({ where: { lead: leadFilter, status: "APPROVED" } }),
 
-    // ── 23. Visa rejected ─────────────────────────────────────────────────────
+    // ── 21. Visa rejected ─────────────────────────────────────────────────────
     db.visaDetail.count({ where: { lead: leadFilter, status: "REJECTED" } }),
 
-    // ── 24. Upcoming biometrics (next 7 days) ─────────────────────────────────
-    db.visaDetail.count({
-      where: { lead: leadFilter, biometricsDate: { gte: now, lte: in7Days } },
+    // ── 22. Upcoming deposit deadlines (next 7 days) ──────────────────────────
+    // NOTE: depositDeadline is on Lead, not VisaDetail — using Lead model
+    db.lead.count({
+      where: {
+        ...leadFilter,
+        depositDeadline: { gte: now, lte: in7Days },
+      },
     }),
 
-    // ── 25. Upcoming interviews (next 7 days) ─────────────────────────────────
-    db.visaDetail.count({
-      where: { lead: leadFilter, interviewDate: { gte: now, lte: in7Days } },
+    // ── 23. Upcoming CAS deadlines (next 7 days) ──────────────────────────────
+    // NOTE: casDeadline is on Lead
+    db.lead.count({
+      where: {
+        ...leadFilter,
+        casDeadline: { gte: now, lte: in7Days },
+      },
     }),
 
-    // ── 26. Visas expiring soon (next 30 days) ────────────────────────────────
-    db.visaDetail.count({
-      where: { lead: leadFilter, expiryDate: { gte: now, lte: in30Days } },
+    // ── 24. University starts (next 30 days) ──────────────────────────────────
+    // NOTE: universityStart is on Lead
+    db.lead.count({
+      where: {
+        ...leadFilter,
+        universityStart: { gte: now, lte: in30Days },
+      },
     }),
 
-    // ── 27. Loans by status ───────────────────────────────────────────────────
+    // ── 25. Loans by status ───────────────────────────────────────────────────
     db.loanInquiry.groupBy({
       by: ["status"],
       where: { lead: leadFilter },
@@ -328,20 +330,20 @@ async function buildCounselorAnalytics(
       _sum: { amount: true },
     }),
 
-    // ── 28. Total loan amount approved/disbursed ──────────────────────────────
+    // ── 26. Total loan amount approved/disbursed ──────────────────────────────
     db.loanInquiry.aggregate({
       _sum: { amount: true },
       where: { lead: leadFilter, status: { in: ["APPROVED", "DISBURSED"] } },
     }),
 
-    // ── 29. Courses by application status ─────────────────────────────────────
+    // ── 27. Courses by application status ─────────────────────────────────────
     db.studentCourses.groupBy({
       by: ["applicationStatus"],
       where: { lead: leadFilter },
       _count: { _all: true },
     }),
 
-    // ── 30. Top universities applied to ───────────────────────────────────────
+    // ── 28. Top universities applied to ───────────────────────────────────────
     db.studentCourses.groupBy({
       by: ["universityName"],
       where: { lead: leadFilter },
@@ -350,20 +352,20 @@ async function buildCounselorAnalytics(
       take: 10,
     }),
 
-    // ── 31. Total documents ───────────────────────────────────────────────────
+    // ── 29. Total documents ───────────────────────────────────────────────────
     db.doc.count({ where: { lead: leadFilter } }),
 
-    // ── 32. Remarks by type ───────────────────────────────────────────────────
+    // ── 30. Remarks by type ───────────────────────────────────────────────────
     db.remark.groupBy({
       by: ["type"],
       where: { createdById: counselorId },
       _count: { _all: true },
     }),
 
-    // ── 33. Total remarks created ─────────────────────────────────────────────
+    // ── 31. Total remarks created ─────────────────────────────────────────────
     db.remark.count({ where: { createdById: counselorId } }),
 
-    // ── 34. Total lead timelines created by this counselor ────────────────────
+    // ── 32. Total lead timelines created by this counselor ────────────────────
     db.leadTimeline.count({
       where: {
         createdById: counselorId,
@@ -371,7 +373,8 @@ async function buildCounselorAnalytics(
       },
     }),
 
-    // ── 35. Recent 5 timelines by this counselor ──────────────────────────────
+    // ── 33. Recent 5 timelines by this counselor ──────────────────────────────
+    // NOTE: Lead fields are studentName, phone, email, status (no firstName/lastName)
     db.leadTimeline.findMany({
       where: { createdById: counselorId },
       orderBy: { createdAt: "desc" },
@@ -384,8 +387,7 @@ async function buildCounselorAnalytics(
         lead: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            studentName: true, // ← correct field (no firstName/lastName on Lead)
             email: true,
             phone: true,
             status: true,
@@ -394,12 +396,12 @@ async function buildCounselorAnalytics(
       },
     }),
 
-    // ── 36. MBBS leads assigned to this counselor ─────────────────────────────
+    // ── 34. MBBS leads assigned to this counselor ─────────────────────────────
     db.mbbsLeadCounselor.count({
       where: { counselorId },
     }),
 
-    // ── 37. MBBS leads by status ──────────────────────────────────────────────
+    // ── 35. MBBS leads by status ──────────────────────────────────────────────
     db.mbbsLeadCounselor.findMany({
       where: { counselorId },
       select: {
@@ -407,7 +409,7 @@ async function buildCounselorAnalytics(
       },
     }),
 
-    // ── 38. Total assigned leads via LeadCounselor (primary + shared) ─────────
+    // ── 36. Total assigned leads via LeadCounselor (primary + shared) ─────────
     db.leadCounselor.count({
       where: {
         counselorId,
@@ -418,7 +420,7 @@ async function buildCounselorAnalytics(
       },
     }),
 
-    // ── 39. Assigned leads breakdown by lead status ───────────────────────────
+    // ── 37. Assigned leads breakdown by lead status ───────────────────────────
     db.leadCounselor.findMany({
       where: {
         counselorId,
@@ -438,7 +440,7 @@ async function buildCounselorAnalytics(
       },
     }),
 
-    // ── 40. Monthly target data ────────────────────────────────────────────────
+    // ── 38. Monthly target data ────────────────────────────────────────────────
     db.user.findUnique({
       where: { id: counselorId },
       select: { monthlyTarget: true },
@@ -484,7 +486,7 @@ async function buildCounselorAnalytics(
 
       // Target tracking
       monthlyTarget,
-      monthlyTargetAchievement, // % of target achieved this month
+      monthlyTargetAchievement,
 
       // Assigned (via LeadCounselor — includes shared leads)
       totalAssignedLeads,
@@ -536,10 +538,6 @@ async function buildCounselorAnalytics(
         country: r.country,
         count: r._count._all,
       })),
-      byQualification: leadsByQualification.map((r) => ({
-        qualification: r.qualification,
-        count: r._count._all,
-      })),
       byIntakeSeason: leadsByIntakeSeason.map((r) => ({
         season: r.intakeSeason,
         count: r._count._all,
@@ -580,14 +578,13 @@ async function buildCounselorAnalytics(
         status: r.status,
         count: r._count._all,
       })),
-      byType: visaByType.map((r) => ({
-        visaType: r.visaType,
-        count: r._count._all,
-      })),
+      // NOTE: visaType, biometricsDate, interviewDate, expiryDate do NOT exist
+      // on VisaDetail in the schema — removed those queries entirely.
+      // Deadline data is sourced from Lead fields instead:
       upcoming: {
-        biometricsNext7Days: upcomingBiometrics,
-        interviewsNext7Days: upcomingInterviews,
-        expiringNext30Days: visasExpiringSoon,
+        depositDeadlinesNext7Days: upcomingDeposits,
+        casDeadlinesNext7Days: upcomingCasDeadlines,
+        universityStartsNext30Days: upcomingUniversityStarts,
       },
     },
 
@@ -681,7 +678,6 @@ export async function GET(req: NextRequest) {
 
     // ── All counselors mode ───────────────────────────────────────────────────
 
-    // Fetch all counselors, optionally scoped to a branch
     const allCounselors = await db.user.findMany({
       where: branchId
         ? { branches: { some: { id: branchId } } }
@@ -737,10 +733,9 @@ export async function GET(req: NextRequest) {
       0
     );
 
-    // ── Leaderboard: ranked by conversion rate (min 5 leads to qualify) ───────
+    // ── Leaderboard: ranked by conversion rate ────────────────────────────────
     const leaderboard = [...counselorAnalytics]
       .sort((a, b) => {
-        // Primary sort: conversion rate; secondary: total leads
         if (b.analytics.summary.conversionRate !== a.analytics.summary.conversionRate) {
           return b.analytics.summary.conversionRate - a.analytics.summary.conversionRate;
         }
@@ -753,7 +748,6 @@ export async function GET(req: NextRequest) {
         email: c.email,
         monthlyTarget: c.monthlyTarget,
         branches: c.branches,
-        // Key metrics for leaderboard cards
         totalLeads: c.analytics.summary.totalLeads,
         convertedLeads: c.analytics.summary.convertedLeads,
         conversionRate: c.analytics.summary.conversionRate,
@@ -768,7 +762,7 @@ export async function GET(req: NextRequest) {
         totalMbbsLeads: c.analytics.summary.totalMbbsLeads,
       }));
 
-    // ── Top counselor by leads this month ─────────────────────────────────────
+    // ── Top counselors by leads this month ────────────────────────────────────
     const topThisMonth = [...counselorAnalytics]
       .sort(
         (a, b) =>
