@@ -208,6 +208,7 @@ export function AddEditModal({
     
     if (studentToEdit) {
       setFirstname(studentToEdit.firstName ?? '');
+      setStudentName(studentToEdit.studentName ?? '');
       setLastname(studentToEdit.lastName ?? '');
       setCounselorId(studentToEdit.counselorId ?? '');
       setSelectedCounselor(studentToEdit.counselor?.id ?? '');
@@ -254,7 +255,7 @@ export function AddEditModal({
   // ── submit ──
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // if (!studentName.trim()) return;
+    if (!studentName.trim()) return;
 
     const payload: Partial<StudentFormData> = {
       firstName,
@@ -389,15 +390,15 @@ export function AddEditModal({
                     </label>
                     <input
                       type="text"
-                      value={firstName}
-                      onChange={e => setFirstname(e.target.value)}
+                      value={studentName}
+                      onChange={e => setStudentName(e.target.value)}
                       placeholder="Legal name as on passport"
                       className={input}
                       required
                     />
                   </div>
 
-                  <div className="col-span-2">
+                  {/* <div className="col-span-2">
                     <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">
                       Last Name <span className="text-red-500">*</span>
                     </label>
@@ -409,7 +410,7 @@ export function AddEditModal({
                       className={input}
                       required
                     />
-                  </div>
+                  </div> */}
                   </div>
 
                   <div>

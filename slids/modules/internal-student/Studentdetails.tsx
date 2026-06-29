@@ -35,7 +35,8 @@ import {
   ArrowUpRight,
   ExternalLink,
   GripVertical,
-  X
+  X,
+  ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -281,15 +282,14 @@ export default function StudentData({ student, reloadStudent, }: any) {
     useState<StudentVisaStage | null>(null);
   const [confirmationText, setConfirmationText] = useState("");
   const [visaForm, setVisaForm] = useState({
-    visaType: "",
+    depositDeadline: "",
+    depositStatus: "",
+    ihsStatus: "",
+    visaFeeStatus: "",
+    casDeadline: "",
+    casStatus: "",
     status: "NOT_STARTED",
-    applicationDate: "",
-    biometricsDate: "",
-    interviewDate: "",
-    approvalDate: "",
-    rejectionReason: "",
-    visaNumber: "",
-    expiryDate: "",
+    universityStartDate: "",
   });
 
 
@@ -812,106 +812,106 @@ export default function StudentData({ student, reloadStudent, }: any) {
     }
   };
 
-const handleSaveLoan = async (e: React.FormEvent) => {
-  e.preventDefault();
+  const handleSaveLoan = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (loanId) {
-    return handleUpdateLoan();
-  }
-
-  if (!student.id || !loanBank.trim() || !loanAmount || !loanEmi) {
-    return toast.error("Please fill all required fields.");
-  }
-
-  try {
-    setIsLoanLoading(true);
-
-    const payload = {
-      bank: loanBank,
-      amount: Number(loanAmount),
-      emi: Number(loanEmi),
-      status: loanStatus,
-      assignee: loanAssignee,
-    };
-
-    const res = await fetch(
-      `/api/student/loaninquiry?id=${student.id}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      return toast.error(data.message || "Failed to save loan.");
+    if (loanId) {
+      return handleUpdateLoan();
     }
 
-    toast.success("Loan inquiry added.");
-
-    setLoanBank("");
-    setLoanAmount("");
-    setLoanEmi("");
-    setLoanStatus("PENDING");
-
-    await reloadStudent();
-  } catch (error) {
-    console.error(error);
-    toast.error("Something went wrong.");
-  } finally {
-    setIsLoanLoading(false);
-  }
-};
-
-const handleUpdateLoan = async () => {
-  try {
-    setIsLoanLoading(true);
-
-    const payload = {
-      bank: loanBank,
-      amount: Number(loanAmount),
-      emi: Number(loanEmi),
-      status: loanStatus,
-      assignee: loanAssignee,
-    };
-
-    const res = await fetch(
-      `/api/student/loaninquiry?id=${loanId}`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      return toast.error(data.message || "Failed to update loan.");
+    if (!student.id || !loanBank.trim() || !loanAmount || !loanEmi) {
+      return toast.error("Please fill all required fields.");
     }
 
-    toast.success("Loan inquiry updated.");
+    try {
+      setIsLoanLoading(true);
 
-    setLoanId("");
-    setLoanBank("");
-    setLoanAmount("");
-    setLoanEmi("");
-    setLoanStatus("PENDING");
+      const payload = {
+        bank: loanBank,
+        amount: Number(loanAmount),
+        emi: Number(loanEmi),
+        status: loanStatus,
+        assignee: loanAssignee,
+      };
 
-    await reloadStudent();
-  } catch (error) {
-    console.error(error);
-    toast.error("Something went wrong.");
-  } finally {
-    setIsLoanLoading(false);
-  }
-};
+      const res = await fetch(
+        `/api/student/loaninquiry?id=${student.id}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        return toast.error(data.message || "Failed to save loan.");
+      }
+
+      toast.success("Loan inquiry added.");
+
+      setLoanBank("");
+      setLoanAmount("");
+      setLoanEmi("");
+      setLoanStatus("PENDING");
+
+      await reloadStudent();
+    } catch (error) {
+      console.error(error);
+      toast.error("Something went wrong.");
+    } finally {
+      setIsLoanLoading(false);
+    }
+  };
+
+  const handleUpdateLoan = async () => {
+    try {
+      setIsLoanLoading(true);
+
+      const payload = {
+        bank: loanBank,
+        amount: Number(loanAmount),
+        emi: Number(loanEmi),
+        status: loanStatus,
+        assignee: loanAssignee,
+      };
+
+      const res = await fetch(
+        `/api/student/loaninquiry?id=${loanId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        return toast.error(data.message || "Failed to update loan.");
+      }
+
+      toast.success("Loan inquiry updated.");
+
+      setLoanId("");
+      setLoanBank("");
+      setLoanAmount("");
+      setLoanEmi("");
+      setLoanStatus("PENDING");
+
+      await reloadStudent();
+    } catch (error) {
+      console.error(error);
+      toast.error("Something went wrong.");
+    } finally {
+      setIsLoanLoading(false);
+    }
+  };
 
   // MULTIPLE UNIVERSITY APPLICATIONS WORKFLOW IMPLEMENTATION (TAB 3)
   const handleTriggerAddApp = () => {
@@ -1077,13 +1077,41 @@ const handleUpdateLoan = async () => {
   };
 
   const handleVisaSubmit = async () => {
-    await fetch(`/api/visa-detail?studentId=${student.id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(visaForm),
-    });
+    try {
+      const payload = {
+        ...visaForm,
+        depositDeadline: visaForm.depositDeadline
+          ? new Date(visaForm.depositDeadline).toISOString()
+          : null,
+        casDeadline: visaForm.casDeadline
+          ? new Date(visaForm.casDeadline).toISOString()
+          : null,
+        universityStartDate: visaForm.universityStartDate
+          ? new Date(visaForm.universityStartDate).toISOString()
+          : null,
+      };
+
+      const res = await fetch(`/api/visa-detail?studentId=${student.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        return toast.error(data.message || "Failed to save visa details.");
+      }
+
+      toast.success("Visa details saved successfully.");
+
+      await reloadStudent();
+    } catch (error) {
+      console.error("Visa Submit Error:", error);
+      toast.error("Something went wrong while saving visa details.");
+    }
   };
 
   useEffect(() => {
@@ -1098,6 +1126,32 @@ const handleUpdateLoan = async () => {
     setLoanStatus(loan.status || "PENDING");
   }, [student]);
 
+  const formatDateTimeLocal = (
+    value: string | Date | null | undefined
+  ): string => {
+    if (!value) return "";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().slice(0, 16);
+  };
+
+
+  useEffect(() => {
+    const visa = student?.visaDetail?.[0];
+
+    if (!visa) return;
+
+    setVisaForm({
+      depositDeadline: formatDateTimeLocal(visa.depositDeadline),
+      depositStatus: visa.depositStatus ?? "",
+      ihsStatus: visa.ihsStatus ?? "",
+      visaFeeStatus: visa.visaFeeStatus ?? "",
+      casDeadline: formatDateTimeLocal(visa.casDeadline),
+      casStatus: visa.casStatus ?? "",
+      status: visa.status ?? "NOT_STARTED",
+      universityStartDate: formatDateTimeLocal(visa.universityStartDate),
+    });
+  }, [student]);
   const currentStage =
     student?.visaStage ?? "LEAD_CREATED";
 
@@ -1105,9 +1159,9 @@ const handleUpdateLoan = async () => {
     step => step.value === currentStage
   );
 
-const currentIndex = STEPS.findIndex(
-  (step) => step.value === student.visaStage
-);
+  const currentIndex = STEPS.findIndex(
+    (step) => step.value === student.visaStage
+  );
 
   // UI tab definitions (Home-style horizontal pill tabs, mapped onto StudentData's own tab keys)
   const tabs = [
@@ -1120,7 +1174,7 @@ const currentIndex = STEPS.findIndex(
   ];
 
   const activeTabLabel = tabs.find(tab => tab.key === detailTab)?.label ?? 'Module';
-  const studentName = student.firstName + " " + student.lastName
+  const studentName = student.studentName;
   return (
     <div className={`flex min-h-screen bg-background text-foreground transition-colors duration-200`}>
       <div className="grow flex flex-col min-w-0 min-h-screen">
@@ -1722,189 +1776,185 @@ const currentIndex = STEPS.findIndex(
 
                   {/* T5. VISA STATS MILESTONES PROGRESS TRACKER */}
                   {detailTab === "visa" && (
-                    <div className="space-y-6">
-                      <div className="pb-3 border-b border-inherit">
-                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">
-                          Visa Details
-                        </h4>
-                        <p className="text-xs text-slate-400">
-                          Manage the student's visa application information.
-                        </p>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-6">
+                      {/* Header */}
+                      <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                        <div className="size-9 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
+                          <ShieldCheck className="size-4 text-purple-600" />
+                        </div>
+                        <div>
+                          <h4 className="text-[13px] font-black uppercase text-slate-800 tracking-widest mb-0.5">
+                            Deposit, CAS &amp; Visa
+                          </h4>
+                          <p className="text-xs text-slate-400">
+                            Select both date and time for deadline fields
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                      {/* Fields */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
 
-                        {/* Visa Type */}
+                        {/* Deposit Deadline Date & Time */}
                         <div>
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
-                            Visa Type
+                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                            Deposit Deadline Date &amp; Time
                           </label>
-                          <input
-                            type="text"
-                            value={visaForm.visaType}
-                            onChange={(e) =>
-                              setVisaForm({
-                                ...visaForm,
-                                visaType: e.target.value,
-                              })
-                            }
-                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
-                            placeholder="Student Visa"
-                          />
+                          <div className="relative">
+                            <input
+                              type="datetime-local"
+                              value={visaForm.depositDeadline}
+                              onChange={(e) =>
+                                setVisaForm({ ...visaForm, depositDeadline: e.target.value })
+                              }
+                              className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                            />
+                            <Calendar className="size-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
                         </div>
 
-                        {/* Status */}
+                        {/* Deposit Status */}
                         <div>
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
+                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                            Deposit Status
+                          </label>
+                          <select
+                            value={visaForm.depositStatus}
+                            onChange={(e) =>
+                              setVisaForm({ ...visaForm, depositStatus: e.target.value })
+                            }
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                          >
+                            <option value="">Select deposit status</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="PAID">Paid</option>
+                            <option value="REFUNDED">Refunded</option>
+                            <option value="WAIVED">Waived</option>
+                          </select>
+                        </div>
+
+                        {/* IHS Paid Status */}
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                            IHS Paid Status
+                          </label>
+                          <select
+                            value={visaForm.ihsStatus}
+                            onChange={(e) =>
+                              setVisaForm({ ...visaForm, ihsStatus: e.target.value })
+                            }
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                          >
+                            <option value="">Select IHS status</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="PAID">Paid</option>
+                            <option value="NOT_REQUIRED">Not Required</option>
+                          </select>
+                        </div>
+
+                        {/* Visa Fee Paid Status */}
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                            Visa Fee Paid Status
+                          </label>
+                          <select
+                            value={visaForm.visaFeeStatus}
+                            onChange={(e) =>
+                              setVisaForm({ ...visaForm, visaFeeStatus: e.target.value })
+                            }
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                          >
+                            <option value="">Select visa payment status</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="PAID">Paid</option>
+                            <option value="NOT_REQUIRED">Not Required</option>
+                          </select>
+                        </div>
+
+                        {/* CAS Deadline Date & Time */}
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                            CAS Deadline Date &amp; Time
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="datetime-local"
+                              value={visaForm.casDeadline}
+                              onChange={(e) =>
+                                setVisaForm({ ...visaForm, casDeadline: e.target.value })
+                              }
+                              className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                            />
+                            <Calendar className="size-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
+                        </div>
+
+                        {/* CAS Status */}
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                            CAS Status
+                          </label>
+                          <select
+                            value={visaForm.casStatus}
+                            onChange={(e) =>
+                              setVisaForm({ ...visaForm, casStatus: e.target.value })
+                            }
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                          >
+                            <option value="">Select CAS status</option>
+                            <option value="NOT_STARTED">Not Started</option>
+                            <option value="DOCUMENTS_PENDING">Documents Prnding</option>
+                            <option value="UNDER_REVIEW">Under Review</option>
+                            <option value="RECEIVED">Received</option>
+                            <option value="REJECTED">Rejected</option>
+                            <option value="NOT_REQUIRED">Not Required</option>
+                          </select>
+                        </div>
+
+                        {/* Visa Status */}
+                        <div>
+                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
                             Visa Status
                           </label>
                           <select
                             value={visaForm.status}
                             onChange={(e) =>
-                              setVisaForm({
-                                ...visaForm,
-                                status: e.target.value,
-                              })
+                              setVisaForm({ ...visaForm, status: e.target.value })
                             }
-                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
                           >
+                            <option value="">Select visa status</option>
                             <option value="NOT_STARTED">Not Started</option>
+                            <option value="DOCUMENTS_PENDING">Documents Pending</option>
                             <option value="APPLIED">Applied</option>
-                            <option value="BIOMETRICS_DONE">Biometrics Done</option>
-                            <option value="INTERVIEW_DONE">Interview Done</option>
+                            <option value="DECISION_PENDING">Decision Pending</option>
                             <option value="APPROVED">Approved</option>
                             <option value="REJECTED">Rejected</option>
+                            <option value="WITHDRAWN">Withdrawn</option>
                           </select>
                         </div>
 
-                        {/* Application Date */}
+                        {/* University Start Date & Time */}
                         <div>
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
-                            Application Date
+                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                            University Start Date &amp; Time
                           </label>
-                          <input
-                            type="date"
-                            value={visaForm.applicationDate}
-                            onChange={(e) =>
-                              setVisaForm({
-                                ...visaForm,
-                                applicationDate: e.target.value,
-                              })
-                            }
-                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
-                          />
-                        </div>
-
-                        {/* Biometrics Date */}
-                        <div>
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
-                            Biometrics Date
-                          </label>
-                          <input
-                            type="date"
-                            value={visaForm.biometricsDate}
-                            onChange={(e) =>
-                              setVisaForm({
-                                ...visaForm,
-                                biometricsDate: e.target.value,
-                              })
-                            }
-                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
-                          />
-                        </div>
-
-                        {/* Interview Date */}
-                        <div>
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
-                            Interview Date
-                          </label>
-                          <input
-                            type="date"
-                            value={visaForm.interviewDate}
-                            onChange={(e) =>
-                              setVisaForm({
-                                ...visaForm,
-                                interviewDate: e.target.value,
-                              })
-                            }
-                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
-                          />
-                        </div>
-
-                        {/* Approval Date */}
-                        <div>
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
-                            Approval Date
-                          </label>
-                          <input
-                            type="date"
-                            value={visaForm.approvalDate}
-                            onChange={(e) =>
-                              setVisaForm({
-                                ...visaForm,
-                                approvalDate: e.target.value,
-                              })
-                            }
-                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
-                          />
-                        </div>
-
-                        {/* Visa Number */}
-                        <div>
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
-                            Visa Number
-                          </label>
-                          <input
-                            type="text"
-                            value={visaForm.visaNumber}
-                            onChange={(e) =>
-                              setVisaForm({
-                                ...visaForm,
-                                visaNumber: e.target.value,
-                              })
-                            }
-                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
-                          />
-                        </div>
-
-                        {/* Expiry Date */}
-                        <div>
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
-                            Expiry Date
-                          </label>
-                          <input
-                            type="date"
-                            value={visaForm.expiryDate}
-                            onChange={(e) =>
-                              setVisaForm({
-                                ...visaForm,
-                                expiryDate: e.target.value,
-                              })
-                            }
-                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
-                          />
-                        </div>
-
-                        {/* Rejection Reason */}
-                        <div className="md:col-span-2">
-                          <label className="text-[9px] uppercase font-bold text-slate-450 block mb-1.5">
-                            Rejection Reason
-                          </label>
-                          <textarea
-                            rows={4}
-                            value={visaForm.rejectionReason}
-                            onChange={(e) =>
-                              setVisaForm({
-                                ...visaForm,
-                                rejectionReason: e.target.value,
-                              })
-                            }
-                            className="w-full px-3.5 py-2 rounded-xl border dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
-                          />
+                          <div className="relative">
+                            <input
+                              type="datetime-local"
+                              value={visaForm.universityStartDate}
+                              onChange={(e) =>
+                                setVisaForm({ ...visaForm, universityStartDate: e.target.value })
+                              }
+                              className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                            />
+                            <Calendar className="size-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-800">
+                      {/* Submit */}
+                      <div className="flex justify-end pt-4 border-t border-slate-200">
                         <button
                           onClick={handleVisaSubmit}
                           className="px-5 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition"

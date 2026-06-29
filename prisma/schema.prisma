@@ -64,13 +64,13 @@ enum StudentStage {
   VISA_APPROVED
 }
 
-enum VisaStatus {
-  NOT_STARTED
-  APPLIED
-  UNDER_REVIEW
-  APPROVED
-  REJECTED
-}
+// enum VisaStatus {
+//   NOT_STARTED
+//   APPLIED
+//   UNDER_REVIEW
+//   APPROVED
+//   REJECTED
+// }
 
 enum RemarkType {
   NOTE
@@ -226,6 +226,7 @@ model Lead {
   bachelorsUniversityName String?
   bachelorsPercentage     Float?
   bachelorsYearOfPassing  Int?
+  ieltsScore              Int?
 
   backlogs       Int?
   workExperience String?
@@ -302,26 +303,18 @@ model Lead {
 
 model VisaDetail {
   id String @id @default(uuid())
-
   // studentId String @unique
 
-  visaType String?
-
-  status VisaStatus @default(NOT_STARTED)
-
-  applicationDate DateTime?
-  biometricsDate  DateTime?
-  interviewDate   DateTime?
-
-  approvalDate    DateTime?
-  rejectionReason String?
-
-  visaNumber String?
-
-  expiryDate DateTime?
+  depositDeadline     DateTime?
+  depositStatus       DepositStatus?
+  ihsStatus           IhsStatus?
+  visaFeeStatus       VisaFeeStatus?
+  casDeadline         DateTime?
+  casStatus           CasStatus?
+  status              VisaStatus @default(NOT_STARTED)
+  universityStartDate DateTime?
 
   // student Student @relation(fields: [studentId], references: [id])
-
   leadId String? @unique
   lead   Lead?   @relation(fields: [leadId], references: [id])
 
@@ -329,6 +322,44 @@ model VisaDetail {
   updatedAt DateTime @updatedAt
 
   @@map("visa_details")
+}
+
+enum DepositStatus {
+  PENDING
+  PAID
+  REFUNDED
+  WAIVED
+}
+
+enum IhsStatus {
+  PENDING
+  PAID
+  NOT_REQUIRED
+}
+
+enum VisaFeeStatus {
+  PENDING
+  PAID
+  NOT_REQUIRED
+}
+
+enum CasStatus {
+  NOT_STARTED
+  DOCUMENTS_PENDING
+  UNDER_REVIEW
+  RECEIVED
+  REJECTED
+  NOT_REQUIRED
+}
+
+enum VisaStatus {
+  NOT_STARTED
+  DOCUMENTS_PENDING
+  APPLIED
+  DECISION_PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
 }
 
 model Remark {

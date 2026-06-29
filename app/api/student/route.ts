@@ -202,7 +202,7 @@ export async function POST(req: Request) {
         counselorId: body.counselorId,
 
         // Student Information
-        studentName: `${body.firstName} ${body.lastName}`.trim(),
+        studentName: `${body.studentName}`,
         mobileNumber: body.phone,
         emailId: body.email,
 
@@ -265,6 +265,7 @@ export async function PATCH(req: NextRequest) {
     // Personal
     if ("firstName" in body) data.firstName = body.firstName?.trim();
     if ("lastName" in body) data.lastName = body.lastName || null;
+    if ("studentName" in body) data.studentName = body.studentName || null;
 
     if ("phone" in body) data.phone = body.phone || null;
     if ("email" in body) data.email = body.email || null;

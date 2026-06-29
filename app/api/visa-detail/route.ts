@@ -22,66 +22,39 @@ export async function PATCH(req: NextRequest) {
         leadId,
       },
       update: {
-        visaType: body.visaType || null,
-
+        depositDeadline: body.depositDeadline
+          ? new Date(body.depositDeadline)
+          : null,
+        depositStatus: body.depositStatus || null,
+        ihsStatus: body.ihsStatus || null,
+        visaFeeStatus: body.visaFeeStatus || null,
+        casDeadline: body.casDeadline
+          ? new Date(body.casDeadline)
+          : null,
+        casStatus: body.casStatus || null,
         status: body.status,
-
-        applicationDate: body.applicationDate
-          ? new Date(body.applicationDate)
-          : null,
-
-        biometricsDate: body.biometricsDate
-          ? new Date(body.biometricsDate)
-          : null,
-
-        interviewDate: body.interviewDate
-          ? new Date(body.interviewDate)
-          : null,
-
-        approvalDate: body.approvalDate
-          ? new Date(body.approvalDate)
-          : null,
-
-        rejectionReason: body.rejectionReason || null,
-
-        visaNumber: body.visaNumber || null,
-
-        expiryDate: body.expiryDate
-          ? new Date(body.expiryDate)
+        universityStartDate: body.universityStartDate
+          ? new Date(body.universityStartDate)
           : null,
       },
       create: {
         leadId,
-
-        visaType: body.visaType || null,
-
+        depositDeadline: body.depositDeadline
+          ? new Date(body.depositDeadline)
+          : null,
+        depositStatus: body.depositStatus || null,
+        ihsStatus: body.ihsStatus || null,
+        visaFeeStatus: body.visaFeeStatus || null,
+        casDeadline: body.casDeadline
+          ? new Date(body.casDeadline)
+          : null,
+        casStatus: body.casStatus || null,
         status: body.status,
-
-        applicationDate: body.applicationDate
-          ? new Date(body.applicationDate)
-          : null,
-
-        biometricsDate: body.biometricsDate
-          ? new Date(body.biometricsDate)
-          : null,
-
-        interviewDate: body.interviewDate
-          ? new Date(body.interviewDate)
-          : null,
-
-        approvalDate: body.approvalDate
-          ? new Date(body.approvalDate)
-          : null,
-
-        rejectionReason: body.rejectionReason || null,
-
-        visaNumber: body.visaNumber || null,
-
-        expiryDate: body.expiryDate
-          ? new Date(body.expiryDate)
+        universityStartDate: body.universityStartDate
+          ? new Date(body.universityStartDate)
           : null,
       },
-    });
+    });;
 
     return NextResponse.json({
       success: true,
