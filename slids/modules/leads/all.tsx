@@ -1,5 +1,7 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+
+import { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import { PageHeader, PageTransition } from "@/slids/components/common/PageHeader";
 import { Card, CardContent } from "@/slids/components/ui/card";
 import { Button } from "@/slids/components/ui/button";
@@ -15,23 +17,34 @@ import {
   SelectValue,
 } from "@/slids/components/ui/select";
 import { Label } from "@/slids/components/ui/label";
-import { Avatar, AvatarFallback } from "@/slids/components/ui/avatar";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/slids/components/ui/sheet";
-import { Search, Filter, Download, Plus, Pencil, Trash2, Eye } from "lucide-react";
-import { leads as seedLeads } from "@/slids/data/leads";
-import type { Lead, LeadStatus } from "@/slids/types";
-import { toast } from "sonner";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/slids/components/ui/dialog";
+import {
+  Search,
+  Plus,
+  Pencil,
+  Trash2,
+  Eye,
+  Loader2,
+  X,
+} from "lucide-react";
 import { Skeleton } from "@/slids/components/ui/skeleton";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { leadStatuses } from "@/slids/data/leads";
+import { MODULES } from "@/lib/module-codes";
+// import type { Lead, LeadStatus } from "@/types";
+import { useAuth } from "@/slids/store";
 
-const statusStyle: Record<LeadStatus, string> = {
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const STATUS_STYLE: Record<string, string> = {
+  draft:
+    "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
   new: "bg-info/15 text-info border-info/20",
   contacted: "bg-warning/15 text-warning border-warning/20",
   qualified: "bg-primary/10 text-primary border-primary/20",
@@ -39,417 +52,477 @@ const statusStyle: Record<LeadStatus, string> = {
   lost: "bg-muted text-muted-foreground border-border",
 };
 
-const statusTabs: Array<LeadStatus | "all"> = [
+const STATUS_TABS: Array<any | "all"> = [
   "all",
   "new",
   "contacted",
   "qualified",
   "converted",
   "lost",
+  "draft",
 ];
+
+const ENGLISH_TEST_OPTIONS = ["IELTS", "TOEFL", "DUOLINGO", "PTE"];
+const TIER_OPTIONS = ["T1", "T2", "T3", "T4"];
+const PAGE_SIZE = 10;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const formatDate = (value?: string | Date | null) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  return isNaN(date.getTime()) ? "—" : date.toLocaleDateString();
+};
+
+const strOrUndef = (v: string | undefined | null): string | undefined =>
+  v?.trim() === "" || v == null ? undefined : v.trim();
+
+const toNumberOrUndef = (v: string | number | undefined | null): number | undefined => {
+  if (v === "" || v == null) return undefined;
+  const n = Number(v);
+  return isNaN(n) ? undefined : n;
+};
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type EditForm = {
+  studentName: string;
+  fatherName: string;
+  phone: string;
+  email: string;
+  place: string;
+  source: string;
+  passport: string;
+  passportExpireDate: string;
+  counsellingDate: string;
+
+  tenthPercentage: string;
+  tenthYearOfPassing: string;
+  twelfthPercentage: string;
+  twelfthYearOfPassing: string;
+  bachelorsUniversityName: string;
+  bachelorsCourse: string;
+  bachelorsPercentage: string;
+  bachelorsYearOfPassing: string;
+  backlogs: string;
+  gapsIfAny: string;
+  workExperience: string;
+
+  englishTestType: string;
+  listeningScore: string;
+  readingScore: string;
+  writingScore: string;
+  speakingScore: string;
+  toeflScore: string;
+  pteScore: string;
+  duolingoScore: string;
+  greGmatScore: string;
+  quantitativeScore: string;
+  verbalScore: string;
+  analyticalWritingScore: string;
+
+  preferredCountry: string;
+  preferredIntake: string;
+  preferredCourse: string;
+  preferredTiers: string[];
+  status: string;
+};
+
+const leadToEditForm = (lead: any): EditForm => ({
+  studentName:        lead.studentName        ?? "",
+  fatherName:         lead.fatherName         ?? "",
+  phone:              lead.phone       ?? "",
+  email:              lead.email            ?? "",
+  place:              (lead as any).place     ?? "",
+  source:             lead.source             ?? "",
+  passport:           lead.passport           ?? "",
+  passportExpireDate: lead.passportExpireDate ?? "",
+  counsellingDate:    lead.applicationDate    ?? "",
+
+  tenthPercentage:       String(lead.tenthPassingPercentage  ?? ""),
+  tenthYearOfPassing:    String(lead.tenthPassingYear         ?? ""),
+  twelfthPercentage:     String(lead.twelfthPercentage       ?? ""),
+  twelfthYearOfPassing:  String(lead.twelfthYearOfPassing    ?? ""),
+  bachelorsUniversityName: lead.bachelorsUniversityName      ?? "",
+  bachelorsCourse:         lead.bachelorsCourse              ?? "",
+  bachelorsPercentage:     String(lead.bachelorsPercentage   ?? ""),
+  bachelorsYearOfPassing:  String(lead.bachelorsYearOfPassing ?? ""),
+  backlogs:                String(lead.backlogs              ?? ""),
+  gapsIfAny:               lead.gapsIfAny                   ?? "",
+  workExperience:          lead.workExperience               ?? "",
+
+  englishTestType:        lead.englishTestType              ?? "",
+  listeningScore:         String(lead.listeningScore        ?? ""),
+  readingScore:           String(lead.readingScore          ?? ""),
+  writingScore:           String(lead.writingScore          ?? ""),
+  speakingScore:          String(lead.speakingScore         ?? ""),
+  toeflScore:             String(lead.toeflScore            ?? ""),
+  pteScore:               String(lead.pteScore              ?? ""),
+  duolingoScore:          String(lead.duolingoScore         ?? ""),
+  greGmatScore:           String(lead.greGmatScore          ?? ""),
+  quantitativeScore:      String(lead.quantitativeScore     ?? ""),
+  verbalScore:            String(lead.verbalScore           ?? ""),
+  analyticalWritingScore: String(lead.analyticalWritingScore ?? ""),
+
+  preferredCountry: lead.preferredCountry ?? "",
+  preferredIntake:  lead.preferredIntake  ?? "",
+  preferredCourse:  lead.preferredCourse  ?? "",
+  preferredTiers:   Array.isArray(lead.preferredTiers) ? lead.preferredTiers : [],
+  status:           lead.status           ?? "new",
+});
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function FieldLabel({
+  htmlFor,
+  children,
+}: {
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label htmlFor={htmlFor} className="block text-xs font-medium text-muted-foreground mb-1">
+      {children}
+    </label>
+  );
+}
+
+function EditInput({
+  id,
+  type = "text",
+  placeholder,
+  value,
+  onChange,
+  step,
+  min,
+}: {
+  id?: string;
+  type?: string;
+  placeholder?: string;
+  value: string;
+  onChange: (v: string) => void;
+  step?: string;
+  min?: number;
+}) {
+  return (
+    <input
+      id={id}
+      type={type}
+      placeholder={placeholder}
+      value={value}
+      step={step}
+      min={min}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition"
+    />
+  );
+}
+
+function EditTextarea({
+  placeholder,
+  value,
+  onChange,
+}: {
+  placeholder?: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <textarea
+      placeholder={placeholder}
+      value={value}
+      rows={2}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition resize-none"
+    />
+  );
+}
+
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 pt-3 pb-1">
+      <div className="h-px flex-1 bg-border" />
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <div className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+// ── View Row helper ──
+function ViewRow({ label, value }: { label: string; value?: string | number | null }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-0.5 text-sm font-medium text-foreground truncate">
+        {value ?? "—"}
+      </p>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AllLeadsPage() {
   const router = useRouter();
+
+  // ── Data ──
+  const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // ── Filters ──
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<LeadStatus | "all">("all");
-  const [branch, setBranch] = useState("");
-  const [source, setSource] = useState("");
+  const [status, setStatus] = useState<any | "all">("all");
+  const [branch, setBranch] = useState("all");
+  const [source, setSource] = useState("all");
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<Lead | null>(null);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [totalPages, setTotalPages] = useState(1);
-  const [branches, setBranches] = useState<any[]>([]);
-  const [leadStage, setLeadStage] = useState("");
-  const [country, setCountry] = useState("");
-  const [counselor, setCounselor] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [showDeletePopup, setShowDeletePopup] = useState(false);
-  const [selectedLeadId, setSelectedLeadId] = useState("");
-  const [deleteing, setDeleting] = useState(false);
-  const [user, setUser] = useState<any>({});
-  const [convert, setConvert] = useState(false);
-  const statuses = leadStatuses;
 
-  const me = async () => {
-    try {
-      const response = await fetch(
-        "/api/auth/me"
-      );
+  // ── Modals ──
+  const [viewLead, setViewLead] = useState<any | null>(null);
+  const [editingLead, setEditingLead] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-      if (!response.ok) {
-        toast.error("something went wrong");
-        return;
-      }
-
-      const user = await response.json();
-      setUser(user)
-
-    } catch (error) {
-      console.error(
-        "Error fetching data:",
-        error
-      );
-    }
-  };
-
-  const fetchLeads = async () => {
+  // ── Load leads ──
+  const loadLeads = async () => {
     try {
       setIsLoading(true);
-
-      const params = new URLSearchParams();
-
-      params.append("page", page.toString());
-      params.append("limit", "10");
-
-      const response = await fetch(`/api/leads/allleads`, { credentials: "include", });
-
-      if (!response.ok) {
-        throw new Error(
-          "Failed to fetch leads"
-        );
-      }
-
-      const result = await response.json();
-
-      setLeads(result.data);
-
-      // setTotalPages(
-      //   result.meta?.totalPages ??
-      //     Math.ceil(
-      //       result.meta.total /
-      //         result.meta.limit
-      //     )
-      // );
-    } catch (error) {
-      console.error(error);
-
-      toast.error(
-        "Failed to load leads"
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  const fetchBranches = async () => {
-    try {
-      setIsLoading(true);
-
-      const params = new URLSearchParams();
-
-      params.append("page", page.toString());
-      params.append("limit", "10");
-
-      if (query) {
-        params.append("search", query);
-      }
-
-      const res = await fetch(
-        `/api/branches?${params.toString()}`,
-        {
-          credentials: "include",
-        }
-      );
-
-      const data = await res.json();
-
-      setBranches(data.data);
-      // setBranchCount(data.meta.totalPages);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to load branches");
+      const { data } = await axios.get("/api/leads", { withCredentials: true });
+      setLeads(Array.isArray(data?.data) ? data.data : []);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load leads");
+      setLeads([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchLeads();
-    fetchBranches();
-    me();
-  }, []);
+  useEffect(() => { void loadLeads(); }, []);
+  useEffect(() => { setPage(1); }, [query, status, branch, source]);
 
-  // const filteredLeads = useMemo(() => {
-  //   return leads
-  //     .filter((item) => {
-  //       const queryValue = query.toLowerCase();
-  //       const matchQuery =
-  //         !queryValue ||
-  //         item.name.toLowerCase().includes(queryValue) ||
-  //         item.email.toLowerCase().includes(queryValue) ||
-  //         item.phone.includes(queryValue) ||
-  //         item.id.toLowerCase().includes(queryValue);
-  //       const matchStatus = status === "all" || item.status === status;
-  //       const matchBranch = branch === "all" || !branch || item.branch === branch;
-  //       const matchSource = source === "all" || !source || item.source === source;
-  //       return matchQuery && matchStatus && matchBranch && matchSource;
-  //     })
-  //     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  // }, [leads, query, status, branch, source]);
+  // ── Derived filter options from live data ──
+  const uniqueBranches = useMemo(() =>
+    [...new Set(leads.map((l) => l.branch?.name).filter(Boolean) as string[])],
+    [leads],
+  );
 
+  const uniqueSources = useMemo(() =>
+    [...new Set(leads.map((l) => l.source).filter((s): s is string => Boolean(s?.trim())))],
+    [leads],
+  );
+
+  // ── Filtered + paginated ──
   const filteredLeads = useMemo(() => {
+    const q = query.trim().toLowerCase();
     return leads
-      .filter((item) => {
-        const queryValue = query.toLowerCase();
-
+      .filter((l) => {
         const matchQuery =
-          !queryValue ||
-          item.firstName
-            ?.toLowerCase()
-            .includes(queryValue) ||
-          item.lastName
-            ?.toLowerCase()
-            .includes(queryValue) ||
-          item.email
-            ?.toLowerCase()
-            .includes(queryValue) ||
-          item.phone
-            ?.includes(queryValue) ||
-          item.preferredCountry
-            ?.toLowerCase()
-            .includes(queryValue);
-        item.preferredCourse
-          ?.includes(queryValue) ||
-          item.intakeSeason
-            ?.includes(queryValue)
-
-        const matchStatus =
-          status === "all" ||
-          item.status === status;
-
-        const matchBranch =
-          branch === "all" ||
-          !branch ||
-          item.branch?.id === branch;
-
-        const matchSource =
-          source === "all" ||
-          !source ||
-          item.source === source;
-
-        return (
-          matchQuery &&
-          matchStatus &&
-          matchBranch &&
-          matchSource
-        );
+          !q ||
+          l.studentName?.toLowerCase().includes(q) ||
+          l.email?.toLowerCase().includes(q) ||
+          l.phone?.includes(q) ||
+          l.leadNumber?.toLowerCase().includes(q);
+        const matchStatus = status === "all" || l.status === status;
+        const matchBranch = branch === "all" || l.branch?.name === branch;
+        const matchSource = source === "all" || l.source === source;
+        return matchQuery && matchStatus && matchBranch && matchSource;
       })
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() -
-          new Date(a.createdAt).getTime()
-      );
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [leads, query, status, branch, source]);
 
+  const pageCount = Math.max(1, Math.ceil(filteredLeads.length / PAGE_SIZE));
+  const start = (page - 1) * PAGE_SIZE;
+  const pageLeads = filteredLeads.slice(start, start + PAGE_SIZE);
 
-  const pageSize = 10;
-  const start = (page - 1) * pageSize;
-  const pageLeads = filteredLeads.slice(start, start + pageSize);
-  const pageCount = Math.max(1, Math.ceil(filteredLeads.length / pageSize));
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
-  const uniqueBranches = Array.from(new Set(seedLeads.map((item) => item.branch)));
-  const uniqueSources = Array.from(new Set(seedLeads.map((item) => item.source)));
-  const removeLead = async () => {
+  // ── Edit handlers ──
+  const openEdit = (lead: any) => {
+    setEditingLead(lead);
+    setEditForm(leadToEditForm(lead));
+  };
+
+  const setField = <K extends keyof EditForm>(key: K, value: EditForm[K]) =>
+    setEditForm((prev) => prev ? { ...prev, [key]: value } : prev);
+
+  const handleSaveEdit = async () => {
+    if (!editingLead || !editForm) return;
+
+    if (!editForm.studentName.trim()) {
+      toast.error("Student name is required");
+      return;
+    }
+    if (!editForm.phone || editForm.phone.length !== 10) {
+      toast.error("A valid 10-digit mobile number is required");
+      return;
+    }
+    if (!editForm.email.trim()) {
+      toast.error("Email address is required");
+      return;
+    }
+
+    setIsSaving(true);
     try {
-      if (!selectedLeadId) {
-        toast.error("Could not found Lead Id");
-      }
-      setDeleting(true)
+      const payload = {
+        studentName:        editForm.studentName.trim(),
+        fatherName:         strOrUndef(editForm.fatherName),
+        email:              editForm.email.trim(),
+        phone:              editForm.phone,
+        passport:           strOrUndef(editForm.passport),
+        passportExpireDate: strOrUndef(editForm.passportExpireDate),
+        counsellingDate:    strOrUndef(editForm.counsellingDate),
+        source:             strOrUndef(editForm.source),
 
-      const res = await fetch(
-        `/api/leads?id=${selectedLeadId.toString()}`,
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type":
-              "application/json",
-          }
-        }
-      );
+        tenthPercentage:       toNumberOrUndef(editForm.tenthPercentage),
+        tenthYearOfPassing:    toNumberOrUndef(editForm.tenthYearOfPassing),
+        twelfthPercentage:     toNumberOrUndef(editForm.twelfthPercentage),
+        twelfthYearOfPassing:  toNumberOrUndef(editForm.twelfthYearOfPassing),
+        bachelorsUniversityName: strOrUndef(editForm.bachelorsUniversityName),
+        bachelorsCourse:         strOrUndef(editForm.bachelorsCourse),
+        bachelorsPercentage:     toNumberOrUndef(editForm.bachelorsPercentage),
+        bachelorsYearOfPassing:  toNumberOrUndef(editForm.bachelorsYearOfPassing),
+        backlogs:                toNumberOrUndef(editForm.backlogs),
+        gapsIfAny:               strOrUndef(editForm.gapsIfAny),
+        workExperience:          strOrUndef(editForm.workExperience),
 
-      const data = await res.json();
-    } catch (error) {
-      toast.error("Failed to Delete Lead");
+        englishTestType:        strOrUndef(editForm.englishTestType),
+        listeningScore:         toNumberOrUndef(editForm.listeningScore),
+        readingScore:           toNumberOrUndef(editForm.readingScore),
+        writingScore:           toNumberOrUndef(editForm.writingScore),
+        speakingScore:          toNumberOrUndef(editForm.speakingScore),
+        toeflScore:             editForm.englishTestType === "TOEFL"    ? toNumberOrUndef(editForm.toeflScore)    : undefined,
+        pteScore:               editForm.englishTestType === "PTE"      ? toNumberOrUndef(editForm.pteScore)      : undefined,
+        duolingoScore:          editForm.englishTestType === "DUOLINGO" ? toNumberOrUndef(editForm.duolingoScore) : undefined,
+        greGmatScore:           toNumberOrUndef(editForm.greGmatScore),
+        quantitativeScore:      toNumberOrUndef(editForm.quantitativeScore),
+        verbalScore:            toNumberOrUndef(editForm.verbalScore),
+        analyticalWritingScore: toNumberOrUndef(editForm.analyticalWritingScore),
+
+        preferredCountry: strOrUndef(editForm.preferredCountry),
+        preferredCourse:  strOrUndef(editForm.preferredCourse),
+        preferredIntake:  strOrUndef(editForm.preferredIntake),
+        preferredTiers:   editForm.preferredTiers,
+        status:           editForm.status.toUpperCase(),
+      };
+
+      await axios.put(`/api/leads/${editingLead.id}`, payload, { withCredentials: true });
+      toast.success("Lead updated successfully");
+      setEditingLead(null);
+      setEditForm(null);
+      await loadLeads();
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ??
+        err?.response?.data?.error ??
+        err?.message ??
+        "Failed to update lead";
+      toast.error(msg);
     } finally {
-      setDeleting(false)
-      setShowDeletePopup(false);
-      fetchLeads();
+      setIsSaving(false);
     }
   };
 
-  const openDeletePopup = (id: any) => {
-    setSelectedLeadId(id);
-    setShowDeletePopup(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!selectedLeadId) return;
-
-    await removeLead(selectedLeadId);
-
-    setShowDeletePopup(false);
-    setSelectedLeadId(null);
-  };
-
-  const cancelDelete = () => {
-    setShowDeletePopup(false);
-    setSelectedLeadId(null);
-  };
-
-  const handleConvertToStudent = async (leads: any, selectedlead: any) => {
-
-    if (leads !== "CONVERTED") {
-      return toast.error(
-        "Only converted leads can be converted to students."
-      );
-    }
-
+  // ── Delete handlers ──
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setIsDeleting(true);
     try {
-      setConvert(true)
-      const res = await fetch(`/api/student`, {
-        method: "POST",
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-        body: JSON.stringify(selectedlead),
-      });
-
-      if (!res.ok) {
-        toast.error("Convert Error");
-        return;
-      }
-
-      const data = await res.json();
-      toast.success("Success", {
-        description: data.message,
-      });
-    } catch (error) {
-      toast.error("Convert Error");
+      await axios.delete(`/api/leads/${deleteId}`, { withCredentials: true });
+      setLeads((prev) => prev.filter((l) => l.id !== deleteId));
+      toast.success("Lead deleted");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? "Failed to delete lead");
     } finally {
-      setConvert(false);
-      fetchLeads();
+      setIsDeleting(false);
+      setDeleteId(null);
     }
-
-
   };
 
-  const canConvertStudent = [
-    "SUPER ADMIN",
-    "ADMIN",
-    "COUNSELLOR",
-  ].includes(user?.role?.name?.toUpperCase());
+  // ─────────────────────────────────────────────────────────────────────────────
 
   return (
     <PageTransition>
       <PageHeader
         title="All Leads"
-        description="Manage every enquiry in the CRM with search, filters, export and status-driven navigation."
+        description="Manage every enquiry with search, filters, and status tracking."
         actions={
-          <>
-            <Button variant="outline" size="sm" onClick={() => toast.success("Export started")}>
-              {" "}
-              <Download className="size-4 mr-2" /> Export
-            </Button>
             <Button size="sm" onClick={() => router.push("/leads/add")}>
-              {" "}
-              <Plus className="size-4 mr-2" /> Add Lead
+              <Plus className="mr-2 size-4" />
+              Add Lead
             </Button>
-          </>
         }
       />
 
-      <Card className="mb-6">
-        <CardContent className="grid gap-4 lg:grid-cols-[1.9fr_2.1fr] xl:grid-cols-[1.8fr_2.2fr] p-5">
-          <div className="relative flex items-center mt-5">
-            <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      {/* ── Filters ── */}
+      <Card className="mb-6 border-border shadow-sm">
+        <CardContent className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1.9fr_2.1fr]">
+          <div className="relative flex items-center">
+            <Search className="absolute left-3 size-4 text-muted-foreground" />
             <Input
-              className="pl-10"
-              placeholder="Search leads by name email or phone number"
+              className="w-full bg-background pl-10"
+              placeholder="Search by name, email, mobile or lead ID"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="grid gap-2">
-              <Label>Status</Label>
-              <Select
-                value={status}
-                onValueChange={(value) => setStatus(value as LeadStatus | "all")}
-              >
-                <SelectTrigger>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid gap-1.5">
+              <Label className="text-xs font-semibold tracking-wide text-muted-foreground">Status</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as any | "all")}>
+                <SelectTrigger className="bg-background">
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>
-                      Status
-                    </SelectLabel>
-
-                    <SelectItem value="all">
-                      Any
-                    </SelectItem>
-
-                    {statuses.map((status) => (
-                      <SelectItem
-                        key={status}
-                        value={status}
-                      >
-                        {status}
+                    <SelectLabel>Status</SelectLabel>
+                    <SelectItem value="all">All</SelectItem>
+                    {STATUS_TABS.filter((t) => t !== "all").map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
                       </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
-              <Label>Branch</Label>
-              <Select
-                value={branch}
-                onValueChange={(value) => {
-                  setBranch(value);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger>
+
+            <div className="grid gap-1.5">
+              <Label className="text-xs font-semibold tracking-wide text-muted-foreground">Branch</Label>
+              <Select value={branch} onValueChange={setBranch}>
+                <SelectTrigger className="bg-background">
                   <SelectValue placeholder="Any branch" />
                 </SelectTrigger>
-
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Branch</SelectLabel>
-
-                    <SelectItem value="all">
-                      Any Branch
-                    </SelectItem>
-
-                    {branches.map((item) => (
-                      <SelectItem
-                        key={item.id}
-                        value={item.id}
-                      >
-                        {item.name}
-                      </SelectItem>
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {uniqueBranches.map((b) => (
+                      <SelectItem key={b} value={b}>{b}</SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
-              <Label>Source</Label>
-              <Select value={source} onValueChange={(value) => setSource(value)}>
-                <SelectTrigger>
+
+            <div className="grid gap-1.5">
+              <Label className="text-xs font-semibold tracking-wide text-muted-foreground">Source</Label>
+              <Select value={source} onValueChange={setSource}>
+                <SelectTrigger className="bg-background">
                   <SelectValue placeholder="Any source" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Source</SelectLabel>
                     <SelectItem value="all">Any</SelectItem>
-                    {uniqueSources.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
-                      </SelectItem>
+                    {uniqueSources.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
@@ -459,515 +532,652 @@ export default function AllLeadsPage() {
         </CardContent>
       </Card>
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {!isLoading &&
-          statusTabs.map((tab) => (
-            <Button
-              key={tab}
-              variant={tab === status ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setStatus(tab)}
-            >
-              {tab === "all"
-                ? "All Leads"
-                : tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </Button>
-          ))}
-      </div>
-
-      {/* main card */}
-      {/* <div> */}
-{/* Table Header */}
-<div className="bg-secondary/30">
-  {isLoading ? (
-    <div className="flex px-4 py-3 gap-4">
-      {Array.from({ length: 12 }).map((_, index) => (
-        <div key={index} className="flex-1">
-          <Skeleton className="h-4 w-20" />
-        </div>
-      ))}
-    </div>
-  ) : (
-    <div className="flex px-4 py-3 text-left text-xs uppercase tracking-[0.16em] text-muted-foreground">
-      <div className="w-24 shrink-0">Lead No</div>
-      <div className="flex-1 min-w-[140px]">Student</div>
-      <div className="w-28 shrink-0">Mobile</div>
-      <div className="w-40 shrink-0 hidden lg:block">Email</div>
-      <div className="w-24 shrink-0">Source</div>
-      <div className="w-28 shrink-0 hidden lg:block">Branch</div>
-      <div className="w-28 shrink-0 hidden xl:block">Counselor</div>
-      <div className="w-24 shrink-0">Country</div>
-      <div className="w-24 shrink-0">Status</div>
-      <div className="w-24 shrink-0 hidden xl:block">Created</div>
-      <div className="w-24 shrink-0 hidden xl:block">Follow-up</div>
-      <div className="w-20 shrink-0">Actions</div>
-    </div>
-  )}
-</div>
-
-{/* Table Body */}
-<div>
-  {isLoading ? (
-    Array.from({ length: 5 }).map((_, index) => (
-      <div key={index} className="flex items-center px-4 py-4 border-b border-border gap-4">
-        <div className="w-24 shrink-0">
-          <Skeleton className="h-4 w-20" />
-        </div>
-
-        <div className="flex-1 min-w-[140px]">
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-8 w-8 rounded-full shrink-0" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-3 w-40" />
-            </div>
-          </div>
-        </div>
-
-        <div className="w-28 shrink-0">
-          <Skeleton className="h-4 w-24" />
-        </div>
-
-        <div className="w-40 shrink-0 hidden lg:block">
-          <Skeleton className="h-4 w-40" />
-        </div>
-
-        <div className="w-24 shrink-0">
-          <Skeleton className="h-4 w-20" />
-        </div>
-
-        <div className="w-28 shrink-0 hidden lg:block">
-          <Skeleton className="h-4 w-28" />
-        </div>
-
-        <div className="w-28 shrink-0 hidden xl:block">
-          <Skeleton className="h-4 w-24" />
-        </div>
-
-        <div className="w-24 shrink-0">
-          <Skeleton className="h-4 w-20" />
-        </div>
-
-        <div className="w-24 shrink-0">
-          <Skeleton className="h-8 w-20 rounded-full" />
-        </div>
-
-        <div className="w-24 shrink-0 hidden xl:block">
-          <Skeleton className="h-4 w-24" />
-        </div>
-
-        <div className="w-24 shrink-0 hidden xl:block">
-          <Skeleton className="h-4 w-24" />
-        </div>
-
-        <div className="w-20 shrink-0">
-          <div className="flex gap-2">
-            <Skeleton className="h-8 w-8 rounded-md" />
-            <Skeleton className="h-8 w-8 rounded-md" />
-            <Skeleton className="h-8 w-8 rounded-md" />
-          </div>
-        </div>
-      </div>
-    ))
-  ) : filteredLeads.length === 0 ? (
-    <div className="py-12 text-center text-sm text-muted-foreground">
-      No leads found.
-    </div>
-  ) : (
-    filteredLeads.map((lead) => (
-      <div
-        key={lead.id}
-        className="flex items-center px-4 py-4 border-b border-border hover:bg-secondary/40 gap-4"
-      >
-        {/* ID */}
-        <div className="w-24 shrink-0 font-medium text-sm">
-          {lead.id.slice(0, 8)}
-        </div>
-
-        {/* Name */}
-        <div className="flex-1 min-w-[140px] text-md">
-          <div className="flex items-center gap-3">
-            <Avatar className="size-8 shrink-0">
-              <AvatarFallback>
-                {`${lead.firstName ?? ""} ${lead.lastName ?? ""}`
-                  .trim()
-                  .split(" ")
-                  .map((part: string) => part[0])
-                  .join("")
-                  .toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              {lead.firstName} {lead.lastName}
-            </div>
-          </div>
-        </div>
-
-        {/* Phone */}
-        <div className="w-28 shrink-0 text-sm">
-          {lead.phone ?? "—"}
-        </div>
-
-        {/* Email */}
-        <div className="w-40 shrink-0 hidden lg:block text-muted-foreground text-sm">
-          {lead.email ?? "—"}
-        </div>
-
-        {/* Source */}
-        <div className="w-24 shrink-0 text-sm">
-          {lead.source ?? "—"}
-        </div>
-
-        {/* Branch */}
-        <div className="w-28 shrink-0 hidden lg:block text-sm">
-          {lead.branch?.name ?? "—"}
-        </div>
-
-        {/* Counselor */}
-        <div className="w-28 shrink-0 hidden xl:block text-sm">
-          {lead.counselor?.name ?? "Unassigned"}
-        </div>
-
-        {/* Preferred Country */}
-        <div className="w-24 shrink-0 text-sm">
-          {lead.preferredCountry ?? "—"}
-        </div>
-
-        {/* Status */}
-        <div className="w-24 shrink-0 text-sm">
-          <Badge
-            variant="outline"
-            className={`capitalize ${statusStyle[lead.status as LeadStatus]}`}
-          >
-            {lead.status ?? "—"}
-          </Badge>
-        </div>
-
-        {/* Created Date */}
-        <div className="w-24 shrink-0 hidden xl:block text-sm">
-          {new Date(lead.createdAt).toLocaleDateString()}
-        </div>
-
-        {/* Follow-up / Student Conversion */}
-        <div className="w-24 shrink-0 hidden xl:block text-sm">
-          {lead.student ? <Badge>Converted</Badge> : "—"}
-        </div>
-
-        {/* Actions */}
-        <div className="w-20 shrink-0 flex gap-1">
+      {/* ── Status tab pills ── */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {STATUS_TABS.map((tab) => (
           <Button
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            onClick={() => setSelected(lead)}
-          >
-            <Eye className="size-4" />
-          </Button>
-
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-8 text-destructive"
-            onClick={() => openDeletePopup(lead.id)}
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
-      </div>
-    ))
-  )}
-</div>
-      {/* </div> */}
-
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground">
-        <div>
-          {filteredLeads.length} result{filteredLeads.length === 1 ? "" : "s"}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
+            key={tab}
+            variant={tab === status ? "secondary" : "outline"}
             size="sm"
+            onClick={() => setStatus(tab)}
+            className="whitespace-nowrap"
+          >
+            {tab === "all" ? "All Leads" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </Button>
+        ))}
+      </div>
+
+      {/* ── Table ── */}
+      <Card className="w-full overflow-hidden border-border shadow-sm">
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="space-y-4 p-5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : (
+            <>
+              {/* Mobile cards */}
+              <div className="divide-y divide-border lg:hidden">
+                {pageLeads.length === 0 ? (
+                  <p className="py-12 text-center text-sm text-muted-foreground">
+                    No leads match your filters.
+                  </p>
+                ) : (
+                  pageLeads.map((lead) => (
+                    <div
+                      key={lead.id}
+                      className="space-y-3 bg-card p-4 hover:bg-secondary/10 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="rounded bg-secondary/50 px-2 py-0.5 font-mono text-xs font-semibold text-muted-foreground">
+                          {lead.leadNumber || "—"}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={`capitalize font-semibold ${STATUS_STYLE[lead.status ?? "draft"]}`}
+                        >
+                          {lead.status ?? "draft"}
+                        </Badge>
+                      </div>
+
+                      <div>
+                        <h4 className="text-base font-semibold">{lead.studentName || "—"}</h4>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {lead.phone || "—"}
+                          {lead.email ? ` | ${lead.email}` : ""}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 border-t border-border/60 pt-2 text-xs">
+                        <ViewRow label="Branch" value={lead.branch?.name} />
+                        <ViewRow label="Source" value={lead.source} />
+                        <ViewRow label="Country" value={lead.preferredCountry} />
+                        <ViewRow label="Created" value={formatDate(lead.createdAt)} />
+                      </div>
+
+                      <div className="flex items-center justify-end gap-1 border-t border-border/60 pt-2">
+                        <Button size="icon" variant="ghost" className="size-8" onClick={() => setViewLead(lead)}>
+                          <Eye className="size-4" />
+                        </Button>
+                          <Button size="icon" variant="ghost" className="size-8" onClick={() => openEdit(lead)}>
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button
+                            size="icon" variant="ghost"
+                            className="size-8 text-destructive hover:bg-destructive/10"
+                            onClick={() => setDeleteId(lead.id)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden w-full lg:block">
+                <table className="w-full table-fixed border-collapse text-[12px] xl:text-[13px]">
+                  <colgroup>
+                    <col className="w-[5%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[6%]" />
+                    <col className="w-[9%]" />
+                    <col className="w-[14%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[7%]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="border-b border-border bg-secondary/30 text-left text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                      {[
+                        "S.No", "Student Name", "Mobile", "Email", "Source",
+                        "Branch", "Counselor", "Country", "Status",
+                        "Created", "Next Followup", "Actions",
+                      ].map((h) => (
+                        <th key={h} className="px-2 py-3 font-semibold xl:px-3">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageLeads.length === 0 ? (
+                      <tr>
+                        <td colSpan={12} className="py-12 text-center text-sm text-muted-foreground">
+                          No leads match your filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      pageLeads.map((lead, i) => (
+                        <tr
+                          key={lead.id}
+                          className="border-b border-border last:border-0 hover:bg-secondary/40 transition-colors"
+                        >
+                          <td className="px-2 py-3 xl:px-3 font-mono text-xs text-muted-foreground">
+                            <span className="block truncate">
+                              {i + 1}
+                            </span>
+                          </td>
+                          <td className="px-2 py-3 xl:px-3 font-medium">
+                            <span className="block truncate" title={lead.studentName || "—"}>
+                              {lead.studentName || "—"}
+                            </span>
+                          </td>
+                          <td className="px-2 py-3 xl:px-3">
+                            <span className="block truncate">{lead.phone || "—"}</span>
+                          </td>
+                          <td className="px-2 py-3 xl:px-3 text-muted-foreground">
+                            <span className="block truncate" title={lead.email || "—"}>
+                              {lead.email || "—"}
+                            </span>
+                          </td>
+                          <td className="px-2 py-3 xl:px-3">
+                            <span className="block truncate">{lead.source || "—"}</span>
+                          </td>
+                          <td className="px-2 py-3 xl:px-3">
+                            <span className="block truncate" title={lead.branch?.name || "—"}>
+                              {lead.branch?.name || "—"}
+                            </span>
+                          </td>
+                          <td className="px-2 py-2.5 xl:px-3">
+                            <div className="flex flex-col gap-1 items-start">
+                              {lead.counselors?.length ? (
+                                lead.counselors.map((c: any, i: number) => (
+                                  <Badge
+                                    key={c.counselor?.id || i}
+                                    className="h-5 max-w-full px-2 text-[10px] font-semibold"
+                                    title={c.counselor?.name || ""}
+                                  >
+                                    <span className="block truncate">
+                                      {c.counselor?.name || "—"}
+                                      {c.isPrimary ? " (Primary)" : ""}
+                                    </span>
+                                  </Badge>
+                                ))
+                              ) : (
+                                <span className="text-[11px] text-muted-foreground">Unassigned</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-2 py-3 xl:px-3">
+                            <span className="block truncate">{lead.preferredCountry || "—"}</span>
+                          </td>
+                          <td className="px-2 py-3 xl:px-3">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(lead)}
+                              className="disabled:cursor-default cursor-pointer"
+                            >
+                              <Badge
+                                variant="outline"
+                                className={`h-6 whitespace-nowrap px-2 text-[10px] font-semibold capitalize ${STATUS_STYLE[lead.status ?? "draft"]}`}
+                              >
+                                {lead.status ?? "draft"}
+                              </Badge>
+                            </button>
+                          </td>
+                          <td className="px-2 py-3 xl:px-3 text-muted-foreground whitespace-nowrap">
+                            {formatDate(lead.createdAt)}
+                          </td>
+                          <td className="px-2 py-3 xl:px-3 whitespace-nowrap">
+                            {formatDate(lead.nextFollowup)}
+                          </td>
+                          <td className="px-1 py-2.5 xl:px-2">
+                            <div className="flex items-center justify-center gap-0.5">
+                              <Button
+                                size="icon" variant="ghost" className="size-7"
+                                onClick={() => setViewLead(lead)} title="View"
+                              >
+                                <Eye className="size-3.5" />
+                              </Button>
+                                <Button
+                                  size="icon" variant="ghost" className="size-7"
+                                  onClick={() => openEdit(lead)} title="Edit"
+                                >
+                                  <Pencil className="size-3.5" />
+                                </Button>
+                                <Button
+                                  size="icon" variant="ghost"
+                                  className="size-7 text-destructive hover:bg-destructive/10"
+                                  onClick={() => setDeleteId(lead.id)} title="Delete"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Pagination ── */}
+      <div className="mt-4 flex flex-col gap-3 px-1 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <p>
+          Showing{" "}
+          <span className="font-semibold text-foreground">
+            {filteredLeads.length === 0 ? 0 : start + 1}
+          </span>{" "}
+          to{" "}
+          <span className="font-semibold text-foreground">
+            {Math.min(start + PAGE_SIZE, filteredLeads.length)}
+          </span>{" "}
+          of{" "}
+          <span className="font-semibold text-foreground">{filteredLeads.length}</span>{" "}
+          result{filteredLeads.length === 1 ? "" : "s"}
+        </p>
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline" size="sm"
             disabled={page === 1}
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             Previous
           </Button>
-          <span>
+          <span className="rounded bg-secondary/40 px-2 py-1 text-xs font-medium text-foreground">
             Page {page} of {pageCount}
           </span>
           <Button
-            variant="outline"
-            size="sm"
+            variant="outline" size="sm"
             disabled={page === pageCount}
-            onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+            onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
           >
             Next
           </Button>
         </div>
       </div>
 
-      {showDeletePopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-[400px] rounded-lg bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold">
-              Delete Lead
-            </h2>
+      {/* ════════════════════════════════════════════════════════════
+          VIEW DIALOG
+      ════════════════════════════════════════════════════════════ */}
+      <Dialog open={Boolean(viewLead)} onOpenChange={() => setViewLead(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Lead Details</span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {viewLead?.leadNumber}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
 
-            <p className="mt-2 text-sm text-gray-600">
-              Are you sure you want to delete this lead? This action cannot be undone.
-            </p>
+          {viewLead && (
+            <div className="space-y-4 text-sm">
+              <SectionDivider label="Personal" />
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <ViewRow label="Student Name"    value={viewLead.studentName} />
+                <ViewRow label="Father Name"     value={viewLead.fatherName} />
+                <ViewRow label="Mobile"          value={viewLead.phone} />
+                <ViewRow label="Email"           value={viewLead.email} />
+                <ViewRow label="Passport"        value={viewLead.passport} />
+                <ViewRow label="Passport Expiry" value={formatDate(viewLead.passportExpireDate)} />
+                <ViewRow label="Source"          value={viewLead.source} />
+                <ViewRow label="Branch"          value={viewLead.branch?.name} />
+                <ViewRow label="Status"          value={viewLead.status} />
+                <ViewRow label="Application Date" value={formatDate(viewLead.applicationDate)} />
+                <ViewRow label="Created"         value={formatDate(viewLead.createdAt)} />
+                <ViewRow label="Next Followup"   value={formatDate(viewLead.nextFollowup)} />
+              </div>
 
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="outline" onClick={cancelDelete}>
-                Cancel
-              </Button>
-
-              <Button
-                variant="destructive"
-                disabled={deleteing}
-                onClick={() => { removeLead(); }}
-              >
-                {deleteing ? "Deleting..." : "Delete"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Sheet
-        open={!!selected}
-        onOpenChange={(value) =>
-          !value && setSelected(null)
-        }
-      >
-        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-          {selected && (
-            <>
-              <SheetHeader>
-                <div className="flex items-center gap-5">
-                  <SheetTitle className="text-xl font-semibold">
-                    {selected.firstName} {selected.lastName}
-                  </SheetTitle>
-
-                  {canConvertStudent && (
-                    <button
-                      disabled={selected?.student?.id}
-                      title={
-                        selected?.student?.id
-                          ? "Already converted to student"
-                          : "Convert to Student"
-                      }
-                      onClick={() =>
-                        handleConvertToStudent(selected.status, selected)
-                      }
-                      className={`inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200
-      ${selected?.student?.id
-                          ? "cursor-not-allowed bg-gray-400 opacity-60"
-                          : "cursor-pointer bg-red-600 hover:bg-red-700 hover:shadow-md active:scale-95"
-                        }`}
-                    >
-                      {selected?.student?.id ? "Already Converted" : "Convert to Student"}
-                    </button>
-                  )}
+              <SectionDivider label="Education" />
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <ViewRow label="10th %"           value={viewLead.tenthPassingPercentage} />
+                <ViewRow label="10th Year"         value={viewLead.tenthPassingYear} />
+                <ViewRow label="12th %"           value={viewLead.twelfthPercentage} />
+                <ViewRow label="12th Year"         value={viewLead.twelfthYearOfPassing} />
+                <ViewRow label="University"        value={viewLead.bachelorsUniversityName} />
+                <ViewRow label="Course"            value={viewLead.bachelorsCourse} />
+                <ViewRow label="Bachelor's %"     value={viewLead.bachelorsPercentage} />
+                <ViewRow label="Bachelor's Year"  value={viewLead.bachelorsYearOfPassing} />
+                <ViewRow label="Backlogs"          value={viewLead.backlogs} />
+              </div>
+              {viewLead.gapsIfAny && (
+                <div>
+                  <p className="text-[10px] uppercase text-muted-foreground">Education Gaps</p>
+                  <p className="mt-0.5 text-sm">{viewLead.gapsIfAny}</p>
                 </div>
-
-                <SheetDescription>
-                  {selected.email}
-                </SheetDescription>
-              </SheetHeader>
-
-              <div className="space-y-5 px-4 py-4">
-
-                {/* Contact */}
-                <div className="grid gap-2">
-                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Contact Information
-                  </div>
-
-                  <div>
-                    Phone: {selected.phone}
-                  </div>
-
-                  <div>
-                    Alternate:{" "}
-                    {selected.alternatePhone ?? "—"}
-                  </div>
-
-                  <div>
-                    Email: {selected.email}
-                  </div>
-
-                  <div>
-                    DOB:{" "}
-                    {selected.dob
-                      ? new Date(
-                        selected.dob
-                      ).toLocaleDateString()
-                      : "—"}
-                  </div>
-
-                  <div>
-                    Gender:{" "}
-                    {selected.gender ?? "—"}
-                  </div>
+              )}
+              {viewLead.workExperience && (
+                <div>
+                  <p className="text-[10px] uppercase text-muted-foreground">Work Experience</p>
+                  <p className="mt-0.5 text-sm">{viewLead.workExperience}</p>
                 </div>
+              )}
 
-                {/* Assignment */}
-                <div className="grid gap-2">
-                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Assignment
-                  </div>
+              <SectionDivider label="EPT / Test Scores" />
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <ViewRow label="Test Type"  value={viewLead.englishTestType} />
+                <ViewRow label="Listening"  value={viewLead.listeningScore} />
+                <ViewRow label="Reading"    value={viewLead.readingScore} />
+                <ViewRow label="Writing"    value={viewLead.writingScore} />
+                <ViewRow label="Speaking"   value={viewLead.speakingScore} />
+                <ViewRow label="GRE/GMAT"   value={viewLead.greGmatScore} />
+                <ViewRow label="Quant"      value={viewLead.quantitativeScore} />
+                <ViewRow label="Verbal"     value={viewLead.verbalScore} />
+                <ViewRow label="AWA"        value={viewLead.analyticalWritingScore} />
+              </div>
 
-                  <div>
-                    Branch:{" "}
-                    {selected.branch?.name}
-                  </div>
-
-                  <div>
-                    Counselor:{" "}
-                    {selected.counselor?.name ?? "—"}
-                  </div>
-                </div>
-
-                {/* Study Preference */}
-                <div className="grid gap-2">
-                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Study Preference
-                  </div>
-
-                  <div>
-                    Country:{" "}
-                    {selected.preferredCountry ??
-                      "—"}
-                  </div>
-
-                  <div>
-                    Course:{" "}
-                    {selected.preferredCourse ??
-                      "—"}
-                  </div>
-
-                  <div>
-                    Intake:{" "}
-                    {selected.intakeSeason ??
-                      "—"}{" "}
-                    {selected.intakeYear ?? ""}
-                  </div>
-
-                  <div>
-                    Budget:{" "}
-                    {selected.budget
-                      ? `₹${selected.budget}`
-                      : "—"}
-                  </div>
-                </div>
-
-                {/* Academic */}
-                <div className="grid gap-2">
-                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Academic
-                  </div>
-
-                  <div>
-                    Qualification:{" "}
-                    {selected.qualification ??
-                      "—"}
-                  </div>
-
-                  <div>
-                    Percentage:{" "}
-                    {selected.percentage ?? "—"}%
-                  </div>
-
-                  <div>
-                    Passing Year:{" "}
-                    {selected.passingYear ??
-                      "—"}
-                  </div>
-                </div>
-
-                {/* English Tests */}
-                <div className="grid gap-2">
-                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    English Test Scores
-                  </div>
-
-                  <div>
-                    IELTS:{" "}
-                    {selected.ieltsScore ??
-                      "—"}
-                  </div>
-
-                  <div>
-                    PTE:{" "}
-                    {selected.pteScore ??
-                      "—"}
-                  </div>
-
-                  <div>
-                    TOEFL:{" "}
-                    {selected.toeflScore ??
-                      "—"}
-                  </div>
-
-                  <div>
-                    Duolingo:{" "}
-                    {selected.duolingoScore ??
-                      "—"}
-                  </div>
-                </div>
-
-                {/* Status */}
-                <div className="grid gap-2">
-                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                    Status
-                  </div>
-
-                  <Badge
-                    variant="outline"
-                    className={`capitalize ${statusStyle[
-                      selected.status as LeadStatus
-                    ]
-                      }`}
-                  >
-                    {selected.status}
-                  </Badge>
-                </div>
-
-                {/* Notes */}
-                <div className="rounded-2xl border border-border p-4">
-                  <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground mb-2">
-                    Lead Information
-                  </div>
-
-                  <p className="text-sm text-muted-foreground">
-                    Source: {selected.source}
-                  </p>
-
-                  <p className="text-sm text-muted-foreground">
-                    Created:{" "}
-                    {new Date(
-                      selected.createdAt
-                    ).toLocaleDateString()}
-                  </p>
-
-                  <p className="text-sm text-muted-foreground">
-                    Referral:{" "}
-                    {selected.referralSource ??
-                      "—"}
-                  </p>
-
-                  <p className="text-sm text-muted-foreground">
-                    Notes:{" "}
-                    {selected.notes ??
-                      "No remarks"}
+              <SectionDivider label="Preferences" />
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <ViewRow label="Country"  value={viewLead.preferredCountry} />
+                <ViewRow label="Intake"   value={viewLead.preferredIntake} />
+                <ViewRow label="Course"   value={viewLead.preferredCourse} />
+                <div>
+                  <p className="text-[10px] uppercase text-muted-foreground">Tiers</p>
+                  <p className="mt-0.5 text-sm">
+                    {viewLead.preferredTiers?.join(", ") || "—"}
                   </p>
                 </div>
               </div>
-            </>
+            </div>
           )}
-        </SheetContent>
-      </Sheet>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewLead(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ════════════════════════════════════════════════════════════
+          EDIT DIALOG
+      ════════════════════════════════════════════════════════════ */}
+      <Dialog
+        open={Boolean(editingLead)}
+        onOpenChange={() => { setEditingLead(null); setEditForm(null); }}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Edit Lead{editingLead?.leadNumber ? ` — ${editingLead.leadNumber}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+
+          {editForm && (
+            <div className="space-y-4">
+
+              {/* ── Status ── */}
+              <div className="w-48">
+                <FieldLabel>Status</FieldLabel>
+                <Select value={editForm.status} onValueChange={(v) => setField("status", v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["new", "contacted", "qualified", "converted", "lost", "draft"].map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s.charAt(0).toUpperCase() + s.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <SectionDivider label="Personal" />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <FieldLabel>Student Name *</FieldLabel>
+                  <EditInput value={editForm.studentName} onChange={(v) => setField("studentName", v)} placeholder="Rahul" />
+                </div>
+                <div>
+                  <FieldLabel>Father Name</FieldLabel>
+                  <EditInput value={editForm.fatherName} onChange={(v) => setField("fatherName", v)} placeholder="Venkatesh" />
+                </div>
+                <div>
+                  <FieldLabel>Mobile *</FieldLabel>
+                  <EditInput
+                    type="tel" value={editForm.phone}
+                    onChange={(v) => setField("phone", v.replace(/[^0-9]/g, "").slice(0, 10))}
+                    placeholder="9876543210"
+                  />
+                </div>
+                <div>
+                  <FieldLabel>Email *</FieldLabel>
+                  <EditInput type="email" value={editForm.email} onChange={(v) => setField("email", v)} placeholder="rahul@example.com" />
+                </div>
+                <div>
+                  <FieldLabel>Source</FieldLabel>
+                  <EditInput value={editForm.source} onChange={(v) => setField("source", v)} placeholder="Walk-in" />
+                </div>
+                <div>
+                  <FieldLabel>Passport Number</FieldLabel>
+                  <EditInput value={editForm.passport} onChange={(v) => setField("passport", v)} placeholder="U12345678" />
+                </div>
+                <div>
+                  <FieldLabel>Passport Expiry</FieldLabel>
+                  <EditInput type="date" value={editForm.passportExpireDate} onChange={(v) => setField("passportExpireDate", v)} />
+                </div>
+                <div>
+                  <FieldLabel>Application Date</FieldLabel>
+                  <EditInput type="datetime-local" value={editForm.counsellingDate} onChange={(v) => setField("counsellingDate", v)} />
+                </div>
+              </div>
+
+              <SectionDivider label="Education" />
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <div>
+                  <FieldLabel>10th %</FieldLabel>
+                  <EditInput type="number" min={0} value={editForm.tenthPercentage} onChange={(v) => setField("tenthPercentage", v)} placeholder="85" />
+                </div>
+                <div>
+                  <FieldLabel>10th Year</FieldLabel>
+                  <EditInput type="number" min={0} value={editForm.tenthYearOfPassing} onChange={(v) => setField("tenthYearOfPassing", v)} placeholder="YYYY" />
+                </div>
+                <div>
+                  <FieldLabel>12th %</FieldLabel>
+                  <EditInput type="number" min={0} value={editForm.twelfthPercentage} onChange={(v) => setField("twelfthPercentage", v)} placeholder="88" />
+                </div>
+                <div>
+                  <FieldLabel>12th Year</FieldLabel>
+                  <EditInput type="number" min={0} value={editForm.twelfthYearOfPassing} onChange={(v) => setField("twelfthYearOfPassing", v)} placeholder="YYYY" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="sm:col-span-2 lg:col-span-2">
+                  <FieldLabel>University / College</FieldLabel>
+                  <EditInput value={editForm.bachelorsUniversityName} onChange={(v) => setField("bachelorsUniversityName", v)} placeholder="University name" />
+                </div>
+                <div>
+                  <FieldLabel>Course / Major</FieldLabel>
+                  <EditInput value={editForm.bachelorsCourse} onChange={(v) => setField("bachelorsCourse", v)} placeholder="B.Tech" />
+                </div>
+                <div>
+                  <FieldLabel>CGPA / %</FieldLabel>
+                  <EditInput type="number" step="0.01" min={0} value={editForm.bachelorsPercentage} onChange={(v) => setField("bachelorsPercentage", v)} placeholder="75" />
+                </div>
+                <div>
+                  <FieldLabel>Year of Passing</FieldLabel>
+                  <EditInput type="number" min={0} value={editForm.bachelorsYearOfPassing} onChange={(v) => setField("bachelorsYearOfPassing", v)} placeholder="YYYY" />
+                </div>
+                <div>
+                  <FieldLabel>Backlogs</FieldLabel>
+                  <EditInput type="number" min={0} value={editForm.backlogs} onChange={(v) => setField("backlogs", v)} placeholder="0" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <FieldLabel>Education Gaps</FieldLabel>
+                  <EditTextarea value={editForm.gapsIfAny} onChange={(v) => setField("gapsIfAny", v)} placeholder="Explain any gaps..." />
+                </div>
+                <div>
+                  <FieldLabel>Work Experience</FieldLabel>
+                  <EditTextarea value={editForm.workExperience} onChange={(v) => setField("workExperience", v)} placeholder="Employment details..." />
+                </div>
+              </div>
+
+              <SectionDivider label="EPT / Test Scores" />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <FieldLabel>Test Type</FieldLabel>
+                  <Select
+                    value={editForm.englishTestType}
+                    onValueChange={(v) => {
+                      setEditForm((prev) => prev
+                        ? { ...prev, englishTestType: v, listeningScore: "", readingScore: "", writingScore: "", speakingScore: "", toeflScore: "", pteScore: "", duolingoScore: "" }
+                        : prev);
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {ENGLISH_TEST_OPTIONS.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {editForm.englishTestType === "IELTS" && (
+                  <>
+                    {(["listeningScore", "readingScore", "writingScore", "speakingScore"] as const).map((k) => (
+                      <div key={k}>
+                        <FieldLabel>{k.replace("Score", "")}</FieldLabel>
+                        <EditInput type="number" step="0.5" min={0} value={editForm[k]} onChange={(v) => setField(k, v)} placeholder="0.0" />
+                      </div>
+                    ))}
+                  </>
+                )}
+                {editForm.englishTestType === "TOEFL" && (
+                  <div>
+                    <FieldLabel>TOEFL Score</FieldLabel>
+                    <EditInput type="number" min={0} value={editForm.toeflScore} onChange={(v) => setField("toeflScore", v)} placeholder="100" />
+                  </div>
+                )}
+                {editForm.englishTestType === "PTE" && (
+                  <div>
+                    <FieldLabel>PTE Score</FieldLabel>
+                    <EditInput type="number" min={0} value={editForm.pteScore} onChange={(v) => setField("pteScore", v)} placeholder="65" />
+                  </div>
+                )}
+                {editForm.englishTestType === "DUOLINGO" && (
+                  <div>
+                    <FieldLabel>Duolingo Score</FieldLabel>
+                    <EditInput type="number" min={0} value={editForm.duolingoScore} onChange={(v) => setField("duolingoScore", v)} placeholder="120" />
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div>
+                  <FieldLabel>GRE/GMAT Total</FieldLabel>
+                  <EditInput type="number" min={0} value={editForm.greGmatScore} onChange={(v) => setField("greGmatScore", v)} placeholder="320" />
+                </div>
+                <div>
+                  <FieldLabel>Quantitative</FieldLabel>
+                  <EditInput type="number" min={0} value={editForm.quantitativeScore} onChange={(v) => setField("quantitativeScore", v)} placeholder="165" />
+                </div>
+                <div>
+                  <FieldLabel>Verbal</FieldLabel>
+                  <EditInput type="number" min={0} value={editForm.verbalScore} onChange={(v) => setField("verbalScore", v)} placeholder="155" />
+                </div>
+                <div>
+                  <FieldLabel>AWA</FieldLabel>
+                  <EditInput type="number" step="0.5" min={0} value={editForm.analyticalWritingScore} onChange={(v) => setField("analyticalWritingScore", v)} placeholder="4.5" />
+                </div>
+              </div>
+
+              <SectionDivider label="Preferences" />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <FieldLabel>Country</FieldLabel>
+                  <EditInput value={editForm.preferredCountry} onChange={(v) => setField("preferredCountry", v)} placeholder="USA" />
+                </div>
+                <div>
+                  <FieldLabel>Intake</FieldLabel>
+                  <EditInput value={editForm.preferredIntake} onChange={(v) => setField("preferredIntake", v)} placeholder="Fall 2025" />
+                </div>
+                <div>
+                  <FieldLabel>Course</FieldLabel>
+                  <EditInput value={editForm.preferredCourse} onChange={(v) => setField("preferredCourse", v)} placeholder="MS in CS" />
+                </div>
+                <div>
+                  <FieldLabel>Tiers</FieldLabel>
+                  <Select
+                    value=""
+                    onValueChange={(t) => {
+                      if (!editForm.preferredTiers.includes(t))
+                        setField("preferredTiers", [...editForm.preferredTiers, t]);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Add tier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIER_OPTIONS.filter((t) => !editForm.preferredTiers.includes(t)).map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {editForm.preferredTiers.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {editForm.preferredTiers.map((t) => (
+                        <span
+                          key={t}
+                          className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium"
+                        >
+                          {t}
+                          <button
+                            type="button"
+                            onClick={() => setField("preferredTiers", editForm.preferredTiers.filter((x) => x !== t))}
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="mt-4 gap-2">
+            <Button
+              variant="outline"
+              disabled={isSaving}
+              onClick={() => { setEditingLead(null); setEditForm(null); }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isSaving}>
+              {isSaving ? (
+                <><Loader2 className="mr-2 size-4 animate-spin" />Saving…</>
+              ) : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ════════════════════════════════════════════════════════════
+          DELETE CONFIRMATION DIALOG
+      ════════════════════════════════════════════════════════════ */}
+      <Dialog open={Boolean(deleteId)} onOpenChange={() => setDeleteId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Lead</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This action cannot be undone. The lead will be permanently removed.
+          </p>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" disabled={isDeleting} onClick={() => setDeleteId(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" disabled={isDeleting} onClick={handleDelete}>
+              {isDeleting ? (
+                <><Loader2 className="mr-2 size-4 animate-spin" />Deleting…</>
+              ) : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageTransition>
   );
 }
