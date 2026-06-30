@@ -25,6 +25,7 @@ import {
 } from "@/slids/components/ui/select";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/slids/store";
 
 // ─── Local Types ─────────────────────────────────────────────────────────────
 
@@ -61,22 +62,23 @@ type University = {
 
 type LeadFormValues = {
   // Basic / Personal
-  counsellingDate: string;       // → applicationDate
+  counsellingDate: string; // → applicationDate
   studentName: string;
   fatherName: string;
-  phone: string;                 // → phone (backend also accepts mobileNumber)
-  email: string;                 // → email (backend also accepts emailId)
-  place: string;                 // informational only — not in backend schema, sent as-is
+  phone: string; // → phone (backend also accepts mobileNumber)
+  email: string; // → email (backend also accepts emailId)
+  place: string; // informational only — not in backend schema, sent as-is
   passport: string;
   passportExpireDate: string;
   source: string;
   branchId: string;
 
+  counsellor: string;
   // Academic — Schooling
-  tenthPercentage: string;       // → tenthPassingPercentage
-  tenthYearOfPassing: string;    // → tenthPassingYear
-  twelfthPercentage: string;     // → twelfthPercentage ✓
-  twelfthYearOfPassing: string;  // → twelfthYearOfPassing ✓
+  tenthPercentage: string; // → tenthPassingPercentage
+  tenthYearOfPassing: string; // → tenthPassingYear
+  twelfthPercentage: string; // → twelfthPercentage ✓
+  twelfthYearOfPassing: string; // → twelfthYearOfPassing ✓
 
   // Academic — Bachelor's
   bachelorsCourse: string;
@@ -89,7 +91,7 @@ type LeadFormValues = {
   workExperience: string;
 
   // EPT — English
-  englishTestType: string;       // "IELTS" | "TOEFL" | "DUOLINGO" | "PTE"
+  englishTestType: string; // "IELTS" | "TOEFL" | "DUOLINGO" | "PTE"
   listeningScore: string;
   readingScore: string;
   writingScore: string;
@@ -187,6 +189,8 @@ const INITIAL_FORM: LeadFormValues = {
   preferredIntake: "",
   preferredCourse: "",
   preferredTiers: [],
+
+  counsellor: "",
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -260,6 +264,7 @@ function TextInput({
   step,
   min,
   onInput,
+  disabled=false
 }: {
   id?: string;
   placeholder?: string;
@@ -270,10 +275,12 @@ function TextInput({
   step?: string;
   min?: number;
   onInput?: React.FormEventHandler<HTMLInputElement>;
+  disabled?: boolean
 }) {
   return (
     <input
       id={id}
+      disabled={disabled}
       type={type}
       placeholder={placeholder}
       value={value}
@@ -385,7 +392,9 @@ function UniversityCombobox({
                   >
                     <Check
                       className={`h-4 w-4 shrink-0 ${
-                        value === u.name ? "text-primary opacity-100" : "opacity-0"
+                        value === u.name
+                          ? "text-primary opacity-100"
+                          : "opacity-0"
                       }`}
                     />
                     {u.name}
@@ -489,6 +498,18 @@ function SectionDivider({ label }: { label: string }) {
 
 export default function AddNewLead() {
   const router = useRouter();
+  const [user, setUsr] = useState<{
+    name: string;
+    role: { name: string };
+    id: string;
+  }>();
+
+  const getUser = async () => {
+    const me = await axios.get("/api/auth/me");
+    if (me.status === 200) {
+      setUsr(me.data);
+    }
+  };
 
   // ── Form State ──
   const [form, setForm] = useState<LeadFormValues>({
@@ -510,33 +531,81 @@ export default function AddNewLead() {
   // ── Dropdown Data State ──
   const [branches, setBranches] = useState<Branch[]>([]);
   const [universities, setUniversities] = useState<University[]>([]);
-  const [availableCourses, setAvailableCourses] = useState<UniversityCourse[]>([]);
+  const [availableCourses, setAvailableCourses] = useState<UniversityCourse[]>(
+    [],
+  );
   const [countries, setCountries] = useState<Country[]>([]);
   const [intakes, setIntakes] = useState<Intake[]>([]);
+  const [counsellors, setCounsellor] = useState<{ id: string; name: string }[]>(
+    [],
+  );
 
   // ── Fetch all master data on mount ──
-  useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        const [branchRes, uniRes, countryRes, intakeRes] = await Promise.all([
-          axios.get("/api/branches/all", { withCredentials: true }),
-          axios.get("/api/universities/all", { params: { course: true }, withCredentials: true }),
-          axios.get("/api/countries/all", { withCredentials: true }),
-          axios.get("/api/intakes/all", { withCredentials: true }),
-        ]);
+
+  const fetchAll = async () => {
+    try {
+      if (user) {
+        const isCounsellor = user.role?.name?.toLowerCase() === "counsellor";
+
+        const requests = [
+          axios.get(`/api/branches/all?role=${user.role.name}&me=${user.id}`, {
+            withCredentials: true,
+          }),
+          axios.get("/api/universities/all", {
+            params: { course: true },
+            withCredentials: true,
+          }),
+          axios.get("/api/countries/all", {
+            withCredentials: true,
+          }),
+          axios.get("/api/intakes/all", {
+            withCredentials: true,
+          }),
+        ];
+
+        if (!isCounsellor) {
+          requests.push(
+            axios.get("/api/users/counsellor?few=true", {
+              withCredentials: true,
+            }),
+          );
+        }
+
+        const responses = await Promise.all(requests);
+
+        const [branchRes, uniRes, countryRes, intakeRes, users] = responses;
 
         setBranches(branchRes.data?.data ?? []);
         setUniversities(uniRes.data?.data ?? []);
         setCountries(countryRes.data?.data ?? []);
         setIntakes(intakeRes.data?.data ?? []);
-      } catch (err) {
-        console.error("Failed to load master data:", err);
-        toast.error("Failed to load dropdown data");
-      }
-    };
 
-    fetchAll();
+        if (isCounsellor) {
+          setCounsellor([
+            {
+              id: user.id,
+              name: user.name,
+            },
+          ]);
+        } else {
+          setCounsellor(users?.data?.data ?? []);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load master data:", err);
+      toast.error("Failed to load dropdown data");
+    }
+  };
+
+  useEffect(() => {
+    getUser();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchAll();
+    }
+  }, [user]);
 
   // ── Generic field setter ──
   const set = <K extends keyof LeadFormValues>(
@@ -602,59 +671,69 @@ export default function AddNewLead() {
        */
       const payload = {
         // ── Personal ──
-        studentName:        form.studentName.trim(),
-        fatherName:         strOrUndef(form.fatherName),
-        email:              form.email.trim(),
-        phone:              form.phone,
-        passport:           strOrUndef(form.passport),
+        studentName: form.studentName.trim(),
+        fatherName: strOrUndef(form.fatherName),
+        email: form.email.trim(),
+        phone: form.phone,
+        passport: strOrUndef(form.passport),
         passportExpireDate: strOrUndef(form.passportExpireDate),
-        counsellingDate:    strOrUndef(form.counsellingDate), // backend maps this → applicationDate
-        source:             strOrUndef(form.source),
-        branchId:           form.branchId,
+        counsellingDate: strOrUndef(form.counsellingDate), // backend maps this → applicationDate
+        source: strOrUndef(form.source),
+        branchId: form.branchId,
 
         // ── Academic — Schooling ──
         // Backend maps tenthPercentage → tenthPassingPercentage
         // and tenthYearOfPassing → tenthPassingYear
-        tenthPercentage:       toNumberOrUndef(form.tenthPercentage),
-        tenthYearOfPassing:    toNumberOrUndef(form.tenthYearOfPassing),
-        twelfthPercentage:     toNumberOrUndef(form.twelfthPercentage),
-        twelfthYearOfPassing:  toNumberOrUndef(form.twelfthYearOfPassing),
+        tenthPercentage: toNumberOrUndef(form.tenthPercentage),
+        tenthYearOfPassing: toNumberOrUndef(form.tenthYearOfPassing),
+        twelfthPercentage: toNumberOrUndef(form.twelfthPercentage),
+        twelfthYearOfPassing: toNumberOrUndef(form.twelfthYearOfPassing),
 
         // ── Academic — Bachelor's ──
         bachelorsUniversityName: strOrUndef(form.bachelorsUniversityName),
-        bachelorsCourse:         strOrUndef(form.bachelorsCourse),
-        bachelorsPercentage:     toNumberOrUndef(form.bachelorsPercentage),
-        bachelorsYearOfPassing:  toNumberOrUndef(form.bachelorsYearOfPassing),
-        backlogs:                toNumberOrUndef(form.backlogs),
-        gapsIfAny:               strOrUndef(form.gapsIfAny),
-        workExperience:          strOrUndef(form.workExperience),
+        bachelorsCourse: strOrUndef(form.bachelorsCourse),
+        bachelorsPercentage: toNumberOrUndef(form.bachelorsPercentage),
+        bachelorsYearOfPassing: toNumberOrUndef(form.bachelorsYearOfPassing),
+        backlogs: toNumberOrUndef(form.backlogs),
+        gapsIfAny: strOrUndef(form.gapsIfAny),
+        workExperience: strOrUndef(form.workExperience),
 
         // ── EPT — English ──
         englishTestType: strOrUndef(form.englishTestType),
         // Sub-scores (used by IELTS; backend auto-calculates ieltsScore from these)
-        listeningScore:  toNumberOrUndef(form.listeningScore),
-        readingScore:    toNumberOrUndef(form.readingScore),
-        writingScore:    toNumberOrUndef(form.writingScore),
-        speakingScore:   toNumberOrUndef(form.speakingScore),
+        listeningScore: toNumberOrUndef(form.listeningScore),
+        readingScore: toNumberOrUndef(form.readingScore),
+        writingScore: toNumberOrUndef(form.writingScore),
+        speakingScore: toNumberOrUndef(form.speakingScore),
         // Per-test overall scores for other test types
-        toeflScore:      form.englishTestType === "TOEFL"    ? toNumberOrUndef(form.toeflScore)    : undefined,
-        pteScore:        form.englishTestType === "PTE"      ? toNumberOrUndef(form.pteScore)      : undefined,
-        duolingoScore:   form.englishTestType === "DUOLINGO" ? toNumberOrUndef(form.duolingoScore) : undefined,
+        toeflScore:
+          form.englishTestType === "TOEFL"
+            ? toNumberOrUndef(form.toeflScore)
+            : undefined,
+        pteScore:
+          form.englishTestType === "PTE"
+            ? toNumberOrUndef(form.pteScore)
+            : undefined,
+        duolingoScore:
+          form.englishTestType === "DUOLINGO"
+            ? toNumberOrUndef(form.duolingoScore)
+            : undefined,
 
         // ── GRE / GMAT ──
-        greGmatScore:           toNumberOrUndef(form.greGmatScore),
-        quantitativeScore:      toNumberOrUndef(form.quantitativeScore),
-        verbalScore:            toNumberOrUndef(form.verbalScore),
+        greGmatScore: toNumberOrUndef(form.greGmatScore),
+        quantitativeScore: toNumberOrUndef(form.quantitativeScore),
+        verbalScore: toNumberOrUndef(form.verbalScore),
         analyticalWritingScore: toNumberOrUndef(form.analyticalWritingScore),
 
         // ── Preferences ──
         preferredCountry: strOrUndef(form.preferredCountry),
-        preferredCourse:  strOrUndef(form.preferredCourse),
-        preferredIntake:  strOrUndef(form.preferredIntake),
-        preferredTiers:   form.preferredTiers,
+        preferredCourse: strOrUndef(form.preferredCourse),
+        preferredIntake: strOrUndef(form.preferredIntake),
+        preferredTiers: form.preferredTiers,
 
+        counselorId: form.counsellor,
         // ── Lead meta ──
-        status: "NEW",          // backend expects uppercase
+        status: "NEW", // backend expects uppercase
       };
 
       await axios.post("/api/leads", payload, {
@@ -694,7 +773,6 @@ export default function AddNewLead() {
 
         <div className="rounded-2xl border bg-card p-6 shadow-sm">
           <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-
             {/* ── Basic Information ──────────────────────────────────── */}
             <SectionPanel
               label="Basic Information"
@@ -705,11 +783,13 @@ export default function AddNewLead() {
               onToggle={() => toggleSection("basic")}
             >
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-
                 {/* Branch */}
                 <div>
                   <FieldLabel required>Branch</FieldLabel>
-                  <Select value={form.branchId} onValueChange={(v) => set("branchId", v)}>
+                  <Select
+                    value={form.branchId}
+                    onValueChange={(v) => set("branchId", v)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select Branch" />
                     </SelectTrigger>
@@ -725,7 +805,9 @@ export default function AddNewLead() {
 
                 {/* Application Date */}
                 <div>
-                  <FieldLabel htmlFor="counsellingDate">Application Date</FieldLabel>
+                  <FieldLabel htmlFor="counsellingDate">
+                    Application Date
+                  </FieldLabel>
                   <TextInput
                     id="counsellingDate"
                     type="datetime-local"
@@ -736,7 +818,9 @@ export default function AddNewLead() {
 
                 {/* Student Name */}
                 <div>
-                  <FieldLabel htmlFor="studentName" required>Student Name</FieldLabel>
+                  <FieldLabel htmlFor="studentName" required>
+                    Student Name
+                  </FieldLabel>
                   <TextInput
                     id="studentName"
                     placeholder="ex: Rahul"
@@ -758,7 +842,9 @@ export default function AddNewLead() {
 
                 {/* Mobile */}
                 <div>
-                  <FieldLabel htmlFor="phone" required>Mobile Number</FieldLabel>
+                  <FieldLabel htmlFor="phone" required>
+                    Mobile Number
+                  </FieldLabel>
                   <TextInput
                     id="phone"
                     type="tel"
@@ -767,14 +853,19 @@ export default function AddNewLead() {
                     value={form.phone}
                     onChange={(v) => set("phone", v)}
                     onInput={(e) => {
-                      e.currentTarget.value = e.currentTarget.value.replace(/[^0-9]/g, "");
+                      e.currentTarget.value = e.currentTarget.value.replace(
+                        /[^0-9]/g,
+                        "",
+                      );
                     }}
                   />
                 </div>
 
                 {/* Email */}
                 <div>
-                  <FieldLabel htmlFor="email" required>Email Address</FieldLabel>
+                  <FieldLabel htmlFor="email" required>
+                    Email Address
+                  </FieldLabel>
                   <TextInput
                     id="email"
                     type="email"
@@ -808,7 +899,9 @@ export default function AddNewLead() {
 
                 {/* Passport Expiry */}
                 <div>
-                  <FieldLabel htmlFor="passportExpireDate">Passport Expiry Date</FieldLabel>
+                  <FieldLabel htmlFor="passportExpireDate">
+                    Passport Expiry Date
+                  </FieldLabel>
                   <TextInput
                     id="passportExpireDate"
                     type="date"
@@ -820,12 +913,37 @@ export default function AddNewLead() {
                 {/* Lead Source */}
                 <div>
                   <FieldLabel>Lead Source</FieldLabel>
-                  <Select value={form.source} onValueChange={(v) => set("source", v)}>
+                  <Select
+                    value={form.source}
+                    onValueChange={(v) => set("source", v)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select Source" />
                     </SelectTrigger>
                     <SelectContent>
                       {MOCK_LEAD_SOURCES.map((s) => (
+                        <SelectItem key={s.id} value={s.name}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <FieldLabel>Select Counsellor</FieldLabel>
+                  <Select
+                    value={form.counsellor}
+                    defaultValue={
+                      counsellors.length > 0 ? counsellors[0].id : ""
+                    }
+                    onValueChange={(v) => set("counsellor", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Counsellor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {counsellors.map((s) => (
                         <SelectItem key={s.id} value={s.name}>
                           {s.name}
                         </SelectItem>
@@ -906,28 +1024,36 @@ export default function AddNewLead() {
                   {/* Course — driven by selected university's courses */}
                   <div>
                     <FieldLabel>Course / Major</FieldLabel>
-                    <Select
-                      value={form.bachelorsCourse}
-                      onValueChange={(v) => set("bachelorsCourse", v)}
-                      disabled={availableCourses.length === 0}
-                    >
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={
-                            availableCourses.length === 0
-                              ? "Select a university first"
-                              : "Select Course"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableCourses.map((c) => (
-                          <SelectItem key={c.id} value={c.name}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {availableCourses.length > 0 ? (
+                      <Select
+                        value={form.bachelorsCourse}
+                        onValueChange={(v) => set("bachelorsCourse", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              availableCourses.length === 0
+                                ? "Select a university first"
+                                : "Select Course"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableCourses.map((c) => (
+                            <SelectItem key={c.id} value={c.name}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <TextInput
+                        id="bachelorsCourse"
+                        placeholder={"M. Tech"}
+                        value={form.bachelorsCourse}
+                        onChange={(v) => set("bachelorsCourse", v)}
+                      />
+                    )}
                   </div>
 
                   {/* CGPA */}
@@ -1039,28 +1165,28 @@ export default function AddNewLead() {
                     </Select>
                   </div>
 
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                      {(
-                        [
-                          { label: "Listening", key: "listeningScore" },
-                          { label: "Reading",   key: "readingScore"   },
-                          { label: "Writing",   key: "writingScore"   },
-                          { label: "Speaking",  key: "speakingScore"  },
-                        ] as { label: string; key: keyof LeadFormValues }[]
-                      ).map(({ label, key }) => (
-                        <div key={key}>
-                          <FieldLabel>{label}</FieldLabel>
-                          <TextInput
-                            type="number"
-                            placeholder="0.0"
-                            step="0.5"
-                            min={0}
-                            value={form[key] as string}
-                            onChange={(v) => set(key, v)}
-                          />
-                        </div>
-                      ))}
-                    </div>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {(
+                      [
+                        { label: "Listening", key: "listeningScore" },
+                        { label: "Reading", key: "readingScore" },
+                        { label: "Writing", key: "writingScore" },
+                        { label: "Speaking", key: "speakingScore" },
+                      ] as { label: string; key: keyof LeadFormValues }[]
+                    ).map(({ label, key }) => (
+                      <div key={key}>
+                        <FieldLabel>{label}</FieldLabel>
+                        <TextInput
+                          type="number"
+                          placeholder="0.0"
+                          step="0.5"
+                          min={0}
+                          value={form[key] as string}
+                          onChange={(v) => set(key, v)}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </ScoreCard>
 
                 {/* GRE / GMAT */}
@@ -1122,7 +1248,6 @@ export default function AddNewLead() {
               onToggle={() => toggleSection("preferences")}
             >
               <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
-
                 {/* Preferred Country */}
                 <div>
                   <FieldLabel>Preferred Country</FieldLabel>

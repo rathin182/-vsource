@@ -208,8 +208,8 @@ model Lead {
   applicationDate    DateTime?
   studentName        String?   @default("Unnkown")
   fatherName         String?
-  email              String    @unique
-  phone              String    @unique
+  email              String
+  phone              String
   dob                DateTime?
   passport           String?
   passportExpireDate DateTime?

@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { PageHeader, PageTransition } from "@/slids/components/common/PageHeader";
+import {
+  PageHeader,
+  PageTransition,
+} from "@/slids/components/common/PageHeader";
 import { Card, CardContent } from "@/slids/components/ui/card";
 import { Button } from "@/slids/components/ui/button";
 import { Input } from "@/slids/components/ui/input";
@@ -24,15 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/slids/components/ui/dialog";
-import {
-  Search,
-  Plus,
-  Pencil,
-  Trash2,
-  Eye,
-  Loader2,
-  X,
-} from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Eye, Loader2, X } from "lucide-react";
 import { Skeleton } from "@/slids/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -77,7 +72,9 @@ const formatDate = (value?: string | Date | null) => {
 const strOrUndef = (v: string | undefined | null): string | undefined =>
   v?.trim() === "" || v == null ? undefined : v.trim();
 
-const toNumberOrUndef = (v: string | number | undefined | null): number | undefined => {
+const toNumberOrUndef = (
+  v: string | number | undefined | null,
+): number | undefined => {
   if (v === "" || v == null) return undefined;
   const n = Number(v);
   return isNaN(n) ? undefined : n;
@@ -126,49 +123,51 @@ type EditForm = {
   preferredCourse: string;
   preferredTiers: string[];
   status: string;
+  counsellorId: string;
 };
 
 const leadToEditForm = (lead: any): EditForm => ({
-  studentName:        lead.studentName        ?? "",
-  fatherName:         lead.fatherName         ?? "",
-  phone:              lead.phone       ?? "",
-  email:              lead.email            ?? "",
-  place:              (lead as any).place     ?? "",
-  source:             lead.source             ?? "",
-  passport:           lead.passport           ?? "",
+  studentName: lead.studentName ?? "",
+  fatherName: lead.fatherName ?? "",
+  phone: lead.phone ?? "",
+  email: lead.email ?? "",
+  place: (lead as any).place ?? "",
+  source: lead.source ?? "",
+  passport: lead.passport ?? "",
   passportExpireDate: lead.passportExpireDate ?? "",
-  counsellingDate:    lead.applicationDate    ?? "",
+  counsellingDate: lead.applicationDate ?? "",
 
-  tenthPercentage:       String(lead.tenthPassingPercentage  ?? ""),
-  tenthYearOfPassing:    String(lead.tenthPassingYear         ?? ""),
-  twelfthPercentage:     String(lead.twelfthPercentage       ?? ""),
-  twelfthYearOfPassing:  String(lead.twelfthYearOfPassing    ?? ""),
-  bachelorsUniversityName: lead.bachelorsUniversityName      ?? "",
-  bachelorsCourse:         lead.bachelorsCourse              ?? "",
-  bachelorsPercentage:     String(lead.bachelorsPercentage   ?? ""),
-  bachelorsYearOfPassing:  String(lead.bachelorsYearOfPassing ?? ""),
-  backlogs:                String(lead.backlogs              ?? ""),
-  gapsIfAny:               lead.gapsIfAny                   ?? "",
-  workExperience:          lead.workExperience               ?? "",
+  tenthPercentage: String(lead.tenthPassingPercentage ?? ""),
+  tenthYearOfPassing: String(lead.tenthPassingYear ?? ""),
+  twelfthPercentage: String(lead.twelfthPercentage ?? ""),
+  twelfthYearOfPassing: String(lead.twelfthYearOfPassing ?? ""),
+  bachelorsUniversityName: lead.bachelorsUniversityName ?? "",
+  bachelorsCourse: lead.bachelorsCourse ?? "",
+  bachelorsPercentage: String(lead.bachelorsPercentage ?? ""),
+  bachelorsYearOfPassing: String(lead.bachelorsYearOfPassing ?? ""),
+  backlogs: String(lead.backlogs ?? ""),
+  gapsIfAny: lead.gapsIfAny ?? "",
+  workExperience: lead.workExperience ?? "",
 
-  englishTestType:        lead.englishTestType              ?? "",
-  listeningScore:         String(lead.listeningScore        ?? ""),
-  readingScore:           String(lead.readingScore          ?? ""),
-  writingScore:           String(lead.writingScore          ?? ""),
-  speakingScore:          String(lead.speakingScore         ?? ""),
-  toeflScore:             String(lead.toeflScore            ?? ""),
-  pteScore:               String(lead.pteScore              ?? ""),
-  duolingoScore:          String(lead.duolingoScore         ?? ""),
-  greGmatScore:           String(lead.greGmatScore          ?? ""),
-  quantitativeScore:      String(lead.quantitativeScore     ?? ""),
-  verbalScore:            String(lead.verbalScore           ?? ""),
+  englishTestType: lead.englishTestType ?? "",
+  listeningScore: String(lead.listeningScore ?? ""),
+  readingScore: String(lead.readingScore ?? ""),
+  writingScore: String(lead.writingScore ?? ""),
+  speakingScore: String(lead.speakingScore ?? ""),
+  toeflScore: String(lead.toeflScore ?? ""),
+  pteScore: String(lead.pteScore ?? ""),
+  duolingoScore: String(lead.duolingoScore ?? ""),
+  greGmatScore: String(lead.greGmatScore ?? ""),
+  quantitativeScore: String(lead.quantitativeScore ?? ""),
+  verbalScore: String(lead.verbalScore ?? ""),
   analyticalWritingScore: String(lead.analyticalWritingScore ?? ""),
 
   preferredCountry: lead.preferredCountry ?? "",
-  preferredIntake:  lead.preferredIntake  ?? "",
-  preferredCourse:  lead.preferredCourse  ?? "",
-  preferredTiers:   Array.isArray(lead.preferredTiers) ? lead.preferredTiers : [],
-  status:           lead.status           ?? "new",
+  preferredIntake: lead.preferredIntake ?? "",
+  preferredCourse: lead.preferredCourse ?? "",
+  preferredTiers: Array.isArray(lead.preferredTiers) ? lead.preferredTiers : [],
+  status: lead.status ?? "new",
+  counsellorId: lead.counselorId ?? ""
 });
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -181,7 +180,10 @@ function FieldLabel({
   children: React.ReactNode;
 }) {
   return (
-    <label htmlFor={htmlFor} className="block text-xs font-medium text-muted-foreground mb-1">
+    <label
+      htmlFor={htmlFor}
+      className="block text-xs font-medium text-muted-foreground mb-1"
+    >
       {children}
     </label>
   );
@@ -251,10 +253,18 @@ function SectionDivider({ label }: { label: string }) {
 }
 
 // ── View Row helper ──
-function ViewRow({ label, value }: { label: string; value?: string | number | null }) {
+function ViewRow({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | number | null;
+}) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
       <p className="mt-0.5 text-sm font-medium text-foreground truncate">
         {value ?? "—"}
       </p>
@@ -286,11 +296,21 @@ export default function AllLeadsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [counsellorList, setCounsellorList] = useState<{id: string, name: string}[]>([])
+
+  async function getCounsellors() {
+    const req = await axios.get("/api/users/counsellor?few=true");
+    if (req.status === 200) {
+      setCounsellorList(req.data.data)
+    } 
+  }
   // ── Load leads ──
   const loadLeads = async () => {
     try {
       setIsLoading(true);
       const { data } = await axios.get("/api/leads", { withCredentials: true });
+      console.log(data);
+      
       setLeads(Array.isArray(data?.data) ? data.data : []);
     } catch (err) {
       console.error(err);
@@ -301,17 +321,29 @@ export default function AllLeadsPage() {
     }
   };
 
-  useEffect(() => { void loadLeads(); }, []);
-  useEffect(() => { setPage(1); }, [query, status, branch, source]);
+  useEffect(() => {
+    void loadLeads();
+  }, []);
+  useEffect(() => {
+    setPage(1);
+  }, [query, status, branch, source]);
 
   // ── Derived filter options from live data ──
-  const uniqueBranches = useMemo(() =>
-    [...new Set(leads.map((l) => l.branch?.name).filter(Boolean) as string[])],
+  const uniqueBranches = useMemo(
+    () => [
+      ...new Set(leads.map((l) => l.branch?.name).filter(Boolean) as string[]),
+    ],
     [leads],
   );
 
-  const uniqueSources = useMemo(() =>
-    [...new Set(leads.map((l) => l.source).filter((s): s is string => Boolean(s?.trim())))],
+  const uniqueSources = useMemo(
+    () => [
+      ...new Set(
+        leads
+          .map((l) => l.source)
+          .filter((s): s is string => Boolean(s?.trim())),
+      ),
+    ],
     [leads],
   );
 
@@ -324,14 +356,16 @@ export default function AllLeadsPage() {
           !q ||
           l.studentName?.toLowerCase().includes(q) ||
           l.email?.toLowerCase().includes(q) ||
-          l.phone?.includes(q) ||
-          l.leadNumber?.toLowerCase().includes(q);
+          l.phone?.includes(q);
         const matchStatus = status === "all" || l.status === status;
         const matchBranch = branch === "all" || l.branch?.name === branch;
         const matchSource = source === "all" || l.source === source;
         return matchQuery && matchStatus && matchBranch && matchSource;
       })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
   }, [leads, query, status, branch, source]);
 
   const pageCount = Math.max(1, Math.ceil(filteredLeads.length / PAGE_SIZE));
@@ -346,10 +380,11 @@ export default function AllLeadsPage() {
   const openEdit = (lead: any) => {
     setEditingLead(lead);
     setEditForm(leadToEditForm(lead));
+    getCounsellors()
   };
 
   const setField = <K extends keyof EditForm>(key: K, value: EditForm[K]) =>
-    setEditForm((prev) => prev ? { ...prev, [key]: value } : prev);
+    setEditForm((prev) => (prev ? { ...prev, [key]: value } : prev));
 
   const handleSaveEdit = async () => {
     if (!editingLead || !editForm) return;
@@ -370,48 +405,64 @@ export default function AllLeadsPage() {
     setIsSaving(true);
     try {
       const payload = {
-        studentName:        editForm.studentName.trim(),
-        fatherName:         strOrUndef(editForm.fatherName),
-        email:              editForm.email.trim(),
-        phone:              editForm.phone,
-        passport:           strOrUndef(editForm.passport),
+        studentName: editForm.studentName.trim(),
+        fatherName: strOrUndef(editForm.fatherName),
+        email: editForm.email.trim(),
+        phone: editForm.phone,
+        passport: strOrUndef(editForm.passport),
         passportExpireDate: strOrUndef(editForm.passportExpireDate),
-        counsellingDate:    strOrUndef(editForm.counsellingDate),
-        source:             strOrUndef(editForm.source),
+        counsellingDate: strOrUndef(editForm.counsellingDate),
+        source: strOrUndef(editForm.source),
 
-        tenthPercentage:       toNumberOrUndef(editForm.tenthPercentage),
-        tenthYearOfPassing:    toNumberOrUndef(editForm.tenthYearOfPassing),
-        twelfthPercentage:     toNumberOrUndef(editForm.twelfthPercentage),
-        twelfthYearOfPassing:  toNumberOrUndef(editForm.twelfthYearOfPassing),
+        tenthPercentage: toNumberOrUndef(editForm.tenthPercentage),
+        tenthYearOfPassing: toNumberOrUndef(editForm.tenthYearOfPassing),
+        twelfthPercentage: toNumberOrUndef(editForm.twelfthPercentage),
+        twelfthYearOfPassing: toNumberOrUndef(editForm.twelfthYearOfPassing),
         bachelorsUniversityName: strOrUndef(editForm.bachelorsUniversityName),
-        bachelorsCourse:         strOrUndef(editForm.bachelorsCourse),
-        bachelorsPercentage:     toNumberOrUndef(editForm.bachelorsPercentage),
-        bachelorsYearOfPassing:  toNumberOrUndef(editForm.bachelorsYearOfPassing),
-        backlogs:                toNumberOrUndef(editForm.backlogs),
-        gapsIfAny:               strOrUndef(editForm.gapsIfAny),
-        workExperience:          strOrUndef(editForm.workExperience),
+        bachelorsCourse: strOrUndef(editForm.bachelorsCourse),
+        bachelorsPercentage: toNumberOrUndef(editForm.bachelorsPercentage),
+        bachelorsYearOfPassing: toNumberOrUndef(
+          editForm.bachelorsYearOfPassing,
+        ),
+        backlogs: toNumberOrUndef(editForm.backlogs),
+        gapsIfAny: strOrUndef(editForm.gapsIfAny),
+        workExperience: strOrUndef(editForm.workExperience),
 
-        englishTestType:        strOrUndef(editForm.englishTestType),
-        listeningScore:         toNumberOrUndef(editForm.listeningScore),
-        readingScore:           toNumberOrUndef(editForm.readingScore),
-        writingScore:           toNumberOrUndef(editForm.writingScore),
-        speakingScore:          toNumberOrUndef(editForm.speakingScore),
-        toeflScore:             editForm.englishTestType === "TOEFL"    ? toNumberOrUndef(editForm.toeflScore)    : undefined,
-        pteScore:               editForm.englishTestType === "PTE"      ? toNumberOrUndef(editForm.pteScore)      : undefined,
-        duolingoScore:          editForm.englishTestType === "DUOLINGO" ? toNumberOrUndef(editForm.duolingoScore) : undefined,
-        greGmatScore:           toNumberOrUndef(editForm.greGmatScore),
-        quantitativeScore:      toNumberOrUndef(editForm.quantitativeScore),
-        verbalScore:            toNumberOrUndef(editForm.verbalScore),
-        analyticalWritingScore: toNumberOrUndef(editForm.analyticalWritingScore),
+        englishTestType: strOrUndef(editForm.englishTestType),
+        listeningScore: toNumberOrUndef(editForm.listeningScore),
+        readingScore: toNumberOrUndef(editForm.readingScore),
+        writingScore: toNumberOrUndef(editForm.writingScore),
+        speakingScore: toNumberOrUndef(editForm.speakingScore),
+        toeflScore:
+          editForm.englishTestType === "TOEFL"
+            ? toNumberOrUndef(editForm.toeflScore)
+            : undefined,
+        pteScore:
+          editForm.englishTestType === "PTE"
+            ? toNumberOrUndef(editForm.pteScore)
+            : undefined,
+        duolingoScore:
+          editForm.englishTestType === "DUOLINGO"
+            ? toNumberOrUndef(editForm.duolingoScore)
+            : undefined,
+        greGmatScore: toNumberOrUndef(editForm.greGmatScore),
+        quantitativeScore: toNumberOrUndef(editForm.quantitativeScore),
+        verbalScore: toNumberOrUndef(editForm.verbalScore),
+        analyticalWritingScore: toNumberOrUndef(
+          editForm.analyticalWritingScore,
+        ),
 
         preferredCountry: strOrUndef(editForm.preferredCountry),
-        preferredCourse:  strOrUndef(editForm.preferredCourse),
-        preferredIntake:  strOrUndef(editForm.preferredIntake),
-        preferredTiers:   editForm.preferredTiers,
-        status:           editForm.status.toUpperCase(),
+        preferredCourse: strOrUndef(editForm.preferredCourse),
+        preferredIntake: strOrUndef(editForm.preferredIntake),
+        preferredTiers: editForm.preferredTiers,
+        status: editForm.status.toUpperCase(),
+        counselorId: editForm.counsellorId
       };
 
-      await axios.put(`/api/leads/${editingLead.id}`, payload, { withCredentials: true });
+      await axios.put(`/api/leads/${editingLead.id}`, payload, {
+        withCredentials: true,
+      });
       toast.success("Lead updated successfully");
       setEditingLead(null);
       setEditForm(null);
@@ -452,10 +503,10 @@ export default function AllLeadsPage() {
         title="All Leads"
         description="Manage every enquiry with search, filters, and status tracking."
         actions={
-            <Button size="sm" onClick={() => router.push("/leads/add")}>
-              <Plus className="mr-2 size-4" />
-              Add Lead
-            </Button>
+          <Button size="sm" onClick={() => router.push("/leads/add")}>
+            <Plus className="mr-2 size-4" />
+            Add Lead
+          </Button>
         }
       />
 
@@ -474,8 +525,13 @@ export default function AllLeadsPage() {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="grid gap-1.5">
-              <Label className="text-xs font-semibold tracking-wide text-muted-foreground">Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as any | "all")}>
+              <Label className="text-xs font-semibold tracking-wide text-muted-foreground">
+                Status
+              </Label>
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(v as any | "all")}
+              >
                 <SelectTrigger className="bg-background">
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
@@ -494,7 +550,9 @@ export default function AllLeadsPage() {
             </div>
 
             <div className="grid gap-1.5">
-              <Label className="text-xs font-semibold tracking-wide text-muted-foreground">Branch</Label>
+              <Label className="text-xs font-semibold tracking-wide text-muted-foreground">
+                Branch
+              </Label>
               <Select value={branch} onValueChange={setBranch}>
                 <SelectTrigger className="bg-background">
                   <SelectValue placeholder="Any branch" />
@@ -504,7 +562,9 @@ export default function AllLeadsPage() {
                     <SelectLabel>Branch</SelectLabel>
                     <SelectItem value="all">All Branches</SelectItem>
                     {uniqueBranches.map((b) => (
-                      <SelectItem key={b} value={b}>{b}</SelectItem>
+                      <SelectItem key={b} value={b}>
+                        {b}
+                      </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
@@ -512,7 +572,9 @@ export default function AllLeadsPage() {
             </div>
 
             <div className="grid gap-1.5">
-              <Label className="text-xs font-semibold tracking-wide text-muted-foreground">Source</Label>
+              <Label className="text-xs font-semibold tracking-wide text-muted-foreground">
+                Source
+              </Label>
               <Select value={source} onValueChange={setSource}>
                 <SelectTrigger className="bg-background">
                   <SelectValue placeholder="Any source" />
@@ -522,7 +584,9 @@ export default function AllLeadsPage() {
                     <SelectLabel>Source</SelectLabel>
                     <SelectItem value="all">Any</SelectItem>
                     {uniqueSources.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
@@ -542,7 +606,9 @@ export default function AllLeadsPage() {
             onClick={() => setStatus(tab)}
             className="whitespace-nowrap"
           >
-            {tab === "all" ? "All Leads" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab === "all"
+              ? "All Leads"
+              : tab.charAt(0).toUpperCase() + tab.slice(1)}
           </Button>
         ))}
       </div>
@@ -571,9 +637,6 @@ export default function AllLeadsPage() {
                       className="space-y-3 bg-card p-4 hover:bg-secondary/10 transition-colors"
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <span className="rounded bg-secondary/50 px-2 py-0.5 font-mono text-xs font-semibold text-muted-foreground">
-                          {lead.leadNumber || "—"}
-                        </span>
                         <Badge
                           variant="outline"
                           className={`capitalize font-semibold ${STATUS_STYLE[lead.status ?? "draft"]}`}
@@ -583,7 +646,9 @@ export default function AllLeadsPage() {
                       </div>
 
                       <div>
-                        <h4 className="text-base font-semibold">{lead.studentName || "—"}</h4>
+                        <h4 className="text-base font-semibold">
+                          {lead.studentName || "—"}
+                        </h4>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {lead.phone || "—"}
                           {lead.email ? ` | ${lead.email}` : ""}
@@ -593,24 +658,41 @@ export default function AllLeadsPage() {
                       <div className="grid grid-cols-2 gap-3 border-t border-border/60 pt-2 text-xs">
                         <ViewRow label="Branch" value={lead.branch?.name} />
                         <ViewRow label="Source" value={lead.source} />
-                        <ViewRow label="Country" value={lead.preferredCountry} />
-                        <ViewRow label="Created" value={formatDate(lead.createdAt)} />
+                        <ViewRow
+                          label="Country"
+                          value={lead.preferredCountry}
+                        />
+                        <ViewRow
+                          label="Created"
+                          value={formatDate(lead.createdAt)}
+                        />
                       </div>
 
                       <div className="flex items-center justify-end gap-1 border-t border-border/60 pt-2">
-                        <Button size="icon" variant="ghost" className="size-8" onClick={() => setViewLead(lead)}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8"
+                          onClick={() => setViewLead(lead)}
+                        >
                           <Eye className="size-4" />
                         </Button>
-                          <Button size="icon" variant="ghost" className="size-8" onClick={() => openEdit(lead)}>
-                            <Pencil className="size-4" />
-                          </Button>
-                          <Button
-                            size="icon" variant="ghost"
-                            className="size-8 text-destructive hover:bg-destructive/10"
-                            onClick={() => setDeleteId(lead.id)}
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8"
+                          onClick={() => openEdit(lead)}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 text-destructive hover:bg-destructive/10"
+                          onClick={() => setDeleteId(lead.id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
                       </div>
                     </div>
                   ))
@@ -626,29 +708,41 @@ export default function AllLeadsPage() {
                     <col className="w-[8%]" />
                     <col className="w-[13%]" />
                     <col className="w-[6%]" />
-                    <col className="w-[9%]" />
-                    <col className="w-[14%]" />
+                    <col className="w-[12%]" />
+                    <col className="w-[10%]" />
                     <col className="w-[7%]" />
                     <col className="w-[8%]" />
                     <col className="w-[8%]" />
                     <col className="w-[8%]" />
-                    <col className="w-[7%]" />
                   </colgroup>
                   <thead>
                     <tr className="border-b border-border bg-secondary/30 text-left text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
                       {[
-                        "S.No", "Student Name", "Mobile", "Email", "Source",
-                        "Branch", "Counselor", "Country", "Status",
-                        "Created", "Next Followup", "Actions",
+                        "S.No",
+                        "Student Name",
+                        "Mobile",
+                        "Email",
+                        "Source",
+                        "Branch",
+                        "Counselor",
+                        "Country",
+                        "Status",
+                        "Created",
+                        "Actions",
                       ].map((h) => (
-                        <th key={h} className="px-2 py-3 font-semibold xl:px-3">{h}</th>
+                        <th key={h} className="px-2 py-3 font-semibold xl:px-3">
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {pageLeads.length === 0 ? (
                       <tr>
-                        <td colSpan={12} className="py-12 text-center text-sm text-muted-foreground">
+                        <td
+                          colSpan={12}
+                          className="py-12 text-center text-sm text-muted-foreground"
+                        >
                           No leads match your filters.
                         </td>
                       </tr>
@@ -659,53 +753,65 @@ export default function AllLeadsPage() {
                           className="border-b border-border last:border-0 hover:bg-secondary/40 transition-colors"
                         >
                           <td className="px-2 py-3 xl:px-3 font-mono text-xs text-muted-foreground">
-                            <span className="block truncate">
-                              {i + 1}
-                            </span>
+                            <span className="block truncate">{i + 1}</span>
                           </td>
                           <td className="px-2 py-3 xl:px-3 font-medium">
-                            <span className="block truncate" title={lead.studentName || "—"}>
+                            <span
+                              className="block truncate"
+                              title={lead.studentName || "—"}
+                            >
                               {lead.studentName || "—"}
                             </span>
                           </td>
                           <td className="px-2 py-3 xl:px-3">
-                            <span className="block truncate">{lead.phone || "—"}</span>
+                            <span className="block truncate">
+                              {lead.phone || "—"}
+                            </span>
                           </td>
                           <td className="px-2 py-3 xl:px-3 text-muted-foreground">
-                            <span className="block truncate" title={lead.email || "—"}>
+                            <span
+                              className="block truncate"
+                              title={lead.email || "—"}
+                            >
                               {lead.email || "—"}
                             </span>
                           </td>
                           <td className="px-2 py-3 xl:px-3">
-                            <span className="block truncate">{lead.source || "—"}</span>
+                            <span className="block truncate">
+                              {lead.source || "—"}
+                            </span>
                           </td>
                           <td className="px-2 py-3 xl:px-3">
-                            <span className="block truncate" title={lead.branch?.name || "—"}>
+                            <span
+                              className="block truncate"
+                              title={lead.branch?.name || "—"}
+                            >
                               {lead.branch?.name || "—"}
                             </span>
                           </td>
                           <td className="px-2 py-2.5 xl:px-3">
                             <div className="flex flex-col gap-1 items-start">
-                              {lead.counselors?.length ? (
-                                lead.counselors.map((c: any, i: number) => (
+                              {lead.counselor ? (
                                   <Badge
-                                    key={c.counselor?.id || i}
+                                    key={lead.counselor?.id || i}
                                     className="h-5 max-w-full px-2 text-[10px] font-semibold"
-                                    title={c.counselor?.name || ""}
+                                    title={lead.counselor?.name || ""}
                                   >
                                     <span className="block truncate">
-                                      {c.counselor?.name || "—"}
-                                      {c.isPrimary ? " (Primary)" : ""}
+                                      {lead.counselor?.name || "—"}
                                     </span>
                                   </Badge>
-                                ))
                               ) : (
-                                <span className="text-[11px] text-muted-foreground">Unassigned</span>
+                                <span className="text-[11px] text-muted-foreground">
+                                  Unassigned
+                                </span>
                               )}
                             </div>
                           </td>
                           <td className="px-2 py-3 xl:px-3">
-                            <span className="block truncate">{lead.preferredCountry || "—"}</span>
+                            <span className="block truncate">
+                              {lead.preferredCountry || "—"}
+                            </span>
                           </td>
                           <td className="px-2 py-3 xl:px-3">
                             <button
@@ -724,30 +830,35 @@ export default function AllLeadsPage() {
                           <td className="px-2 py-3 xl:px-3 text-muted-foreground whitespace-nowrap">
                             {formatDate(lead.createdAt)}
                           </td>
-                          <td className="px-2 py-3 xl:px-3 whitespace-nowrap">
-                            {formatDate(lead.nextFollowup)}
-                          </td>
                           <td className="px-1 py-2.5 xl:px-2">
                             <div className="flex items-center justify-center gap-0.5">
                               <Button
-                                size="icon" variant="ghost" className="size-7"
-                                onClick={() => setViewLead(lead)} title="View"
+                                size="icon"
+                                variant="ghost"
+                                className="size-7"
+                                onClick={() => setViewLead(lead)}
+                                title="View"
                               >
                                 <Eye className="size-3.5" />
                               </Button>
-                                <Button
-                                  size="icon" variant="ghost" className="size-7"
-                                  onClick={() => openEdit(lead)} title="Edit"
-                                >
-                                  <Pencil className="size-3.5" />
-                                </Button>
-                                <Button
-                                  size="icon" variant="ghost"
-                                  className="size-7 text-destructive hover:bg-destructive/10"
-                                  onClick={() => setDeleteId(lead.id)} title="Delete"
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-7"
+                                onClick={() => openEdit(lead)}
+                                title="Edit"
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-7 text-destructive hover:bg-destructive/10"
+                                onClick={() => setDeleteId(lead.id)}
+                                title="Delete"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -773,12 +884,15 @@ export default function AllLeadsPage() {
             {Math.min(start + PAGE_SIZE, filteredLeads.length)}
           </span>{" "}
           of{" "}
-          <span className="font-semibold text-foreground">{filteredLeads.length}</span>{" "}
+          <span className="font-semibold text-foreground">
+            {filteredLeads.length}
+          </span>{" "}
           result{filteredLeads.length === 1 ? "" : "s"}
         </p>
         <div className="flex items-center justify-center gap-2">
           <Button
-            variant="outline" size="sm"
+            variant="outline"
+            size="sm"
             disabled={page === 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
@@ -788,7 +902,8 @@ export default function AllLeadsPage() {
             Page {page} of {pageCount}
           </span>
           <Button
-            variant="outline" size="sm"
+            variant="outline"
+            size="sm"
             disabled={page === pageCount}
             onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
           >
@@ -806,7 +921,7 @@ export default function AllLeadsPage() {
             <DialogTitle className="flex items-center justify-between">
               <span>Lead Details</span>
               <span className="font-mono text-xs text-muted-foreground">
-                {viewLead?.leadNumber}
+                {viewLead?.studentName}
               </span>
             </DialogTitle>
           </DialogHeader>
@@ -815,65 +930,98 @@ export default function AllLeadsPage() {
             <div className="space-y-4 text-sm">
               <SectionDivider label="Personal" />
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <ViewRow label="Student Name"    value={viewLead.studentName} />
-                <ViewRow label="Father Name"     value={viewLead.fatherName} />
-                <ViewRow label="Mobile"          value={viewLead.phone} />
-                <ViewRow label="Email"           value={viewLead.email} />
-                <ViewRow label="Passport"        value={viewLead.passport} />
-                <ViewRow label="Passport Expiry" value={formatDate(viewLead.passportExpireDate)} />
-                <ViewRow label="Source"          value={viewLead.source} />
-                <ViewRow label="Branch"          value={viewLead.branch?.name} />
-                <ViewRow label="Status"          value={viewLead.status} />
-                <ViewRow label="Application Date" value={formatDate(viewLead.applicationDate)} />
-                <ViewRow label="Created"         value={formatDate(viewLead.createdAt)} />
-                <ViewRow label="Next Followup"   value={formatDate(viewLead.nextFollowup)} />
+                <ViewRow label="Student Name" value={viewLead.studentName} />
+                <ViewRow label="Father Name" value={viewLead.fatherName} />
+                <ViewRow label="Mobile" value={viewLead.phone} />
+                <ViewRow label="Email" value={viewLead.email} />
+                <ViewRow label="Passport" value={viewLead.passport} />
+                <ViewRow
+                  label="Passport Expiry"
+                  value={formatDate(viewLead.passportExpireDate)}
+                />
+                <ViewRow label="Source" value={viewLead.source} />
+                <ViewRow label="Branch" value={viewLead.branch?.name} />
+                <ViewRow label="Status" value={viewLead.status} />
+                <ViewRow
+                  label="Application Date"
+                  value={formatDate(viewLead.applicationDate)}
+                />
+                <ViewRow
+                  label="Created"
+                  value={formatDate(viewLead.createdAt)}
+                />
+                <ViewRow
+                  label="Next Followup"
+                  value={formatDate(viewLead.nextFollowup)}
+                />
               </div>
 
               <SectionDivider label="Education" />
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <ViewRow label="10th %"           value={viewLead.tenthPassingPercentage} />
-                <ViewRow label="10th Year"         value={viewLead.tenthPassingYear} />
-                <ViewRow label="12th %"           value={viewLead.twelfthPercentage} />
-                <ViewRow label="12th Year"         value={viewLead.twelfthYearOfPassing} />
-                <ViewRow label="University"        value={viewLead.bachelorsUniversityName} />
-                <ViewRow label="Course"            value={viewLead.bachelorsCourse} />
-                <ViewRow label="Bachelor's %"     value={viewLead.bachelorsPercentage} />
-                <ViewRow label="Bachelor's Year"  value={viewLead.bachelorsYearOfPassing} />
-                <ViewRow label="Backlogs"          value={viewLead.backlogs} />
+                <ViewRow
+                  label="10th %"
+                  value={viewLead.tenthPassingPercentage}
+                />
+                <ViewRow label="10th Year" value={viewLead.tenthPassingYear} />
+                <ViewRow label="12th %" value={viewLead.twelfthPercentage} />
+                <ViewRow
+                  label="12th Year"
+                  value={viewLead.twelfthYearOfPassing}
+                />
+                <ViewRow
+                  label="University"
+                  value={viewLead.bachelorsUniversityName}
+                />
+                <ViewRow label="Course" value={viewLead.bachelorsCourse} />
+                <ViewRow
+                  label="Bachelor's %"
+                  value={viewLead.bachelorsPercentage}
+                />
+                <ViewRow
+                  label="Bachelor's Year"
+                  value={viewLead.bachelorsYearOfPassing}
+                />
+                <ViewRow label="Backlogs" value={viewLead.backlogs} />
               </div>
               {viewLead.gapsIfAny && (
                 <div>
-                  <p className="text-[10px] uppercase text-muted-foreground">Education Gaps</p>
+                  <p className="text-[10px] uppercase text-muted-foreground">
+                    Education Gaps
+                  </p>
                   <p className="mt-0.5 text-sm">{viewLead.gapsIfAny}</p>
                 </div>
               )}
               {viewLead.workExperience && (
                 <div>
-                  <p className="text-[10px] uppercase text-muted-foreground">Work Experience</p>
+                  <p className="text-[10px] uppercase text-muted-foreground">
+                    Work Experience
+                  </p>
                   <p className="mt-0.5 text-sm">{viewLead.workExperience}</p>
                 </div>
               )}
 
               <SectionDivider label="EPT / Test Scores" />
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <ViewRow label="Test Type"  value={viewLead.englishTestType} />
-                <ViewRow label="Listening"  value={viewLead.listeningScore} />
-                <ViewRow label="Reading"    value={viewLead.readingScore} />
-                <ViewRow label="Writing"    value={viewLead.writingScore} />
-                <ViewRow label="Speaking"   value={viewLead.speakingScore} />
-                <ViewRow label="GRE/GMAT"   value={viewLead.greGmatScore} />
-                <ViewRow label="Quant"      value={viewLead.quantitativeScore} />
-                <ViewRow label="Verbal"     value={viewLead.verbalScore} />
-                <ViewRow label="AWA"        value={viewLead.analyticalWritingScore} />
+                <ViewRow label="Test Type" value={viewLead.englishTestType} />
+                <ViewRow label="Listening" value={viewLead.listeningScore} />
+                <ViewRow label="Reading" value={viewLead.readingScore} />
+                <ViewRow label="Writing" value={viewLead.writingScore} />
+                <ViewRow label="Speaking" value={viewLead.speakingScore} />
+                <ViewRow label="GRE/GMAT" value={viewLead.greGmatScore} />
+                <ViewRow label="Quant" value={viewLead.quantitativeScore} />
+                <ViewRow label="Verbal" value={viewLead.verbalScore} />
+                <ViewRow label="AWA" value={viewLead.analyticalWritingScore} />
               </div>
 
               <SectionDivider label="Preferences" />
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <ViewRow label="Country"  value={viewLead.preferredCountry} />
-                <ViewRow label="Intake"   value={viewLead.preferredIntake} />
-                <ViewRow label="Course"   value={viewLead.preferredCourse} />
+                <ViewRow label="Country" value={viewLead.preferredCountry} />
+                <ViewRow label="Intake" value={viewLead.preferredIntake} />
+                <ViewRow label="Course" value={viewLead.preferredCourse} />
                 <div>
-                  <p className="text-[10px] uppercase text-muted-foreground">Tiers</p>
+                  <p className="text-[10px] uppercase text-muted-foreground">
+                    Tiers
+                  </p>
                   <p className="mt-0.5 text-sm">
                     {viewLead.preferredTiers?.join(", ") || "—"}
                   </p>
@@ -883,7 +1031,9 @@ export default function AllLeadsPage() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setViewLead(null)}>Close</Button>
+            <Button variant="outline" onClick={() => setViewLead(null)}>
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -893,27 +1043,37 @@ export default function AllLeadsPage() {
       ════════════════════════════════════════════════════════════ */}
       <Dialog
         open={Boolean(editingLead)}
-        onOpenChange={() => { setEditingLead(null); setEditForm(null); }}
+        onOpenChange={() => {
+          setEditingLead(null);
+          setEditForm(null);
+        }}
       >
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              Edit Lead{editingLead?.leadNumber ? ` — ${editingLead.leadNumber}` : ""}
-            </DialogTitle>
+            <DialogTitle>Edit Lead</DialogTitle>
           </DialogHeader>
 
           {editForm && (
             <div className="space-y-4">
-
               {/* ── Status ── */}
               <div className="w-48">
                 <FieldLabel>Status</FieldLabel>
-                <Select value={editForm.status} onValueChange={(v) => setField("status", v)}>
+                <Select
+                  value={editForm.status}
+                  onValueChange={(v) => setField("status", v)}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {["new", "contacted", "qualified", "converted", "lost", "draft"].map((s) => (
+                    {[
+                      "new",
+                      "contacted",
+                      "qualified",
+                      "converted",
+                      "lost",
+                      "draft",
+                    ].map((s) => (
                       <SelectItem key={s} value={s}>
                         {s.charAt(0).toUpperCase() + s.slice(1)}
                       </SelectItem>
@@ -926,39 +1086,89 @@ export default function AllLeadsPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div>
                   <FieldLabel>Student Name *</FieldLabel>
-                  <EditInput value={editForm.studentName} onChange={(v) => setField("studentName", v)} placeholder="Rahul" />
+                  <EditInput
+                    value={editForm.studentName}
+                    onChange={(v) => setField("studentName", v)}
+                    placeholder="Rahul"
+                  />
                 </div>
                 <div>
                   <FieldLabel>Father Name</FieldLabel>
-                  <EditInput value={editForm.fatherName} onChange={(v) => setField("fatherName", v)} placeholder="Venkatesh" />
+                  <EditInput
+                    value={editForm.fatherName}
+                    onChange={(v) => setField("fatherName", v)}
+                    placeholder="Venkatesh"
+                  />
                 </div>
                 <div>
                   <FieldLabel>Mobile *</FieldLabel>
                   <EditInput
-                    type="tel" value={editForm.phone}
-                    onChange={(v) => setField("phone", v.replace(/[^0-9]/g, "").slice(0, 10))}
+                    type="tel"
+                    value={editForm.phone}
+                    onChange={(v) =>
+                      setField("phone", v.replace(/[^0-9]/g, "").slice(0, 10))
+                    }
                     placeholder="9876543210"
                   />
                 </div>
                 <div>
                   <FieldLabel>Email *</FieldLabel>
-                  <EditInput type="email" value={editForm.email} onChange={(v) => setField("email", v)} placeholder="rahul@example.com" />
+                  <EditInput
+                    type="email"
+                    value={editForm.email}
+                    onChange={(v) => setField("email", v)}
+                    placeholder="rahul@example.com"
+                  />
                 </div>
                 <div>
                   <FieldLabel>Source</FieldLabel>
-                  <EditInput value={editForm.source} onChange={(v) => setField("source", v)} placeholder="Walk-in" />
+                  <EditInput
+                    value={editForm.source}
+                    onChange={(v) => setField("source", v)}
+                    placeholder="Walk-in"
+                  />
                 </div>
                 <div>
                   <FieldLabel>Passport Number</FieldLabel>
-                  <EditInput value={editForm.passport} onChange={(v) => setField("passport", v)} placeholder="U12345678" />
+                  <EditInput
+                    value={editForm.passport}
+                    onChange={(v) => setField("passport", v)}
+                    placeholder="U12345678"
+                  />
                 </div>
                 <div>
                   <FieldLabel>Passport Expiry</FieldLabel>
-                  <EditInput type="date" value={editForm.passportExpireDate} onChange={(v) => setField("passportExpireDate", v)} />
+                  <EditInput
+                    type="date"
+                    value={editForm.passportExpireDate}
+                    onChange={(v) => setField("passportExpireDate", v)}
+                  />
                 </div>
                 <div>
                   <FieldLabel>Application Date</FieldLabel>
-                  <EditInput type="datetime-local" value={editForm.counsellingDate} onChange={(v) => setField("counsellingDate", v)} />
+                  <EditInput
+                    type="datetime-local"
+                    value={editForm.counsellingDate}
+                    onChange={(v) => setField("counsellingDate", v)}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Counsellor</FieldLabel>
+                  <Select
+                    value={editForm.counsellorId}
+                    onValueChange={(v) => {setField("counsellorId", v)}}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {counsellorList.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -966,51 +1176,110 @@ export default function AllLeadsPage() {
               <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                 <div>
                   <FieldLabel>10th %</FieldLabel>
-                  <EditInput type="number" min={0} value={editForm.tenthPercentage} onChange={(v) => setField("tenthPercentage", v)} placeholder="85" />
+                  <EditInput
+                    type="number"
+                    min={0}
+                    value={editForm.tenthPercentage}
+                    onChange={(v) => setField("tenthPercentage", v)}
+                    placeholder="85"
+                  />
                 </div>
                 <div>
                   <FieldLabel>10th Year</FieldLabel>
-                  <EditInput type="number" min={0} value={editForm.tenthYearOfPassing} onChange={(v) => setField("tenthYearOfPassing", v)} placeholder="YYYY" />
+                  <EditInput
+                    type="number"
+                    min={0}
+                    value={editForm.tenthYearOfPassing}
+                    onChange={(v) => setField("tenthYearOfPassing", v)}
+                    placeholder="YYYY"
+                  />
                 </div>
                 <div>
                   <FieldLabel>12th %</FieldLabel>
-                  <EditInput type="number" min={0} value={editForm.twelfthPercentage} onChange={(v) => setField("twelfthPercentage", v)} placeholder="88" />
+                  <EditInput
+                    type="number"
+                    min={0}
+                    value={editForm.twelfthPercentage}
+                    onChange={(v) => setField("twelfthPercentage", v)}
+                    placeholder="88"
+                  />
                 </div>
                 <div>
                   <FieldLabel>12th Year</FieldLabel>
-                  <EditInput type="number" min={0} value={editForm.twelfthYearOfPassing} onChange={(v) => setField("twelfthYearOfPassing", v)} placeholder="YYYY" />
+                  <EditInput
+                    type="number"
+                    min={0}
+                    value={editForm.twelfthYearOfPassing}
+                    onChange={(v) => setField("twelfthYearOfPassing", v)}
+                    placeholder="YYYY"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="sm:col-span-2 lg:col-span-2">
                   <FieldLabel>University / College</FieldLabel>
-                  <EditInput value={editForm.bachelorsUniversityName} onChange={(v) => setField("bachelorsUniversityName", v)} placeholder="University name" />
+                  <EditInput
+                    value={editForm.bachelorsUniversityName}
+                    onChange={(v) => setField("bachelorsUniversityName", v)}
+                    placeholder="University name"
+                  />
                 </div>
                 <div>
                   <FieldLabel>Course / Major</FieldLabel>
-                  <EditInput value={editForm.bachelorsCourse} onChange={(v) => setField("bachelorsCourse", v)} placeholder="B.Tech" />
+                  <EditInput
+                    value={editForm.bachelorsCourse}
+                    onChange={(v) => setField("bachelorsCourse", v)}
+                    placeholder="B.Tech"
+                  />
                 </div>
                 <div>
                   <FieldLabel>CGPA / %</FieldLabel>
-                  <EditInput type="number" step="0.01" min={0} value={editForm.bachelorsPercentage} onChange={(v) => setField("bachelorsPercentage", v)} placeholder="75" />
+                  <EditInput
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={editForm.bachelorsPercentage}
+                    onChange={(v) => setField("bachelorsPercentage", v)}
+                    placeholder="75"
+                  />
                 </div>
                 <div>
                   <FieldLabel>Year of Passing</FieldLabel>
-                  <EditInput type="number" min={0} value={editForm.bachelorsYearOfPassing} onChange={(v) => setField("bachelorsYearOfPassing", v)} placeholder="YYYY" />
+                  <EditInput
+                    type="number"
+                    min={0}
+                    value={editForm.bachelorsYearOfPassing}
+                    onChange={(v) => setField("bachelorsYearOfPassing", v)}
+                    placeholder="YYYY"
+                  />
                 </div>
                 <div>
                   <FieldLabel>Backlogs</FieldLabel>
-                  <EditInput type="number" min={0} value={editForm.backlogs} onChange={(v) => setField("backlogs", v)} placeholder="0" />
+                  <EditInput
+                    type="number"
+                    min={0}
+                    value={editForm.backlogs}
+                    onChange={(v) => setField("backlogs", v)}
+                    placeholder="0"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <FieldLabel>Education Gaps</FieldLabel>
-                  <EditTextarea value={editForm.gapsIfAny} onChange={(v) => setField("gapsIfAny", v)} placeholder="Explain any gaps..." />
+                  <EditTextarea
+                    value={editForm.gapsIfAny}
+                    onChange={(v) => setField("gapsIfAny", v)}
+                    placeholder="Explain any gaps..."
+                  />
                 </div>
                 <div>
                   <FieldLabel>Work Experience</FieldLabel>
-                  <EditTextarea value={editForm.workExperience} onChange={(v) => setField("workExperience", v)} placeholder="Employment details..." />
+                  <EditTextarea
+                    value={editForm.workExperience}
+                    onChange={(v) => setField("workExperience", v)}
+                    placeholder="Employment details..."
+                  />
                 </div>
               </div>
 
@@ -1021,15 +1290,31 @@ export default function AllLeadsPage() {
                   <Select
                     value={editForm.englishTestType}
                     onValueChange={(v) => {
-                      setEditForm((prev) => prev
-                        ? { ...prev, englishTestType: v, listeningScore: "", readingScore: "", writingScore: "", speakingScore: "", toeflScore: "", pteScore: "", duolingoScore: "" }
-                        : prev);
+                      setEditForm((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              englishTestType: v,
+                              listeningScore: "",
+                              readingScore: "",
+                              writingScore: "",
+                              speakingScore: "",
+                              toeflScore: "",
+                              pteScore: "",
+                              duolingoScore: "",
+                            }
+                          : prev,
+                      );
                     }}
                   >
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
                     <SelectContent>
                       {ENGLISH_TEST_OPTIONS.map((t) => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1037,10 +1322,24 @@ export default function AllLeadsPage() {
 
                 {editForm.englishTestType === "IELTS" && (
                   <>
-                    {(["listeningScore", "readingScore", "writingScore", "speakingScore"] as const).map((k) => (
+                    {(
+                      [
+                        "listeningScore",
+                        "readingScore",
+                        "writingScore",
+                        "speakingScore",
+                      ] as const
+                    ).map((k) => (
                       <div key={k}>
                         <FieldLabel>{k.replace("Score", "")}</FieldLabel>
-                        <EditInput type="number" step="0.5" min={0} value={editForm[k]} onChange={(v) => setField(k, v)} placeholder="0.0" />
+                        <EditInput
+                          type="number"
+                          step="0.5"
+                          min={0}
+                          value={editForm[k]}
+                          onChange={(v) => setField(k, v)}
+                          placeholder="0.0"
+                        />
                       </div>
                     ))}
                   </>
@@ -1048,38 +1347,81 @@ export default function AllLeadsPage() {
                 {editForm.englishTestType === "TOEFL" && (
                   <div>
                     <FieldLabel>TOEFL Score</FieldLabel>
-                    <EditInput type="number" min={0} value={editForm.toeflScore} onChange={(v) => setField("toeflScore", v)} placeholder="100" />
+                    <EditInput
+                      type="number"
+                      min={0}
+                      value={editForm.toeflScore}
+                      onChange={(v) => setField("toeflScore", v)}
+                      placeholder="100"
+                    />
                   </div>
                 )}
                 {editForm.englishTestType === "PTE" && (
                   <div>
                     <FieldLabel>PTE Score</FieldLabel>
-                    <EditInput type="number" min={0} value={editForm.pteScore} onChange={(v) => setField("pteScore", v)} placeholder="65" />
+                    <EditInput
+                      type="number"
+                      min={0}
+                      value={editForm.pteScore}
+                      onChange={(v) => setField("pteScore", v)}
+                      placeholder="65"
+                    />
                   </div>
                 )}
                 {editForm.englishTestType === "DUOLINGO" && (
                   <div>
                     <FieldLabel>Duolingo Score</FieldLabel>
-                    <EditInput type="number" min={0} value={editForm.duolingoScore} onChange={(v) => setField("duolingoScore", v)} placeholder="120" />
+                    <EditInput
+                      type="number"
+                      min={0}
+                      value={editForm.duolingoScore}
+                      onChange={(v) => setField("duolingoScore", v)}
+                      placeholder="120"
+                    />
                   </div>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div>
                   <FieldLabel>GRE/GMAT Total</FieldLabel>
-                  <EditInput type="number" min={0} value={editForm.greGmatScore} onChange={(v) => setField("greGmatScore", v)} placeholder="320" />
+                  <EditInput
+                    type="number"
+                    min={0}
+                    value={editForm.greGmatScore}
+                    onChange={(v) => setField("greGmatScore", v)}
+                    placeholder="320"
+                  />
                 </div>
                 <div>
                   <FieldLabel>Quantitative</FieldLabel>
-                  <EditInput type="number" min={0} value={editForm.quantitativeScore} onChange={(v) => setField("quantitativeScore", v)} placeholder="165" />
+                  <EditInput
+                    type="number"
+                    min={0}
+                    value={editForm.quantitativeScore}
+                    onChange={(v) => setField("quantitativeScore", v)}
+                    placeholder="165"
+                  />
                 </div>
                 <div>
                   <FieldLabel>Verbal</FieldLabel>
-                  <EditInput type="number" min={0} value={editForm.verbalScore} onChange={(v) => setField("verbalScore", v)} placeholder="155" />
+                  <EditInput
+                    type="number"
+                    min={0}
+                    value={editForm.verbalScore}
+                    onChange={(v) => setField("verbalScore", v)}
+                    placeholder="155"
+                  />
                 </div>
                 <div>
                   <FieldLabel>AWA</FieldLabel>
-                  <EditInput type="number" step="0.5" min={0} value={editForm.analyticalWritingScore} onChange={(v) => setField("analyticalWritingScore", v)} placeholder="4.5" />
+                  <EditInput
+                    type="number"
+                    step="0.5"
+                    min={0}
+                    value={editForm.analyticalWritingScore}
+                    onChange={(v) => setField("analyticalWritingScore", v)}
+                    placeholder="4.5"
+                  />
                 </div>
               </div>
 
@@ -1087,15 +1429,27 @@ export default function AllLeadsPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
                   <FieldLabel>Country</FieldLabel>
-                  <EditInput value={editForm.preferredCountry} onChange={(v) => setField("preferredCountry", v)} placeholder="USA" />
+                  <EditInput
+                    value={editForm.preferredCountry}
+                    onChange={(v) => setField("preferredCountry", v)}
+                    placeholder="USA"
+                  />
                 </div>
                 <div>
                   <FieldLabel>Intake</FieldLabel>
-                  <EditInput value={editForm.preferredIntake} onChange={(v) => setField("preferredIntake", v)} placeholder="Fall 2025" />
+                  <EditInput
+                    value={editForm.preferredIntake}
+                    onChange={(v) => setField("preferredIntake", v)}
+                    placeholder="Fall 2025"
+                  />
                 </div>
                 <div>
                   <FieldLabel>Course</FieldLabel>
-                  <EditInput value={editForm.preferredCourse} onChange={(v) => setField("preferredCourse", v)} placeholder="MS in CS" />
+                  <EditInput
+                    value={editForm.preferredCourse}
+                    onChange={(v) => setField("preferredCourse", v)}
+                    placeholder="MS in CS"
+                  />
                 </div>
                 <div>
                   <FieldLabel>Tiers</FieldLabel>
@@ -1103,15 +1457,22 @@ export default function AllLeadsPage() {
                     value=""
                     onValueChange={(t) => {
                       if (!editForm.preferredTiers.includes(t))
-                        setField("preferredTiers", [...editForm.preferredTiers, t]);
+                        setField("preferredTiers", [
+                          ...editForm.preferredTiers,
+                          t,
+                        ]);
                     }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Add tier" />
                     </SelectTrigger>
                     <SelectContent>
-                      {TIER_OPTIONS.filter((t) => !editForm.preferredTiers.includes(t)).map((t) => (
-                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      {TIER_OPTIONS.filter(
+                        (t) => !editForm.preferredTiers.includes(t),
+                      ).map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1125,7 +1486,12 @@ export default function AllLeadsPage() {
                           {t}
                           <button
                             type="button"
-                            onClick={() => setField("preferredTiers", editForm.preferredTiers.filter((x) => x !== t))}
+                            onClick={() =>
+                              setField(
+                                "preferredTiers",
+                                editForm.preferredTiers.filter((x) => x !== t),
+                              )
+                            }
                           >
                             <X className="size-3" />
                           </button>
@@ -1142,14 +1508,22 @@ export default function AllLeadsPage() {
             <Button
               variant="outline"
               disabled={isSaving}
-              onClick={() => { setEditingLead(null); setEditForm(null); }}
+              onClick={() => {
+                setEditingLead(null);
+                setEditForm(null);
+              }}
             >
               Cancel
             </Button>
             <Button onClick={handleSaveEdit} disabled={isSaving}>
               {isSaving ? (
-                <><Loader2 className="mr-2 size-4 animate-spin" />Saving…</>
-              ) : "Save Changes"}
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1167,13 +1541,26 @@ export default function AllLeadsPage() {
             This action cannot be undone. The lead will be permanently removed.
           </p>
           <DialogFooter className="gap-2">
-            <Button variant="outline" disabled={isDeleting} onClick={() => setDeleteId(null)}>
+            <Button
+              variant="outline"
+              disabled={isDeleting}
+              onClick={() => setDeleteId(null)}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" disabled={isDeleting} onClick={handleDelete}>
+            <Button
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={handleDelete}
+            >
               {isDeleting ? (
-                <><Loader2 className="mr-2 size-4 animate-spin" />Deleting…</>
-              ) : "Delete"}
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                "Delete"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
