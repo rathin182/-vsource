@@ -577,9 +577,9 @@ function FilterBar({
                 <div className="bg-white dark:bg-[#1a1b24] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-4">
                     <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Lead filters</p>
                     <div className="flex flex-wrap gap-2.5 mb-4">
-                        <TextFilter label="Counselor ID" value={filters.counselorId} onChange={(v) => onChange({ counselorId: v })} />
-                        <TextFilter label="Country" value={filters.country} onChange={(v) => onChange({ country: v })} />
-                        <TextFilter label="Source" value={filters.source} onChange={(v) => onChange({ source: v })} />
+                        {/* <TextFilter label="Counselor ID" value={filters.counselorId} onChange={(v) => onChange({ counselorId: v })} />
+                        <TextFilter label="Country" value={filters.country} onChange={(v) => onChange({ country: v })} /> 
+                        <TextFilter label="Source" value={filters.source} onChange={(v) => onChange({ source: v })} />*/}
                         <SelectFilter label="Lead status" value={filters.leadStatus} onChange={(v) => onChange({ leadStatus: v })}
                             options={LEAD_STATUS.map((s) => ({ value: s, label: titleCase(s) }))} />
                         <SelectFilter label="Lead stage" value={filters.leadStage} onChange={(v) => onChange({ leadStage: v })}

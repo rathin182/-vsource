@@ -175,6 +175,8 @@ export interface Application {
   counselor: string;
   updatedAt: string;
   createdAt: string;
+  branch: string;
+  branchName: string;
 }
 
 export interface Branch {
