@@ -23,8 +23,7 @@ export async function GET(req: NextRequest) {
       ...(branchId && { branchId }),
       ...(search   && {
         OR: [
-          { firstName: { contains: search, mode: "insensitive" as const } },
-          { lastName:  { contains: search, mode: "insensitive" as const } },
+          { studentName: { contains: search, mode: "insensitive" as const } },
           { email:     { contains: search, mode: "insensitive" as const } },
           { phone:     { contains: search, mode: "insensitive" as const } },
         ],
@@ -111,8 +110,7 @@ export async function POST(req: NextRequest) {
       data:  { counselorId },
       select: {
         id:         true,
-        firstName:  true,
-        lastName:   true,
+        studentName:  true,
         email:      true,
         leadStage:  true,
         country: true,

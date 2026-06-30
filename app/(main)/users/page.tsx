@@ -70,6 +70,8 @@ export default function Users() {
   const [editUser, setEditUser] = useState<UserRow | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editPass, setEditPass] = useState("");
+
   const [editSaving, setEditSaving] = useState(false);
 
   // Delete state
@@ -218,9 +220,10 @@ export default function Users() {
     setEditSaving(true);
 
     try {
-      const res = await axios.put(`/api/users?id=${editUser.id}`, {
+      const res = await axios.put(`/api/users/${editUser.id}`, {
         name: editName,
         email: editEmail,
+        password: editPass
       });
 
       setUsers((prev) =>
@@ -549,6 +552,19 @@ export default function Users() {
                 onChange={(e) => setEditEmail(e.target.value)}
               />
             </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-password">Change Password</Label>
+              <Input
+                id="edit-password"
+                type="text"
+                placeholder="Enter New Password"
+                value={editPass}
+                onChange={(e) => setEditPass(e.target.value)}
+              />
+            </div>
+
+
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>

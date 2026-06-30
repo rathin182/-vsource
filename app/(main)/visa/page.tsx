@@ -58,37 +58,6 @@ export default function StudentsPage() {
     }
   };
 
-  const createStudent = async () => {
-    try {
-      if (!form.name || !form.email) {
-        return toast.error("Name and email are required");
-      }
-      setIsCreating(true);
-
-      const response = await fetch("/api/student", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return toast.error(data.message);
-      }
-
-      await allStudent();
-      setOpen(false);
-      setForm(empty);
-      toast.success("Student created");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to create student");
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
   const filtered = list.filter((student: any) => {
     const search = q.toLowerCase().trim();
 
@@ -254,7 +223,7 @@ export default function StudentsPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => router.push(`/visa/${sel.id}`)}
+                        onClick={() => router.push(`/visa/${sel.id}?studentName=${sel.studentName}`)}
                       >
                         View More
                       </Button>

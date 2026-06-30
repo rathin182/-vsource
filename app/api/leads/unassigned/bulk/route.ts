@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     // ── Fetch all requested leads in one go ───────────────────────────────
     const leads = await prisma.lead.findMany({
       where: { id: { in: uniqueLeadIds } },
-      select: { id: true, counselorId: true, firstName: true },
+      select: { id: true, counselorId: true, studentName: true },
     });
 
     const foundIds = new Set(leads.map((l) => l.id));
@@ -84,8 +84,7 @@ export async function POST(req: NextRequest) {
         where: { id: { in: assignableIds } },
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          studentName: true,
           email: true,
           leadStage: true,
           country: true,
@@ -107,7 +106,7 @@ export async function POST(req: NextRequest) {
           notFound: notFoundIds,
           alreadyAssigned: alreadyAssigned.map((l) => ({
             id: l.id,
-            firstName: l.firstName,
+            studentName: l.studentName,
           })),
         },
       },

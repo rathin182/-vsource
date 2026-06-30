@@ -43,12 +43,12 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
 export async function PUT(req: NextRequest, { params }: Ctx) {
   try {
-    // await getAuthorizedUser(req, MODULES.USERS, PERMISSIONS.UPDATE);
-
     const { id } = await params;
 
-    const body = UserUpdateSchema.parse(await req.json());
+    const body = await req.json();
 
+    console.log(body);
+    
     const {
       branchIds,
       password,
@@ -60,12 +60,12 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     };
 
     if (password) {
-      updateData.password = await bcrypt.hash(password, 10);
+      updateData.password = await bcrypt.hash(password, 12);
     }
 
     if (branchIds !== undefined) {
       updateData.branches = {
-        set: branchIds.map((branchId) => ({
+        set: branchIds.map((branchId: string) => ({
           id: branchId,
         })),
       };
@@ -77,8 +77,10 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       select: USER_SELECT,
     });
 
-    return ok(updateData, "User updated successfully");
+    return ok(user, "User updated successfully");
+
   } catch (err) {
+    console.log(err);
     return handleError(err);
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Moon, Search, Sun, LogOut, User as UserIcon, Settings, Command, Menu } from "lucide-react";
+import { Bell, Moon, Search, Sun, LogOut, Command, Menu } from "lucide-react";
 import { useAuth, useUi } from "@/slids/store";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/slids/components/ui/button";
@@ -14,22 +14,34 @@ import {
   DropdownMenuTrigger,
 } from "@/slids/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/slids/components/ui/avatar";
-import { Badge } from "@/slids/components/ui/badge";
-import { notifications } from "@/slids/data/mock";
-import { Input } from "@/slids/components/ui/input";
 import { CommandPalette } from "@/slids/components/common/CommandPalette";
 import { useTheme } from "next-themes";
+import axios from "axios";
 
 export function Topbar() {
   const [mounted, setMounted] = useState(false);
+  const [breadCrumbs, setBreadCrumbs] = useState<string[]>([]);
+  const [user, setUser] = useState<{
+    id: string;
+    role: { name: string };
+    name: string;
+    email: string;
+  }>();
   const { resolvedTheme, setTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const { setCommandOpen, toggleSidebar } = useUi();
   const router = useRouter();
   const pathname = usePathname();
-  const [unread] = useState(notifications.filter((n) => !n.read).length);
 
+  const url = window.location.href;
+  const getMe = async () => {
+    const req = await axios.get("/api/auth/me");
+    if (req.status === 200) {
+      setUser(req.data);
+    }
+  };
   useEffect(() => {
+    getMe();
     setMounted(true);
   }, []);
 
@@ -44,35 +56,59 @@ export function Topbar() {
     return () => window.removeEventListener("keydown", handler);
   }, [setCommandOpen]);
 
+
   const crumbs = pathname.split("/").filter(Boolean);
+  const parmName = url.split("?")[1];
+  const displayBreadCrumbs =
+  breadCrumbs.length > 0 ? breadCrumbs : crumbs;
+useEffect(() => {
+  if (parmName?.includes("studentName")) {
+    const name = decodeURIComponent(parmName.split("=")[1]);
+
+    const updatedCrumbs = [...crumbs];
+    updatedCrumbs.pop();
+    updatedCrumbs.push(name);
+
+    setBreadCrumbs(updatedCrumbs);
+  } else {
+    setBreadCrumbs(crumbs);
+  }
+}, [pathname, url]);
 
   return (
     <>
       <header className="sticky top-0 z-20 h-16 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="h-full px-4 md:px-6 flex items-center gap-3">
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={toggleSidebar}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={toggleSidebar}
+          >
             <Menu className="size-5" />
           </Button>
-          <div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
-            {crumbs.length === 0 ? (
-              <span className="font-medium text-foreground">Overview</span>
-            ) : (
-              crumbs.map((c, i) => (
-                <span key={i} className="flex items-center gap-1.5">
-                  <span
-                    className={
-                      i === crumbs.length - 1
-                        ? "font-medium text-foreground capitalize"
-                        : "capitalize"
-                    }
-                  >
-                    {c.replace("-", " ")}
-                  </span>
-                  {i < crumbs.length - 1 && <span className="text-muted-foreground/50">/</span>}
-                </span>
-              ))
-            )}
-          </div>
+<div className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground">
+  {displayBreadCrumbs.length === 0 ? (
+    <span className="font-medium text-foreground">Overview</span>
+  ) : (
+    displayBreadCrumbs.map((c, i) => (
+      <span key={i} className="flex items-center gap-1.5">
+        <span
+          className={
+            i === displayBreadCrumbs.length - 1
+              ? "font-medium text-foreground capitalize"
+              : "capitalize"
+          }
+        >
+          {c.replace("-", " ")}
+        </span>
+        {i < displayBreadCrumbs.length - 1 && (
+          <span className="text-muted-foreground/50">/</span>
+        )}
+      </span>
+    ))
+  )}
+</div>
 
           <div className="flex-1" />
 
@@ -116,7 +152,7 @@ export function Topbar() {
             )}
           </Button>
 
-          <DropdownMenu>
+          {/* <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="size-4" />
@@ -141,7 +177,7 @@ export function Topbar() {
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu> */}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -157,20 +193,24 @@ export function Topbar() {
                 </Avatar>
                 <div className="hidden md:flex flex-col items-start leading-tight">
                   <span className="text-xs font-semibold">{user?.name}</span>
-                  <span className="text-[10px] text-muted-foreground capitalize">{user?.role?.name}</span>
+                  <span className="text-[10px] text-muted-foreground capitalize">
+                    {user?.role?.name}
+                  </span>
                 </div>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push("/profile")}>
+              <DropdownMenuLabel className="text-sm font-light">
+                {user?.email}
+              </DropdownMenuLabel>
+              {/* <DropdownMenuSeparator /> */}
+              {/* <DropdownMenuItem onClick={() => router.push("/profile")}>
                 <UserIcon className="size-4 mr-2" /> Profile
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push("/settings")}>
                 <Settings className="size-4 mr-2" /> Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              </DropdownMenuItem> */}
+              {/* <DropdownMenuSeparator /> */}
               <DropdownMenuItem
                 onClick={() => {
                   logout();

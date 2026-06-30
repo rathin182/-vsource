@@ -22,8 +22,7 @@ interface Counselor {
 
 interface Lead {
   id: string;
-  firstName: string;
-  lastName?: string | null;
+  studentName: string;
   email: string;
   phone: string;
   source: string;
@@ -37,8 +36,8 @@ interface Lead {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getInitials(firstName: string, lastName?: string | null) {
-  return `${firstName[0]}${lastName ? lastName[0] : (firstName[1] ?? "")}`.toUpperCase();
+function getInitials(studentName: string) {
+  return `${studentName[0]}`.toUpperCase();
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -91,7 +90,7 @@ export default function UnassignedLeads() {
       if (stageFilter && l.leadStage !== stageFilter) return false;
       if (q) {
         const hay =
-          `${l.firstName} ${l.lastName ?? ""} ${l.email} ${l.phone}`.toLowerCase();
+          `${l.studentName} ${l.email} ${l.phone}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -150,9 +149,9 @@ export default function UnassignedLeads() {
         return n;
       });
 
-      showToast(`${lead?.firstName} assigned to ${counselor?.name}`);
+      showToast(`${lead?.studentName} assigned to ${counselor?.name}`);
     } catch (err) {
-      showToast(`Failed to assign ${lead?.firstName}. Try again.`);
+      showToast(`Failed to assign ${lead?.studentName}. Try again.`);
     } finally {
       setAssigningLeadId(null);
     }
@@ -308,19 +307,19 @@ export default function UnassignedLeads() {
                     checked={isSelected}
                     onChange={(e) => toggleSelect(lead.id, e.target.checked)}
                     className="h-4 w-4 shrink-0 rounded border-gray-300 text-blue-600 cursor-pointer"
-                    aria-label={`Select ${lead.firstName}`}
+                    aria-label={`Select ${lead.studentName}`}
                   />
 
                   {/* Avatar */}
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700">
-                    {getInitials(lead.firstName, lead.lastName)}
+                    {getInitials(lead.studentName)}
                   </div>
 
                   {/* Info */}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium text-gray-900">
-                        {lead.firstName} {lead.lastName ?? ""}
+                        {lead.studentName}
                       </span>
                       {lead.country && (
                         <span className="text-xs text-gray-400">

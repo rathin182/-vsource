@@ -78,11 +78,12 @@ export async function GET(req: NextRequest) {
         // ======================================================
         // 2. COUNSELLOR -> ONLY HIS LEADS
         // ======================================================
-
-        if (role === "COUNSELLOR") {
+        console.log(payload);
+        
+        if (role.toUpperCase() === "COUNSELLOR") {
             const leads = await db.lead.findMany({
                 where: {
-                    counselorId: payload.id,
+                    counselorId: payload.userId,
                 },
                 orderBy: {
                     createdAt: "desc",
