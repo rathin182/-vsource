@@ -186,27 +186,27 @@ export default function ApplicationsPage() {
       if (adminFilters.search.trim()) {
         const search = adminFilters.search.toLowerCase().trim();
         const matches =
-      app.studentName.toLowerCase().includes(search) ||
-      app.university.toLowerCase().includes(search) ||
-      app.program.toLowerCase().includes(search) ||
-      app.counselor.toLowerCase().includes(search) ||
-      app.intake.toLowerCase().includes(search) ||
-      app.branchName.toLowerCase().includes(search);
+          app.studentName.toLowerCase().includes(search) ||
+          app.university.toLowerCase().includes(search) ||
+          app.program.toLowerCase().includes(search) ||
+          app.counselor.toLowerCase().includes(search) ||
+          app.intake.toLowerCase().includes(search) ||
+          app.branchName.toLowerCase().includes(search);
 
-    if (!matches) return false;
-  }
-
-        if (adminFilters.counselor && app.counselor !== adminFilters.counselor)
-          return false;
-        if (adminFilters.stage && app.stage !== adminFilters.stage) return false;
-        if (adminFilters.intake && app.intake !== adminFilters.intake) return false;
-        if (adminFilters.country && app.university !== adminFilters.country)
-          return false;
-        if (adminFilters.branch && app.branch !== adminFilters.branch) return false;
+        if (!matches) return false;
       }
 
-      return true;
-    });
+      if (adminFilters.counselor && app.counselor !== adminFilters.counselor)
+        return false;
+      if (adminFilters.stage && app.stage !== adminFilters.stage) return false;
+      if (adminFilters.intake && app.intake !== adminFilters.intake) return false;
+      if (adminFilters.country && app.university !== adminFilters.country)
+        return false;
+      if (adminFilters.branch && app.branch !== adminFilters.branch) return false;
+    }
+
+    return true;
+  });
 
   const setAdminFilter = (key: keyof AdminFilters, value: string) =>
     setAdminFilters((prev) => ({ ...prev, [key]: value }));
@@ -215,6 +215,25 @@ export default function ApplicationsPage() {
     setAdminFilters({ counselor: "", stage: "", intake: "", country: "", branch: "", search: "" });
 
   const hasActiveAdminFilters = Object.values(adminFilters).some(Boolean);
+
+  const getStageCardStyle = (stage: string) => {
+    switch (stage?.toUpperCase()) {
+      case "INQUIRY":
+        return "bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700";
+
+      case "DOCUMENTS":
+        return "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-950/50";
+
+      case "APPLIED":
+        return "bg-red-50 dark:bg-red-950/30 border-red-300 hover:bg-red-100 dark:hover:bg-red-950/50";
+
+      case "OFFER":
+        return "bg-green-50 dark:bg-green-950/30 border-green-300 hover:bg-green-100 dark:hover:bg-green-950/50";
+
+      default:
+        return "bg-card";
+    }
+  };
 
   // ── Loading state ───────────────────────────────────────────────────────────
   if (isloading) {
@@ -462,7 +481,7 @@ export default function ApplicationsPage() {
                     draggable
                     onDragStart={() => setDragId(a.id)}
                     onDragEnd={() => setDragId(null)}
-                    className="cursor-grab active:cursor-grabbing hover:shadow-md transition-all"
+                    className={` cursor-grab active:cursor-grabbing hover:shadow-md transition-all border ${getStageCardStyle(a.stage)}`}
                   >
                     <CardContent className="p-3">
                       <div className="flex items-start gap-1.5">
