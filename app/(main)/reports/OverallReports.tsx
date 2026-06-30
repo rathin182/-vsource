@@ -546,7 +546,7 @@ function FilterBar({
                 <SelectFilter label="Group by" value={filters.groupBy} onChange={(v) => onChange({ groupBy: v })}
                     options={GROUP_BY.map((d) => ({ value: d, label: titleCase(d) }))} />
 
-                <TextFilter label="Branch ID" value={filters.branchId} onChange={(v) => onChange({ branchId: v })} />
+                {/* <TextFilter label="Branch ID" value={filters.branchId} onChange={(v) => onChange({ branchId: v })} /> */}
                 <TextFilter label="Search name/email/phone" value={filters.search} onChange={(v) => onChange({ search: v })} icon={<Search className="w-3.5 h-3.5" />} />
 
                 <button
