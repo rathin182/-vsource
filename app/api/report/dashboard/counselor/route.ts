@@ -44,6 +44,40 @@ async function buildCounselorAnalytics(
     ...(branchId ? { branchId } : {}),
   };
 
+  // Student filter used for COUNTS. Matches the same definition as
+  // `convertedLeads` below: a student counts for this counselor if EITHER
+  //   (a) Student.counselorId is set directly to this counselor and
+  //       Student.createdAt falls in range, OR
+  //   (b) the student's parent Lead belongs to this counselor
+  //       (Lead.counselorId) and that Lead.createdAt falls in range.
+  // This keeps "Total Students" and "Converted" reporting the same number
+  // under normal flow, instead of silently diverging when Student.counselorId
+  // is left null on conversion.
+  const studentFilter = {
+    OR: [
+      { counselorId, createdAt: dateFilter },
+      { lead: { counselorId, createdAt: dateFilter } },
+    ],
+    ...(branchId ? { branchId } : {}),
+  };
+
+  // Student filter used for the LIST view. This is intentionally looser:
+  //   - Student.counselorId is frequently left null when a Student row is
+  //     created automatically off a Lead conversion (only Lead.counselorId
+  //     gets set in that flow), so we OR against the linked Lead's counselorId.
+  //   - We don't hard-filter the list by Student.createdAt, because a Student
+  //     can be created well after its parent Lead (e.g. lead created in
+  //     range, converted to a student months later). Instead we match on
+  //     "this counselor owns it" and let the caller deal with display window
+  //     via the lead's createdAt where useful.
+  const studentListFilter = {
+    OR: [
+      { counselorId },
+      { lead: { counselorId } },
+    ],
+    ...(branchId ? { branchId } : {}),
+  };
+
   const now = new Date();
   const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -56,7 +90,7 @@ async function buildCounselorAnalytics(
     // ── Lead metrics ──────────────────────────────────────────────────────────
     totalLeads,
     newLeadsThisMonth,
-    convertedLeads,
+    convertedLeads, // leads with a linked Student (lead → student conversion)
 
     leadsByStatus,
     leadsByStage,
@@ -75,6 +109,7 @@ async function buildCounselorAnalytics(
     newStudentsThisMonth,
     studentsByStatus,
     studentsOverTime,
+    studentList, // actual student records, not just counts
 
     // ── Visa metrics ──────────────────────────────────────────────────────────
     visaTotal,
@@ -180,7 +215,6 @@ async function buildCounselorAnalytics(
     }),
 
     // ── 8. Leads by country ───────────────────────────────────────────────────
-    // NOTE: Uses `country` (String?) field on Lead — not a relation
     db.lead.groupBy({
       by: ["country"],
       where: { ...leadFilter, country: { not: null } },
@@ -189,7 +223,6 @@ async function buildCounselorAnalytics(
     }),
 
     // ── 9. Leads by intake season ─────────────────────────────────────────────
-    // NOTE: `qualification` does NOT exist on Lead. Using `intakeSeason` instead.
     db.lead.groupBy({
       by: ["intakeSeason"],
       where: { ...leadFilter, intakeSeason: { not: null } },
@@ -204,7 +237,6 @@ async function buildCounselorAnalytics(
     }),
 
     // ── 11. Leads over time (monthly) ─────────────────────────────────────────
-    // NOTE: table is mapped as "leads" in schema (@@map("leads"))
     db.$queryRawUnsafe<RawMonthRow[]>(
       `SELECT TO_CHAR("createdAt", 'YYYY-MM') AS month, COUNT(*) AS count
        FROM "leads"
@@ -234,20 +266,16 @@ async function buildCounselorAnalytics(
       },
     }),
 
-    // ── 14. Total students ────────────────────────────────────────────────────
-    db.student.count({
-      where: {
-        counselorId,
-        createdAt: dateFilter,
-        ...(branchId ? { branchId } : {}),
-      },
-    }),
+    // ── 14. Total students (strict — Student.counselorId + Student.createdAt) ─
+    db.student.count({ where: studentFilter }),
 
     // ── 15. New students this month ───────────────────────────────────────────
     db.student.count({
       where: {
-        counselorId,
-        createdAt: { gte: startOfMonth },
+        OR: [
+          { counselorId, createdAt: { gte: startOfMonth } },
+          { lead: { counselorId, createdAt: { gte: startOfMonth } } },
+        ],
         ...(branchId ? { branchId } : {}),
       },
     }),
@@ -255,31 +283,58 @@ async function buildCounselorAnalytics(
     // ── 16. Students by status ────────────────────────────────────────────────
     db.student.groupBy({
       by: ["status"],
-      where: {
-        counselorId,
-        createdAt: dateFilter,
-        ...(branchId ? { branchId } : {}),
-      },
+      where: studentFilter,
       _count: { _all: true },
     }),
 
     // ── 17. Students over time (monthly) ──────────────────────────────────────
-    // NOTE: Student model has no @@map so Prisma uses "Student" as table name
     db.$queryRawUnsafe<RawMonthRow[]>(
-      `SELECT TO_CHAR("createdAt", 'YYYY-MM') AS month, COUNT(*) AS count
-       FROM "Student"
-       WHERE "counselorId" = $1
-         AND "createdAt" >= $2
-         AND "createdAt" <= $3
-         ${branchId ? `AND "branchId" = '${branchId}'` : ""}
+      `SELECT TO_CHAR(s."createdAt", 'YYYY-MM') AS month, COUNT(*) AS count
+       FROM "Student" s
+       LEFT JOIN "leads" l ON l."id" = s."leadId"
+       WHERE (
+         (s."counselorId" = $1 AND s."createdAt" >= $2 AND s."createdAt" <= $3)
+         OR
+         (l."counselorId" = $1 AND l."createdAt" >= $2 AND l."createdAt" <= $3)
+       )
+         ${branchId ? `AND s."branchId" = '${branchId}'` : ""}
        GROUP BY month ORDER BY month ASC`,
       counselorId,
       from,
       to
     ),
 
+    // ── 17b. Full student list (actual records, for table/grid display) ───────
+    // Uses studentListFilter (OR on Student.counselorId / lead.counselorId,
+    // no createdAt restriction) so converted students actually show up.
+    db.student.findMany({
+      where: studentListFilter,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        studentName: true,
+        emailId: true,
+        mobileNumber: true,
+        status: true,
+        createdAt: true,
+        leadId: true,
+        counselorId: true,
+        lead: {
+          select: {
+            id: true,
+            source: true,
+            status: true,
+            country: true,
+            intakeSeason: true,
+            passport: true,
+            visaStage: true,
+            counselorId: true,
+          },
+        },
+      },
+    }),
+
     // ── 18. Visa total ────────────────────────────────────────────────────────
-    // VisaDetail is linked via lead → lead.counselorId
     db.visaDetail.count({ where: { lead: leadFilter } }),
 
     // ── 19. Visa by status ────────────────────────────────────────────────────
@@ -296,7 +351,6 @@ async function buildCounselorAnalytics(
     db.visaDetail.count({ where: { lead: leadFilter, status: "REJECTED" } }),
 
     // ── 22. Upcoming deposit deadlines (next 7 days) ──────────────────────────
-    // NOTE: depositDeadline is on Lead, not VisaDetail — using Lead model
     db.lead.count({
       where: {
         ...leadFilter,
@@ -305,7 +359,6 @@ async function buildCounselorAnalytics(
     }),
 
     // ── 23. Upcoming CAS deadlines (next 7 days) ──────────────────────────────
-    // NOTE: casDeadline is on Lead
     db.lead.count({
       where: {
         ...leadFilter,
@@ -314,7 +367,6 @@ async function buildCounselorAnalytics(
     }),
 
     // ── 24. University starts (next 30 days) ──────────────────────────────────
-    // NOTE: universityStart is on Lead
     db.lead.count({
       where: {
         ...leadFilter,
@@ -374,7 +426,6 @@ async function buildCounselorAnalytics(
     }),
 
     // ── 33. Recent 5 timelines by this counselor ──────────────────────────────
-    // NOTE: Lead fields are studentName, phone, email, status (no firstName/lastName)
     db.leadTimeline.findMany({
       where: { createdById: counselorId },
       orderBy: { createdAt: "desc" },
@@ -387,7 +438,7 @@ async function buildCounselorAnalytics(
         lead: {
           select: {
             id: true,
-            studentName: true, // ← correct field (no firstName/lastName on Lead)
+            studentName: true,
             email: true,
             phone: true,
             status: true,
@@ -469,6 +520,11 @@ async function buildCounselorAnalytics(
   }
 
   // ── Derived KPIs ──────────────────────────────────────────────────────────
+  // NOTE: totalStudents and convertedLeads are now built on the same
+  // definition (a lead belonging to this counselor, created in range, that
+  // has become a Student) — see studentFilter / leadFilter above — so they
+  // should match 1:1 under normal data. conversionRate stays driven off
+  // convertedLeads/totalLeads since that's the lead-centric source of truth.
   const conversionRate = safeRate(convertedLeads, totalLeads);
   const visaApprovalRate = safeRate(visaApproved, visaTotal);
   const monthlyTarget = monthlyTargetData?.monthlyTarget ?? 0;
@@ -481,8 +537,8 @@ async function buildCounselorAnalytics(
       // Lead KPIs
       totalLeads,
       newLeadsThisMonth,
-      convertedLeads,
-      conversionRate,
+      convertedLeads, // leads that became a Student (lead → student conversion)
+      conversionRate, // % of leads converted to students
 
       // Target tracking
       monthlyTarget,
@@ -555,12 +611,32 @@ async function buildCounselorAnalytics(
       },
     },
 
+    // ── Students block — includes the actual converted student records ───────
     students: {
+      total: totalStudents,
+      newThisMonth: newStudentsThisMonth,
+      convertedFromLeads: convertedLeads, // same lead→student conversion count
+      conversionRate, // duplicated here for convenience on student-facing UI
       byStatus: studentsByStatus.map((r) => ({
         status: r.status,
         count: r._count._all,
       })),
       overTime: serializeOverTime(studentsOverTime),
+      list: studentList.map((s) => ({
+        id: s.id,
+        name: s.studentName,
+        email: s.emailId,
+        phone: s.mobileNumber,
+        status: s.status,
+        country: s.lead?.country ?? null,
+        intakeSeason: s.lead?.intakeSeason ?? null,
+        passport: s.lead?.passport ?? null,
+        visaStage: s.lead?.visaStage ?? null,
+        createdAt: s.createdAt,
+        leadId: s.leadId,
+        leadSource: s.lead?.source ?? null,
+        leadStatus: s.lead?.status ?? null,
+      })),
     },
 
     followups: {
@@ -578,9 +654,6 @@ async function buildCounselorAnalytics(
         status: r.status,
         count: r._count._all,
       })),
-      // NOTE: visaType, biometricsDate, interviewDate, expiryDate do NOT exist
-      // on VisaDetail in the schema — removed those queries entirely.
-      // Deadline data is sourced from Lead fields instead:
       upcoming: {
         depositDeadlinesNext7Days: upcomingDeposits,
         casDeadlinesNext7Days: upcomingCasDeadlines,
@@ -733,6 +806,24 @@ export async function GET(req: NextRequest) {
       0
     );
 
+    // Combined student list across all counselors (flattened, source-tagged,
+    // de-duplicated by id in case a shared/secondary counselor assignment
+    // causes the same student to surface for more than one counselor).
+    const seenStudentIds = new Set<string>();
+    const globalStudentList = counselorAnalytics.flatMap((c) =>
+      c.analytics.students.list
+        .filter((s) => {
+          if (seenStudentIds.has(s.id)) return false;
+          seenStudentIds.add(s.id);
+          return true;
+        })
+        .map((s) => ({
+          ...s,
+          counselorId: c.counselorId,
+          counselorName: c.counselorName,
+        }))
+    );
+
     // ── Leaderboard: ranked by conversion rate ────────────────────────────────
     const leaderboard = [...counselorAnalytics]
       .sort((a, b) => {
@@ -798,6 +889,7 @@ export async function GET(req: NextRequest) {
           },
           leaderboard,
           topThisMonth,
+          students: globalStudentList, // flat list of all converted students across counselors
           counselors: counselorAnalytics,
         },
       },

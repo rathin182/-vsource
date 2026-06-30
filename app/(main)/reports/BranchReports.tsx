@@ -39,7 +39,8 @@ import {
   Minus,
   X,
   Landmark,
-  Stethoscope,
+  UserCheck,
+  Workflow,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,6 +69,8 @@ interface BranchAnalyticsSummary {
   totalCounselors: number;
   convertedLeads: number;
   conversionRate: number;
+  totalStudents: number;
+  newStudentsThisMonth: number;
   upcomingFollowups: number;
   totalDocs: number;
   totalLoanAmountApproved: number;
@@ -77,12 +80,40 @@ interface BranchAnalyticsSummary {
   visaApprovalRate: number;
 }
 
+interface StudentsBlock {
+  total: number;
+  newThisMonth: number;
+  conversionRateFromLeads: number;
+  byStatus: { status: string; count: number }[];
+  overTime: { month: string; count: number }[];
+  withVisaApplication: number;
+  withVisaApproved: number;
+  withVisaRejected: number;
+}
+
+interface FunnelBlock {
+  totalLeads: number;
+  convertedLeads: number;
+  studentsWithVisaApplication: number;
+  studentsWithVisaApproved: number;
+  studentsWithVisaRejected: number;
+  rates: {
+    leadToStudent: number;
+    studentToVisaApplication: number;
+    studentToVisaApproved: number;
+    visaApplicationToApproved: number;
+  };
+}
+
 interface CounselorEntry {
   counselorId: string;
   counselor: { id: string; name: string; email: string; monthlyTarget: number } | null;
   assignedLeads: number;
   convertedLeads?: number;
   conversionRate?: number;
+  studentsWithVisaApplication?: number;
+  studentsWithVisaApproved?: number;
+  visaApprovalRateFromStudents?: number;
   leadStatusBreakdown?: Record<string, number>;
 }
 
@@ -110,13 +141,15 @@ interface BranchAnalytics {
     byVisaStage: { stage: string; count: number }[];
     overTime: { month: string; count: number }[];
   };
+  students: StudentsBlock;
+  funnel: FunnelBlock;
   visa: {
     total: number;
     approved: number;
     rejected: number;
     approvalRate: number;
     byStatus: { status: string; count: number }[];
-    byType: { visaType: string | null; count: number }[];
+    byType: { status?: string; _count?: { _all: number } }[];
     upcoming: {
       biometricsNext7Days: number;
       interviewsNext7Days: number;
@@ -159,6 +192,9 @@ interface AllBranchesData {
     totalCounselors: number;
     convertedLeads: number;
     conversionRate: number;
+    totalStudents: number;
+    studentsWithVisaApplication: number;
+    studentsWithVisaApproved: number;
   };
   rankedByLeads: {
     rank: number;
@@ -166,7 +202,10 @@ interface AllBranchesData {
     branchName: string;
     totalLeads: number;
     totalCounselors: number;
+    totalStudents: number;
     conversionRate: number;
+    studentsWithVisaApplication: number;
+    studentsWithVisaApproved: number;
     visaApproved: number;
     visaApprovalRate: number;
     newLeadsThisMonth: number;
@@ -174,7 +213,10 @@ interface AllBranchesData {
   branches: BranchAnalyticsEntry[];
 }
 
-// Compare endpoint types
+// ─────────────────────────────────────────────────────────────────────────────
+// Compare endpoint types — matched exactly to /api/dashboard/branches/compare
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface CompareData {
   meta: {
     generatedAt: string;
@@ -184,7 +226,7 @@ interface CompareData {
   branches: {
     branchId: string;
     branchName: string;
-    analytics: BranchAnalytics;
+    analytics: BranchAnalytics; // nested, same shape as the /branches route
   }[];
   comparison: {
     branchLabels: string[];
@@ -194,16 +236,26 @@ interface CompareData {
       byStatus: { keys: string[]; series: number[][] };
       byStage: { keys: string[]; series: number[][] };
       bySource: { keys: string[]; series: number[][] };
+      byCountry: { keys: string[]; series: number[][] };
+      byIntakeSeason: { keys: string[]; series: number[][] };
+      byVisaStage: { keys: string[]; series: number[][] };
       overTime: { months: string[]; series: number[][] };
     };
     students: {
       byStatus: { keys: string[]; series: number[][] };
       overTime: { months: string[]; series: number[][] };
+      withVisaApplication: { labels: string[]; values: number[] };
+      withVisaApproved: { labels: string[]; values: number[] };
+      withVisaRejected: { labels: string[]; values: number[] };
     };
     visa: {
       byStatus: { keys: string[]; series: number[][] };
-      byType: { keys: string[]; series: number[][] };
-      upcoming: Record<string, number[]>;
+      byType: { keys: string[]; series: number[][] }; // always empty (no visaType column)
+      upcoming: {
+        biometricsNext7Days: { labels: string[]; values: number[] };
+        interviewsNext7Days: { labels: string[]; values: number[] };
+        expiringNext30Days: { labels: string[]; values: number[] };
+      };
     };
     loans: {
       byStatus: { keys: string[]; countSeries: number[][]; amountSeries: number[][] };
@@ -440,6 +492,76 @@ function WinnerBadge({ winner, label }: { winner: { branchName: string; value: n
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Funnel visual — Lead → Student → Visa Application → Visa Approved
+// ─────────────────────────────────────────────────────────────────────────────
+
+function FunnelPanel({ funnel }: { funnel: FunnelBlock }) {
+  const stages = [
+    { label: "Total Leads", value: funnel.totalLeads, rate: null as number | null, color: "#ef4444" },
+    { label: "Converted to Students", value: funnel.convertedLeads, rate: funnel.rates.leadToStudent, color: "#f87171" },
+    { label: "Visa Application Started", value: funnel.studentsWithVisaApplication, rate: funnel.rates.studentToVisaApplication, color: "#fb923c" },
+    { label: "Visa Approved", value: funnel.studentsWithVisaApproved, rate: funnel.rates.studentToVisaApproved, color: "#22c55e" },
+  ];
+  const maxVal = Math.max(...stages.map((s) => s.value), 1);
+
+  return (
+    <Panel className="mb-5 border border-red-500/10">
+      <div className="mb-5 flex items-center justify-between">
+        <div>
+          <h3 className="flex items-center gap-2 text-[13px] font-semibold text-slate-900 dark:text-white">
+            <Workflow className="h-4 w-4 text-red-400" /> Lead → Student → Visa Funnel
+          </h3>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+            Student-anchored conversion funnel
+          </p>
+        </div>
+        <span className="rounded-lg border border-red-500/10 bg-red-500/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-red-400">
+          Funnel
+        </span>
+      </div>
+      <div className="space-y-4">
+        {stages.map((s, i) => {
+          const widthPct = Math.max(Math.round((s.value / maxVal) * 100), 6);
+          return (
+            <div key={s.label}>
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-[12px] font-medium text-slate-700 dark:text-slate-300">{s.label}</span>
+                <span className="flex items-center gap-2 text-[12px]">
+                  <span className="font-semibold tabular-nums text-slate-900 dark:text-white">{fmtNum(s.value)}</span>
+                  {s.rate !== null && (
+                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-white/5 dark:text-slate-400">
+                      {s.rate}%
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${widthPct}%`, background: s.color, boxShadow: `0 0 10px ${s.color}40` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[
+          { label: "Application → Approved", value: funnel.rates.visaApplicationToApproved },
+          { label: "Lead → Student", value: funnel.rates.leadToStudent },
+          { label: "Student → Application", value: funnel.rates.studentToVisaApplication },
+        ].map((r) => (
+          <div key={r.label} className="rounded-xl border border-red-500/10 bg-red-500/[0.03] px-3 py-2.5 text-center">
+            <div className="text-lg font-bold tabular-nums text-red-500">{r.value}%</div>
+            <div className="mt-0.5 text-[10.5px] text-slate-500 dark:text-slate-400">{r.label}</div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Branch drilldown panel (shared between "All Branches" and a possible single view)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -452,10 +574,13 @@ function BranchDrilldown({
 }) {
   const { analytics: a, branchName, city, state } = entry;
 
-  // Build trend from leads.overTime only (backend does NOT return students.overTime)
-  const trend = useMemo(() => {
+  const leadsTrend = useMemo(() => {
     return a.leads.overTime.map((r) => ({ month: r.month.slice(5), leads: r.count }));
   }, [a.leads.overTime]);
+
+  const studentsTrend = useMemo(() => {
+    return a.students.overTime.map((r) => ({ month: r.month.slice(5), students: r.count }));
+  }, [a.students.overTime]);
 
   return (
     <section>
@@ -473,21 +598,20 @@ function BranchDrilldown({
         </button>
       </div>
 
-      {/* KPIs — only fields actually returned by backend summary */}
       <div className="mb-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         <Kpi label="Total Leads" value={fmtNum(a.summary.totalLeads)} icon={<Users className="h-4 w-4" />} hint={`+${a.summary.newLeadsThisMonth} this month`} tone="primary" />
         <Kpi label="Counselors" value={fmtNum(a.summary.totalCounselors)} icon={<GraduationCap className="h-4 w-4" />} tone="default" />
-        <Kpi label="Converted" value={fmtNum(a.summary.convertedLeads)} icon={<BadgeCheck className="h-4 w-4" />} tone="success" />
-        <Kpi label="Conversion Rate" value={`${a.summary.conversionRate}%`} icon={<TrendingUp className="h-4 w-4" />} tone="success" />
+        <Kpi label="Converted" value={fmtNum(a.summary.convertedLeads)} icon={<BadgeCheck className="h-4 w-4" />} hint={`${a.summary.conversionRate}% rate`} tone="success" />
+        <Kpi label="Total Students" value={fmtNum(a.summary.totalStudents)} icon={<UserCheck className="h-4 w-4" />} hint={`+${a.summary.newStudentsThisMonth} this month`} tone="success" />
         <Kpi label="Visa Approved" value={fmtNum(a.summary.visaApproved)} icon={<FileCheck2 className="h-4 w-4" />} hint={`${a.summary.visaApprovalRate}% rate`} tone="danger" />
         <Kpi label="Visa Applications" value={fmtNum(a.summary.totalVisaApplications)} icon={<Plane className="h-4 w-4" />} tone="primary" />
         <Kpi label="Visa Rejected" value={fmtNum(a.summary.visaRejected)} icon={<AlertCircle className="h-4 w-4" />} tone="danger" />
-        <Kpi label="Follow-ups (7d)" value={fmtNum(a.summary.upcomingFollowups)} icon={<CalendarClock className="h-4 w-4" />} tone="warning" />
         <Kpi label="Loan Approved" value={fmtCurrency(a.summary.totalLoanAmountApproved)} icon={<CreditCard className="h-4 w-4" />} tone="rose" />
         <Kpi label="Documents" value={fmtNum(a.summary.totalDocs)} icon={<FileCheck2 className="h-4 w-4" />} tone="default" />
       </div>
 
-      {/* Visa pipeline urgency */}
+      <FunnelPanel funnel={a.funnel} />
+
       <div className="relative mb-7 overflow-hidden rounded-2xl border border-red-500/10 bg-[#15161d] p-5">
         <div className="pointer-events-none absolute inset-0 opacity-20">
           <div className="absolute -left-16 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-red-500/20 blur-3xl" />
@@ -512,34 +636,57 @@ function BranchDrilldown({
         </div>
       </div>
 
-      {/* Leads over time chart */}
-      <Panel className="mb-5 border border-red-500/10">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <p className="text-[13px] font-semibold text-slate-900 dark:text-white">Leads Over Time</p>
-            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Monthly lead acquisition</p>
+      <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <Panel className="border border-red-500/10">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-[13px] font-semibold text-slate-900 dark:text-white">Leads Over Time</p>
+              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Monthly lead acquisition</p>
+            </div>
+            <div className="rounded-lg border border-red-500/10 bg-red-500/5 px-3 py-1 text-[11px] font-medium text-red-400">Monthly Trend</div>
           </div>
-          <div className="rounded-lg border border-red-500/10 bg-red-500/5 px-3 py-1 text-[11px] font-medium text-red-400">Monthly Trend</div>
-        </div>
-        {trend.length > 0 ? (
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={trend} margin={{ top: 8, right: 10, left: -18, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke="currentColor" className="text-red-500/10" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} width={30} />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(239,68,68,.05)" }} />
-              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
-              <Bar dataKey="leads" name="Leads" fill="#ef4444" radius={[6, 6, 0, 0]} barSize={18} />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <EmptyState label="No timeline data available" />
-        )}
-      </Panel>
+          {leadsTrend.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={leadsTrend} margin={{ top: 8, right: 10, left: -18, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke="currentColor" className="text-red-500/10" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} width={30} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(239,68,68,.05)" }} />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
+                <Bar dataKey="leads" name="Leads" fill="#ef4444" radius={[6, 6, 0, 0]} barSize={18} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyState label="No timeline data available" />
+          )}
+        </Panel>
 
-      {/* Lead breakdowns */}
+        <Panel className="border border-red-500/10">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-[13px] font-semibold text-slate-900 dark:text-white">Students Over Time</p>
+              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Monthly student conversions</p>
+            </div>
+            <div className="rounded-lg border border-red-500/10 bg-red-500/5 px-3 py-1 text-[11px] font-medium text-red-400">Monthly Trend</div>
+          </div>
+          {studentsTrend.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={studentsTrend} margin={{ top: 8, right: 10, left: -18, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke="currentColor" className="text-red-500/10" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} width={30} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(239,68,68,.05)" }} />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
+                <Bar dataKey="students" name="Students" fill="#22c55e" radius={[6, 6, 0, 0]} barSize={18} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyState label="No timeline data available" />
+          )}
+        </Panel>
+      </div>
+
       <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* By Status — pie */}
         <Panel className="border border-red-500/10">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -573,7 +720,6 @@ function BranchDrilldown({
           )}
         </Panel>
 
-        {/* By Stage */}
         <Panel className="border border-red-500/10">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -585,7 +731,6 @@ function BranchDrilldown({
           <HBarList data={a.leads.byStage.map((r, i) => ({ label: r.stage, count: r.count, color: RED_PALETTE[i % RED_PALETTE.length] }))} />
         </Panel>
 
-        {/* By Source */}
         <Panel className="border border-red-500/10">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -598,19 +743,33 @@ function BranchDrilldown({
         </Panel>
       </div>
 
-      {/* Visa status + Loans */}
       <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Panel className="border border-red-500/10">
           <div className="mb-4 flex items-center justify-between">
             <div>
+              <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">Students by Status</h3>
+              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                {a.students.withVisaApplication} with visa application · {a.students.withVisaApproved} approved · {a.students.withVisaRejected} rejected
+              </p>
+            </div>
+            <div className="rounded-lg border border-red-500/10 bg-red-500/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-red-400">Students</div>
+          </div>
+          <HBarList data={a.students.byStatus.map((r, i) => ({ label: r.status, count: r.count, color: RED_PALETTE[i % RED_PALETTE.length] }))} />
+        </Panel>
+
+        <Panel className="border border-red-500/10">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
               <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">Visa by Status</h3>
-              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Application pipeline</p>
+              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Lead-anchored application pipeline</p>
             </div>
             <div className="rounded-lg border border-red-500/10 bg-red-500/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-red-400">Visa</div>
           </div>
           <HBarList data={a.visa.byStatus.map((r, i) => ({ label: r.status, count: r.count, color: RED_PALETTE[i % RED_PALETTE.length] }))} />
         </Panel>
+      </div>
 
+      <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Panel className="border border-red-500/10">
           <div className="mb-4 flex items-center justify-between">
             <div>
@@ -643,9 +802,19 @@ function BranchDrilldown({
             <EmptyState label="No loan data" />
           )}
         </Panel>
+
+        <Panel className="border border-red-500/10">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">Leads by Country</h3>
+              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Destination country breakdown</p>
+            </div>
+            <div className="rounded-lg border border-red-500/10 bg-red-500/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-red-400">Country</div>
+          </div>
+          <HBarList data={a.leads.byCountry.map((r, i) => ({ label: r.country ?? "Unknown", count: r.count, color: RED_PALETTE[i % RED_PALETTE.length] }))} />
+        </Panel>
       </div>
 
-      {/* Courses + Countries */}
       <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Panel className="border border-red-500/10">
           <div className="mb-4 flex items-center justify-between">
@@ -661,55 +830,6 @@ function BranchDrilldown({
         <Panel className="border border-red-500/10">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">Leads by Country</h3>
-              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Destination country breakdown</p>
-            </div>
-            <div className="rounded-lg border border-red-500/10 bg-red-500/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-red-400">Country</div>
-          </div>
-          <HBarList data={a.leads.byCountry.map((r, i) => ({ label: r.country ?? "Unknown", count: r.count, color: RED_PALETTE[i % RED_PALETTE.length] }))} />
-        </Panel>
-      </div>
-
-      {/* Counselors + Universities */}
-      <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* Top Counselors by Lead Assignments */}
-        <Panel className="border border-red-500/10">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">Top Counselors by Leads</h3>
-              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Ranked by assigned leads</p>
-            </div>
-            <span className="rounded-lg border border-red-500/10 bg-red-500/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-red-400">Performance</span>
-          </div>
-          {a.counselors.topByLeadAssignments.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart
-                data={a.counselors.topByLeadAssignments.map((c) => ({
-                  name: c.counselor?.name ?? "Unknown",
-                  leads: c.assignedLeads,
-                  converted: c.convertedLeads ?? 0,
-                }))}
-                layout="vertical"
-                margin={{ left: 8, right: 20, top: 4, bottom: 0 }}
-              >
-                <CartesianGrid horizontal={false} stroke="currentColor" className="text-red-500/10" />
-                <XAxis type="number" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(239,68,68,.05)" }} />
-                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
-                <Bar dataKey="leads" name="Assigned" radius={[0, 6, 6, 0]} barSize={14} fill="#ef4444" />
-                <Bar dataKey="converted" name="Converted" radius={[0, 6, 6, 0]} barSize={14} fill="#22c55e" />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyState label="No counselor data available" />
-          )}
-        </Panel>
-
-        {/* Top Universities */}
-        <Panel className="border border-red-500/10">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
               <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">Top Universities</h3>
               <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Applications by university</p>
             </div>
@@ -719,9 +839,58 @@ function BranchDrilldown({
         </Panel>
       </div>
 
-      {/* Top Performing Counselors (visa target-based ranking) */}
-      {a.counselors.topPerformingCounselors.length > 0 && (
-        <Panel className="mb-5 border border-red-500/10">
+      <div className="mb-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <Panel className="border border-red-500/10">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">Top Counselors by Leads</h3>
+              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Ranked by assigned leads</p>
+            </div>
+            <span className="rounded-lg border border-red-500/10 bg-red-500/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-red-400">Performance</span>
+          </div>
+          {a.counselors.topByLeadAssignments.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart
+                  data={a.counselors.topByLeadAssignments.map((c) => ({
+                    name: c.counselor?.name ?? "Unknown",
+                    leads: c.assignedLeads,
+                    converted: c.convertedLeads ?? 0,
+                  }))}
+                  layout="vertical"
+                  margin={{ left: 8, right: 20, top: 4, bottom: 0 }}
+                >
+                  <CartesianGrid horizontal={false} stroke="currentColor" className="text-red-500/10" />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(239,68,68,.05)" }} />
+                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
+                  <Bar dataKey="leads" name="Assigned" radius={[0, 6, 6, 0]} barSize={14} fill="#ef4444" />
+                  <Bar dataKey="converted" name="Converted" radius={[0, 6, 6, 0]} barSize={14} fill="#22c55e" />
+                </BarChart>
+              </ResponsiveContainer>
+
+              <div className="mt-4 space-y-2 border-t border-red-500/10 pt-4">
+                {a.counselors.topByLeadAssignments
+                  .filter((c) => c.studentsWithVisaApplication !== undefined)
+                  .map((c) => (
+                    <div key={c.counselorId} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-[11.5px] dark:bg-white/[0.03]">
+                      <span className="truncate font-medium text-slate-700 dark:text-slate-300">{c.counselor?.name ?? "Unknown"}</span>
+                      <span className="flex shrink-0 items-center gap-2 text-slate-500 dark:text-slate-400">
+                        <span>{c.studentsWithVisaApplication} visa app{(c.studentsWithVisaApplication ?? 0) === 1 ? "" : "s"}</span>
+                        <span className="text-emerald-500">· {c.studentsWithVisaApproved} approved</span>
+                        <span>· {c.visaApprovalRateFromStudents}%</span>
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </>
+          ) : (
+            <EmptyState label="No counselor data available" />
+          )}
+        </Panel>
+
+        <Panel className="border border-red-500/10">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">Top Performing Counselors</h3>
@@ -729,41 +898,47 @@ function BranchDrilldown({
             </div>
             <span className="rounded-lg border border-red-500/10 bg-red-500/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-red-400">Visa Performance</span>
           </div>
-          <div className="space-y-3">
-            {a.counselors.topPerformingCounselors.map((c) => {
-              const pct = c.monthlyTarget > 0 ? Math.min(Math.round((c.visaCount / c.monthlyTarget) * 100), 100) : 0;
-              return (
-                <div key={c.counselorId} className="flex items-center gap-3 rounded-xl border border-red-500/10 bg-white/5 px-4 py-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-[12px] font-bold text-red-500">
-                    {c.rank}
+          {a.counselors.topPerformingCounselors.length > 0 ? (
+            <div className="space-y-3">
+              {a.counselors.topPerformingCounselors.map((c) => {
+                const pct = c.monthlyTarget > 0 ? Math.min(Math.round((c.visaCount / c.monthlyTarget) * 100), 100) : 0;
+                return (
+                  <div key={c.counselorId} className="flex items-center gap-3 rounded-xl border border-red-500/10 bg-white/5 px-4 py-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-[12px] font-bold text-red-500">
+                      {c.rank}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="truncate text-[13px] font-medium text-slate-900 dark:text-white">{c.name}</span>
+                        <span className="ml-2 shrink-0 text-[11px] text-slate-500 dark:text-slate-400">
+                          {c.visaCount}/{c.monthlyTarget > 0 ? c.monthlyTarget : "—"} visas
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{ width: `${pct}%`, background: c.tier === "target_met" ? "#22c55e" : "#ef4444" }}
+                        />
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className={`text-[10px] font-medium ${c.tier === "target_met" ? "text-emerald-500" : "text-red-400"}`}>
+                          {c.tier === "target_met" ? "✓ Target met" : `${pct}% of target`}
+                        </span>
+                        {c.performanceScore !== undefined && (
+                          <span className="text-[10px] text-slate-400">score {c.performanceScore}</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="truncate text-[13px] font-medium text-slate-900 dark:text-white">{c.name}</span>
-                      <span className="ml-2 shrink-0 text-[11px] text-slate-500 dark:text-slate-400">
-                        {c.visaCount}/{c.monthlyTarget > 0 ? c.monthlyTarget : "—"} visas
-                      </span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                      <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{ width: `${pct}%`, background: c.tier === "target_met" ? "#22c55e" : "#ef4444" }}
-                      />
-                    </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className={`text-[10px] font-medium ${c.tier === "target_met" ? "text-emerald-500" : "text-red-400"}`}>
-                        {c.tier === "target_met" ? "✓ Target met" : `${pct}% of target`}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState label="No performance data available" />
+          )}
         </Panel>
-      )}
+      </div>
 
-      {/* Leads by intake season & visa stage */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Panel className="border border-red-500/10">
           <div className="mb-4">
@@ -805,7 +980,6 @@ function AllBranchesView({
 
   return (
     <div className="space-y-7">
-      {/* Global summary hero */}
       <div className="relative overflow-hidden rounded-2xl border border-red-500/10 bg-[#15161d] p-6">
         <div className="pointer-events-none absolute inset-0 opacity-20">
           <div className="absolute -left-10 -top-10 h-64 w-64 rounded-full bg-red-500/20 blur-3xl" />
@@ -818,12 +992,14 @@ function AllBranchesView({
               Network overview — {data.meta.totalBranches} branches
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-6">
             {[
               { label: "Total Leads", value: fmtNum(globalSummary.totalLeads), color: "text-red-400" },
               { label: "Total Counselors", value: fmtNum(globalSummary.totalCounselors), color: "text-rose-400" },
               { label: "Converted", value: fmtNum(globalSummary.convertedLeads), color: "text-red-500" },
               { label: "Conversion Rate", value: `${globalSummary.conversionRate}%`, color: "text-orange-400" },
+              { label: "Total Students", value: fmtNum(globalSummary.totalStudents), color: "text-emerald-400" },
+              { label: "Visas Approved", value: fmtNum(globalSummary.studentsWithVisaApproved), color: "text-sky-400" },
             ].map((item) => (
               <div key={item.label}>
                 <div className={`text-[26px] font-bold tracking-tight tabular-nums ${item.color}`}>{item.value}</div>
@@ -834,17 +1010,16 @@ function AllBranchesView({
         </div>
       </div>
 
-      {/* Leaderboard table */}
       <section>
         <SectionHeader eyebrow="Rankings" title="Branch leaderboard" subtitle="Ranked by total leads" />
         <Panel className="overflow-x-auto p-0">
           <table className="w-full text-[13px]">
             <thead>
               <tr className="border-b border-red-500/10">
-                {["Rank", "Branch", "Leads", "Counselors", "Conversion", "Visa Approved", "Visa Rate", "New This Month"].map((h) => (
+                {["Rank", "Branch", "Leads", "Counselors", "Conversion", "Students", "Visa Approved", "Visa Rate", "New This Month"].map((h) => (
                   <th
                     key={h}
-                    className={`px-4 py-3 text-left text-[12px] font-medium text-slate-500 dark:text-slate-400 ${["Leads", "Counselors", "Conversion", "Visa Approved", "Visa Rate", "New This Month"].includes(h) ? "text-right" : ""}`}
+                    className={`px-4 py-3 text-left text-[12px] font-medium text-slate-500 dark:text-slate-400 ${["Leads", "Counselors", "Conversion", "Students", "Visa Approved", "Visa Rate", "New This Month"].includes(h) ? "text-right" : ""}`}
                   >
                     {h}
                   </th>
@@ -869,6 +1044,7 @@ function AllBranchesView({
                   <td className={`px-4 py-3 text-right font-medium tabular-nums ${b.conversionRate >= 50 ? "text-emerald-500" : "text-slate-500 dark:text-slate-400"}`}>
                     {b.conversionRate}%
                   </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-emerald-500">{b.totalStudents.toLocaleString()}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-red-400">{b.visaApproved.toLocaleString()}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-slate-500 dark:text-slate-400">{b.visaApprovalRate}%</td>
                   <td className="px-4 py-3 text-right font-medium tabular-nums text-slate-900 dark:text-slate-200">
@@ -886,19 +1062,17 @@ function AllBranchesView({
         )}
       </section>
 
-      {/* Branch drilldown */}
       {branchEntry && (
         <BranchDrilldown entry={branchEntry} onClose={() => onSelectBranch(null)} />
       )}
 
-      {/* Overview bar chart (when no branch selected) */}
       {!selectedBranch && (
         <section>
           <SectionHeader eyebrow="Analytics" title="Lead volume by branch" />
           <Panel>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart
-                data={rankedByLeads.map((b) => ({ name: b.branchName.slice(0, 14), leads: b.totalLeads, counselors: b.totalCounselors }))}
+                data={rankedByLeads.map((b) => ({ name: b.branchName.slice(0, 14), leads: b.totalLeads, counselors: b.totalCounselors, students: b.totalStudents }))}
                 margin={{ left: -8, right: 8, top: 4, bottom: 0 }}
                 barGap={4}
               >
@@ -907,8 +1081,9 @@ function AllBranchesView({
                 <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={32} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" iconSize={7} />
-                <Bar dataKey="leads" name="Leads" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={16} />
-                <Bar dataKey="counselors" name="Counselors" fill="#2dd4bf" radius={[4, 4, 0, 0]} barSize={16} />
+                <Bar dataKey="leads" name="Leads" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={14} />
+                <Bar dataKey="students" name="Students" fill="#22c55e" radius={[4, 4, 0, 0]} barSize={14} />
+                <Bar dataKey="counselors" name="Counselors" fill="#2dd4bf" radius={[4, 4, 0, 0]} barSize={14} />
               </BarChart>
             </ResponsiveContainer>
           </Panel>
@@ -919,7 +1094,7 @@ function AllBranchesView({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tab: Compare Branches
+// Tab: Compare Branches — rewritten to match /api/dashboard/branches/compare
 // ─────────────────────────────────────────────────────────────────────────────
 
 function CompareBranchesView({
@@ -944,6 +1119,15 @@ function CompareBranchesView({
 
   const c = data?.comparison;
   const labels = c?.branchLabels ?? [];
+
+  const urgencyAllZero = useMemo(() => {
+    if (!c) return false;
+    const all = [
+      ...c.visa.upcoming.biometricsNext7Days.values,
+      ...c.visa.upcoming.interviewsNext7Days.values,
+    ];
+    return all.length > 0 && all.every((v) => v === 0);
+  }, [c]);
 
   return (
     <div className="space-y-7">
@@ -995,6 +1179,7 @@ function CompareBranchesView({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {([
                 { key: "totalLeads", label: "Most Total Leads", Icon: Users },
+                { key: "totalStudents", label: "Most Students", Icon: UserCheck },
                 { key: "convertedLeads", label: "Most Conversions", Icon: BadgeCheck },
                 { key: "conversionRate", label: "Best Conversion Rate", Icon: TrendingUp },
                 { key: "visaApprovalRate", label: "Best Visa Approval Rate", Icon: BadgeCheck },
@@ -1002,6 +1187,8 @@ function CompareBranchesView({
                 { key: "newLeadsThisMonth", label: "Monthly Growth", Icon: CalendarDays },
                 { key: "totalLoanAmountApproved", label: "Highest Loan Amount", Icon: Landmark },
                 { key: "upcomingFollowups", label: "Most Follow-ups", Icon: CalendarClock },
+                { key: "totalMbbsLeads", label: "Most MBBS Leads", Icon: GraduationCap },
+                { key: "totalCounselors", label: "Most Counselors", Icon: Users },
               ] as const).filter(({ key }) => data.winners[key]).map(({ key, label, Icon }) => (
                 <div key={key} className="group relative overflow-hidden rounded-2xl border border-red-500/10 bg-white p-5 transition-all hover:-translate-y-1 hover:border-red-500/20 hover:shadow-xl hover:shadow-red-500/5 dark:bg-[#1a1b24]">
                   <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-red-500/10 blur-3xl transition-all group-hover:bg-red-500/20" />
@@ -1028,13 +1215,17 @@ function CompareBranchesView({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {([
                 { key: "totalLeads", label: "Total Leads", Icon: Users, fmt: fmtNum },
+                { key: "totalStudents", label: "Total Students", Icon: UserCheck, fmt: fmtNum },
                 { key: "convertedLeads", label: "Converted", Icon: BadgeCheck, fmt: fmtNum },
                 { key: "conversionRate", label: "Conversion %", Icon: TrendingUp, fmt: (v: number) => `${v}%` },
                 { key: "visaApproved", label: "Visa Approved", Icon: FileCheck2, fmt: fmtNum },
                 { key: "visaApprovalRate", label: "Visa Rate %", Icon: Plane, fmt: (v: number) => `${v}%` },
                 { key: "upcomingFollowups", label: "Follow-ups (7d)", Icon: CalendarClock, fmt: fmtNum },
                 { key: "totalLoanAmountApproved", label: "Loan Approved", Icon: CreditCard, fmt: fmtCurrency },
-                { key: "newLeadsThisMonth", label: "New This Month", Icon: Star, fmt: fmtNum },
+                { key: "newLeadsThisMonth", label: "New Leads (Month)", Icon: Star, fmt: fmtNum },
+                { key: "newStudentsThisMonth", label: "New Students (Month)", Icon: UserCheck, fmt: fmtNum },
+                { key: "totalMbbsLeads", label: "MBBS Leads", Icon: GraduationCap, fmt: fmtNum },
+                { key: "totalCounselors", label: "Counselors", Icon: Users, fmt: fmtNum },
               ] as const).map(({ key, label, Icon, fmt }) => {
                 const kd = c.kpis[key];
                 if (!kd) return null;
@@ -1085,6 +1276,9 @@ function CompareBranchesView({
                 { key: "byStatus" as const, label: "By Status", sub: "Status distribution" },
                 { key: "byStage" as const, label: "By Stage", sub: "Pipeline stage" },
                 { key: "bySource" as const, label: "By Source", sub: "Acquisition channels" },
+                // { key: "byCountry" as const, label: "By Country", sub: "Destination breakdown" },
+                { key: "byIntakeSeason" as const, label: "By Intake Season", sub: "Seasonal distribution" },
+                { key: "byVisaStage" as const, label: "By Visa Stage", sub: "Visa processing stage" },
               ].map(({ key, label, sub }) => (
                 <Panel key={key} className="border border-red-500/10">
                   <div className="mb-4 flex items-center justify-between">
@@ -1099,7 +1293,7 @@ function CompareBranchesView({
               ))}
 
               {/* Leads over time */}
-              <Panel className="border border-red-500/10">
+              <Panel className="border border-red-500/10 lg:col-span-2">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">Leads Over Time</h3>
@@ -1136,6 +1330,95 @@ function CompareBranchesView({
             </div>
           </section>
 
+          {/* Students breakdown */}
+          <section>
+            <SectionHeader eyebrow="Student Analytics" title="Student Breakdown Comparison" />
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+              <Panel className="border border-red-500/10">
+                <div className="mb-4">
+                  <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">Students by Status</h3>
+                  <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Status distribution</p>
+                </div>
+                <CompareBar keys={c.students.byStatus.keys} series={c.students.byStatus.series} labels={labels} />
+              </Panel>
+
+              <Panel className="border border-red-500/10">
+                <div className="mb-4">
+                  <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">Students Over Time</h3>
+                  <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Monthly trend comparison</p>
+                </div>
+                {c.students.overTime.months.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <ComposedChart
+                      data={c.students.overTime.months.map((m, mi) => {
+                        const row: Record<string, string | number> = { month: m.slice(5) };
+                        c.students.overTime.series.forEach((s, si) => { row[labels[si]] = s[mi] ?? 0; });
+                        return row;
+                      })}
+                      margin={{ left: -16, right: 10, top: 8, bottom: 0 }}
+                    >
+                      <CartesianGrid vertical={false} stroke="currentColor" className="text-red-500/10" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} width={30} />
+                      <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(239,68,68,.05)" }} />
+                      <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
+                      {labels.map((lbl, i) => (
+                        <Line key={lbl} type="monotone" dataKey={lbl} stroke={COMPARE_COLORS[i % COMPARE_COLORS.length].hex} strokeWidth={3}
+                          dot={{ r: 3, fill: COMPARE_COLORS[i % COMPARE_COLORS.length].hex, strokeWidth: 0 }}
+                          activeDot={{ r: 6, fill: COMPARE_COLORS[i % COMPARE_COLORS.length].hex }} />
+                      ))}
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <EmptyState label="No timeline data" />
+                )}
+              </Panel>
+
+              {/* Student → Visa funnel comparison */}
+              <Panel className="border border-red-500/10 lg:col-span-2">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">Student → Visa Funnel</h3>
+                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Students with visa application / approved / rejected, per branch</p>
+                  </div>
+                  <span className="rounded-lg border border-red-500/10 bg-red-500/5 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-red-400">Funnel</span>
+                </div>
+                <div className="space-y-5">
+                  {([
+                    { key: "withVisaApplication" as const, label: "With Visa Application" },
+                    { key: "withVisaApproved" as const, label: "Visa Approved" },
+                    { key: "withVisaRejected" as const, label: "Visa Rejected" },
+                  ]).map(({ key, label }) => {
+                    const values = c.students[key].values;
+                    const maxVal = Math.max(...values, 1);
+                    return (
+                      <div key={key}>
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-[12px] font-medium text-slate-700 dark:text-slate-300">{label}</p>
+                          <span className="text-[10px] text-slate-400">Max {maxVal}</span>
+                        </div>
+                        <div className="space-y-2">
+                          {labels.map((lbl, i) => {
+                            const cc = COMPARE_COLORS[i % COMPARE_COLORS.length];
+                            return (
+                              <div key={lbl} className="flex items-center gap-3">
+                                <span className={`w-24 truncate text-[11px] font-medium ${cc.text}`}>{lbl}</span>
+                                <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+                                  <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.round((values[i] / maxVal) * 100)}%`, background: cc.hex }} />
+                                </div>
+                                <span className="w-8 text-right text-[12px] font-semibold tabular-nums text-slate-900 dark:text-white">{values[i]}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Panel>
+            </div>
+          </section>
+
           {/* Visa & Loans */}
           <section>
             <SectionHeader eyebrow="Applications" title="Visa & Loan Comparison" />
@@ -1145,7 +1428,6 @@ function CompareBranchesView({
                 <CompareBar keys={c.visa.byStatus.keys} series={c.visa.byStatus.series} labels={labels} />
               </Panel>
 
-              {/* Visa urgency from branches array */}
               <Panel className="border border-red-500/10">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
@@ -1161,9 +1443,7 @@ function CompareBranchesView({
                       interviewsNext7Days: "Interviews (7 Days)",
                       expiringNext30Days: "Expiring (30 Days)",
                     };
-                    const values = labels.map((_, i) =>
-                      data.branches[i]?.analytics?.visa?.upcoming?.[urgencyKey] ?? 0
-                    );
+                    const values = c.visa.upcoming[urgencyKey].values;
                     const maxVal = Math.max(...values, 1);
                     return (
                       <div key={urgencyKey}>
@@ -1189,6 +1469,11 @@ function CompareBranchesView({
                     );
                   })}
                 </div>
+                {urgencyAllZero && (
+                  <p className="mt-3 text-center text-[11px] text-slate-400">
+                    Biometrics/interview dates aren&apos;t tracked yet — expiring uses CAS deadline.
+                  </p>
+                )}
               </Panel>
 
               <Panel className="border border-red-500/10">
@@ -1260,7 +1545,10 @@ export default function BranchReports() {
     try {
       const params = new URLSearchParams({ from: filters.from, to: filters.to });
       const res = await fetch(`/api/report/dashboard/branches?${params}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error ?? `HTTP ${res.status}`);
+      }
       const json = await res.json();
       if (!json.success) throw new Error(json.error ?? "Unknown error");
       setAllData(json.data);
@@ -1282,7 +1570,10 @@ export default function BranchReports() {
         to: filters.to,
       });
       const res = await fetch(`/api/report/dashboard/branches/comparebranches?${params}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error ?? `HTTP ${res.status}`);
+      }
       const json = await res.json();
       if (!json.success) throw new Error(json.error ?? "Unknown error");
       setCompareData(json.data);

@@ -15,8 +15,6 @@ import {
   ComposedChart,
   Line,
   Legend,
-  AreaChart,
-  Area,
 } from "recharts";
 import {
   Users,
@@ -26,7 +24,6 @@ import {
   BadgeCheck,
   AlertCircle,
   RefreshCw,
-  Fingerprint,
   CalendarDays,
   ShieldAlert,
   Plane,
@@ -38,26 +35,20 @@ import {
   Phone,
   FileText,
   Clock,
-  Activity,
   Stethoscope,
   Landmark,
   ChevronRight,
   Mail,
   Zap,
   Search,
-  Filter,
-  TrendingUp,
-  Award,
-  BookOpen,
-  CheckCircle2,
-  XCircle,
-  Globe,
   Building2,
-  Target,
+  Wallet,
+  Globe2,
+  Filter,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Types (mirroring backend response exactly)
+// Types — mirrors the ACTUAL backend response exactly
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface Branch {
@@ -112,12 +103,29 @@ interface TimelineEntry {
   createdAt: string;
   lead: {
     id: string;
-    firstName: string;
-    lastName: string | null;
+    studentName: string;
     email: string;
     phone: string;
     status: string;
   } | null;
+}
+
+interface StudentRecord {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  status: string;
+  country: string | null;
+  intakeSeason: string | null;
+  passport: string | null;
+  visaStage: string | null;
+  createdAt: string;
+  leadId: string | null;
+  leadSource: string | null;
+  leadStatus: string | null;
+  counselorId?: string;
+  counselorName?: string;
 }
 
 interface CounselorAnalytics {
@@ -128,7 +136,6 @@ interface CounselorAnalytics {
     byStage: { stage: string; count: number }[];
     bySource: { source: string; count: number }[];
     byCountry: { country: string | null; count: number }[];
-    byQualification: { qualification: string | null; count: number }[];
     byIntakeSeason: { season: string | null; count: number }[];
     byVisaStage: { stage: string; count: number }[];
     overTime: { month: string; count: number }[];
@@ -140,8 +147,13 @@ interface CounselorAnalytics {
     };
   };
   students: {
+    total: number;
+    newThisMonth: number;
+    convertedFromLeads: number;
+    conversionRate: number;
     byStatus: { status: string; count: number }[];
     overTime: { month: string; count: number }[];
+    list: StudentRecord[];
   };
   followups: {
     upcoming7Days: number;
@@ -154,11 +166,10 @@ interface CounselorAnalytics {
     rejected: number;
     approvalRate: number;
     byStatus: { status: string; count: number }[];
-    byType: { visaType: string | null; count: number }[];
     upcoming: {
-      biometricsNext7Days: number;
-      interviewsNext7Days: number;
-      expiringNext30Days: number;
+      depositDeadlinesNext7Days: number;
+      casDeadlinesNext7Days: number;
+      universityStartsNext30Days: number;
     };
   };
   loans: {
@@ -224,6 +235,7 @@ interface AllCounselorsData {
   };
   leaderboard: LeaderboardEntry[];
   topThisMonth: TopThisMonth[];
+  students: StudentRecord[];
   counselors: {
     counselorId: string;
     counselorName: string;
@@ -235,25 +247,9 @@ interface AllCounselorsData {
   }[];
 }
 
-interface SingleCounselorData {
-  meta: {
-    generatedAt: string;
-    mode: string;
-    filters: Record<string, unknown>;
-  };
-  counselor: CounselorAnalytics;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Palette & Design tokens
+// Palette
 // ─────────────────────────────────────────────────────────────────────────────
-
-const BRAND = {
-  red: "#ef4444",
-  rose: "#fb7185",
-  orange: "#ea580c",
-  dark: "#ef4444",
-};
 
 const PIE_COLORS = [
   "#ef4444",
@@ -309,7 +305,7 @@ const timeAgo = (d: string) => {
 };
 
 const initials = (name: string) =>
-  name
+  (name || "?")
     .split(" ")
     .slice(0, 2)
     .map((p) => p[0])
@@ -366,9 +362,7 @@ function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border border-white/10 bg-[#0d0e14] px-3.5 py-2.5 text-[12px] shadow-2xl">
-      {label && (
-        <p className="mb-1.5 font-medium text-slate-400">{label}</p>
-      )}
+      {label && <p className="mb-1.5 font-medium text-slate-400">{label}</p>}
       {payload.map((p: any, i: number) => (
         <p
           key={i}
@@ -580,16 +574,12 @@ function TargetRing({
   const r = 44;
   const circ = 2 * Math.PI * r;
   const dash = Math.min(pct / 100, 1) * circ;
-  const color =
-    pct >= 100 ? "#22c55e" : pct >= 70 ? "#f59e0b" : "#ef4444";
+  const color = pct >= 100 ? "#22c55e" : pct >= 70 ? "#f59e0b" : "#ef4444";
 
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="relative h-28 w-28">
-        <svg
-          className="h-full w-full -rotate-90"
-          viewBox="0 0 100 100"
-        >
+        <svg className="h-full w-full -rotate-90" viewBox="0 0 100 100">
           <circle
             cx="50"
             cy="50"
@@ -611,10 +601,7 @@ function TargetRing({
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span
-            className="text-[18px] font-bold tabular-nums"
-            style={{ color }}
-          >
+          <span className="text-[18px] font-bold tabular-nums" style={{ color }}>
             {Math.round(pct)}%
           </span>
           <span className="text-[9px] font-medium uppercase tracking-wide text-slate-500">
@@ -639,16 +626,10 @@ function TargetRing({
 function RemarkIcon({ type }: { type: string }) {
   const map: Record<string, { icon: React.ReactNode; color: string }> = {
     NOTE: { icon: <FileText className="h-3.5 w-3.5" />, color: "#4f6ef7" },
-    FOLLOW_UP: {
-      icon: <Clock className="h-3.5 w-3.5" />,
-      color: "#f59e0b",
-    },
+    FOLLOW_UP: { icon: <Clock className="h-3.5 w-3.5" />, color: "#f59e0b" },
     CALL: { icon: <Phone className="h-3.5 w-3.5" />, color: "#22c55e" },
-    DOCUMENT: {
-      icon: <FileCheck2 className="h-3.5 w-3.5" />,
-      color: "#a78bfa",
-    },
-    EMAIL: { icon: <Mail className="h-3.5 w-3.5" />, color: "#60a5fa" },
+    MEETING: { icon: <Users className="h-3.5 w-3.5" />, color: "#a78bfa" },
+    WARNING: { icon: <AlertCircle className="h-3.5 w-3.5" />, color: "#ef4444" },
   };
   const m = map[type] ?? map.NOTE;
   return (
@@ -699,13 +680,131 @@ function PanelHeader({
 
 function statusColor(status: string): string {
   const s = (status ?? "").toUpperCase();
-  if (["APPROVED", "ACTIVE", "COMPLETED", "CONVERTED", "ENROLLED"].includes(s))
+  if (["APPROVED", "ACTIVE", "COMPLETED", "CONVERTED", "ENROLLED", "DISBURSED"].includes(s))
     return "#22c55e";
-  if (["REJECTED", "LOST", "CANCELLED", "CLOSED"].includes(s))
-    return "#ef4444";
+  if (["REJECTED", "LOST", "CANCELLED", "CLOSED"].includes(s)) return "#ef4444";
   if (["PENDING", "IN_PROGRESS", "PROCESSING"].includes(s)) return "#f59e0b";
   if (["NEW", "OPEN"].includes(s)) return "#60a5fa";
   return PIE_COLORS[Math.abs(s.charCodeAt(0) - 65) % PIE_COLORS.length];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Students table panel (used inside CounselorDetail)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function StudentsTable({ list }: { list: StudentRecord[] }) {
+  const [q, setQ] = useState("");
+
+  const filtered = useMemo(() => {
+    if (!q.trim()) return list;
+    const needle = q.toLowerCase();
+    return list.filter(
+      (s) =>
+        s.name?.toLowerCase().includes(needle) ||
+        s.email?.toLowerCase().includes(needle) ||
+        s.phone?.toLowerCase().includes(needle) ||
+        s.passport?.toLowerCase().includes(needle)
+    );
+  }, [list, q]);
+
+  return (
+    <Panel className="p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-[13px] font-semibold text-slate-900 dark:text-white">
+            Converted Students
+          </h3>
+          <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+            {list.length} student record{list.length === 1 ? "" : "s"} (lead → student)
+          </p>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search student…"
+            className="w-52 rounded-xl border border-slate-200 bg-white py-1.5 pl-9 pr-3 text-[12px] text-slate-700 outline-none transition focus:border-red-300 focus:ring-2 focus:ring-red-500/10 dark:border-red-500/10 dark:bg-[#1a1b24] dark:text-slate-200"
+          />
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[12.5px]">
+          <thead>
+            <tr className="border-b border-slate-100 dark:border-red-500/10">
+              {["Student", "Country", "Intake", "Status", "Visa Stage", "Source", "Created"].map(
+                (h) => (
+                  <th
+                    key={h}
+                    className="whitespace-nowrap px-3 py-2.5 text-left text-[10.5px] font-semibold text-slate-500 dark:text-slate-400"
+                  >
+                    {h}
+                  </th>
+                )
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((s) => (
+              <tr
+                key={s.id}
+                className="border-b border-slate-50 transition hover:bg-red-50/40 dark:border-red-500/5 dark:hover:bg-red-500/5"
+              >
+                <td className="px-3 py-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-[10px] font-bold text-red-500">
+                      {initials(s.name)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-slate-900 dark:text-white">
+                        {s.name || "Unnamed"}
+                      </p>
+                      <p className="truncate text-[10.5px] text-slate-400">
+                        {s.email || s.phone || "—"}
+                      </p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300">
+                  {s.country || "—"}
+                </td>
+                <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300">
+                  {s.intakeSeason || "—"}
+                </td>
+                <td className="px-3 py-2.5">
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10.5px] font-medium"
+                    style={{
+                      background: `${statusColor(s.status)}18`,
+                      color: statusColor(s.status),
+                    }}
+                  >
+                    {titleCase(s.status || "Unknown")}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300">
+                  {s.visaStage ? titleCase(s.visaStage) : "—"}
+                </td>
+                <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300">
+                  {s.leadSource ? titleCase(s.leadSource) : "—"}
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-slate-400">
+                  {new Date(s.createdAt).toLocaleDateString("en-IN")}
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={7} className="py-10 text-center text-slate-400">
+                  {q ? `No students match "${q}"` : "No converted students yet"}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -734,9 +833,7 @@ function CounselorDetail({
 
   const trendData = useMemo(() => {
     const lm = Object.fromEntries(leads.overTime.map((r) => [r.month, r.count]));
-    const sm = Object.fromEntries(
-      students.overTime.map((r) => [r.month, r.count])
-    );
+    const sm = Object.fromEntries(students.overTime.map((r) => [r.month, r.count]));
     const months = [
       ...new Set([
         ...leads.overTime.map((r) => r.month),
@@ -750,9 +847,9 @@ function CounselorDetail({
     }));
   }, [leads.overTime, students.overTime]);
 
-  const assignedStatusData = Object.entries(
-    leads.assignedBreakdown.byStatus
-  ).map(([status, count]) => ({ status, count }));
+  const assignedStatusData = Object.entries(leads.assignedBreakdown.byStatus).map(
+    ([status, count]) => ({ status, count })
+  );
 
   return (
     <div className="space-y-6">
@@ -826,13 +923,13 @@ function CounselorDetail({
           hint={`${summary.conversionRate}% rate`}
           tone="success"
         />
-        {/* <KpiCard
+        <KpiCard
           label="Total Students"
           value={fmtNum(summary.totalStudents)}
           icon={<GraduationCap className="h-4 w-4" />}
           hint={`+${summary.newStudentsThisMonth} this month`}
           tone="rose"
-        /> */}
+        />
         <KpiCard
           label="Assigned Leads"
           value={fmtNum(summary.totalAssignedLeads)}
@@ -911,9 +1008,7 @@ function CounselorDetail({
             <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
               {item.label}
             </span>
-            <span
-              className={`text-[24px] font-bold tabular-nums ${item.color}`}
-            >
+            <span className={`text-[24px] font-bold tabular-nums ${item.color}`}>
               {item.value}
             </span>
             <span className="text-[11px] text-slate-400">{item.sub}</span>
@@ -921,32 +1016,32 @@ function CounselorDetail({
         ))}
       </div>
 
-      {/* ── Visa urgency ── */}
+      {/* ── Visa & deadline urgency (FIXED to actual backend fields) ── */}
       <div className="relative overflow-hidden rounded-2xl border border-red-100 bg-gradient-to-r from-[#1a0a0a] to-[#1a1b24] p-5 dark:border-red-500/10">
         <div className="pointer-events-none absolute inset-0 opacity-20">
           <div className="absolute -left-16 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-red-500/20 blur-3xl" />
         </div>
         <div className="relative">
           <p className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-red-300">
-            <Plane className="h-3.5 w-3.5" /> Visa Urgency Pipeline
+            <Plane className="h-3.5 w-3.5" /> Upcoming Deadlines
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {[
               {
-                label: "Biometrics next 7 days",
-                value: visa.upcoming.biometricsNext7Days,
-                icon: <Fingerprint className="h-4 w-4" />,
+                label: "Deposit deadlines (7d)",
+                value: visa.upcoming.depositDeadlinesNext7Days,
+                icon: <Wallet className="h-4 w-4" />,
                 cls: "bg-red-500/10 text-red-400",
               },
               {
-                label: "Interviews next 7 days",
-                value: visa.upcoming.interviewsNext7Days,
+                label: "CAS deadlines (7d)",
+                value: visa.upcoming.casDeadlinesNext7Days,
                 icon: <CalendarDays className="h-4 w-4" />,
                 cls: "bg-rose-500/10 text-rose-400",
               },
               {
-                label: "Expiring in 30 days",
-                value: visa.upcoming.expiringNext30Days,
+                label: "University starts (30d)",
+                value: visa.upcoming.universityStartsNext30Days,
                 icon: <ShieldAlert className="h-4 w-4" />,
                 cls: "bg-orange-500/10 text-orange-400",
               },
@@ -988,10 +1083,7 @@ function CounselorDetail({
               margin={{ top: 8, right: 10, left: -18, bottom: 0 }}
               barGap={6}
             >
-              <CartesianGrid
-                vertical={false}
-                stroke="rgba(239,68,68,0.07)"
-              />
+              <CartesianGrid vertical={false} stroke="rgba(239,68,68,0.07)" />
               <XAxis
                 dataKey="month"
                 tick={{ fontSize: 11, fill: "#94A3B8" }}
@@ -1004,21 +1096,9 @@ function CounselorDetail({
                 tickLine={false}
                 width={30}
               />
-              <Tooltip
-                content={<ChartTooltip />}
-                cursor={{ fill: "rgba(239,68,68,.05)" }}
-              />
-              <Legend
-                wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
-                iconType="circle"
-                iconSize={8}
-              />
-              <Bar
-                dataKey="Leads"
-                fill="#ef4444"
-                radius={[6, 6, 0, 0]}
-                barSize={18}
-              />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(239,68,68,.05)" }} />
+              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
+              <Bar dataKey="Leads" fill="#ef4444" radius={[6, 6, 0, 0]} barSize={18} />
               <Line
                 type="monotone"
                 dataKey="Students"
@@ -1036,22 +1116,14 @@ function CounselorDetail({
 
       {/* ── Lead breakdowns row ── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        {/* By status donut */}
         <Panel className="p-5">
-          <PanelHeader
-            title="Leads by Status"
-            subtitle="Pipeline distribution"
-            tag="Status"
-          />
+          <PanelHeader title="Leads by Status" subtitle="Pipeline distribution" tag="Status" />
           {leads.byStatus.length > 0 ? (
             <>
               <ResponsiveContainer width="100%" height={180}>
                 <PieChart>
                   <Pie
-                    data={leads.byStatus.map((r) => ({
-                      name: r.status,
-                      value: r.count,
-                    }))}
+                    data={leads.byStatus.map((r) => ({ name: r.status, value: r.count }))}
                     cx="50%"
                     cy="50%"
                     innerRadius={50}
@@ -1061,10 +1133,7 @@ function CounselorDetail({
                     stroke="none"
                   >
                     {leads.byStatus.map((r, i) => (
-                      <Cell
-                        key={i}
-                        fill={statusColor(r.status)}
-                      />
+                      <Cell key={i} fill={statusColor(r.status)} />
                     ))}
                   </Pie>
                   <Tooltip content={<ChartTooltip />} />
@@ -1094,13 +1163,8 @@ function CounselorDetail({
           )}
         </Panel>
 
-        {/* By stage */}
         <Panel className="p-5">
-          <PanelHeader
-            title="Leads by Stage"
-            subtitle="Funnel progression"
-            tag="Stage"
-          />
+          <PanelHeader title="Leads by Stage" subtitle="Funnel progression" tag="Stage" />
           <HBarList
             data={leads.byStage.map((r, i) => ({
               label: r.stage,
@@ -1110,13 +1174,8 @@ function CounselorDetail({
           />
         </Panel>
 
-        {/* By source */}
         <Panel className="p-5">
-          <PanelHeader
-            title="Leads by Source"
-            subtitle="Acquisition channels"
-            tag="Source"
-          />
+          <PanelHeader title="Leads by Source" subtitle="Acquisition channels" tag="Source" />
           <HBarList
             data={leads.bySource.map((r, i) => ({
               label: r.source ?? "Unknown",
@@ -1127,14 +1186,10 @@ function CounselorDetail({
         </Panel>
       </div>
 
-      {/* ── Additional lead breakdowns ── */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      {/* ── Additional lead breakdowns (qualification removed — not in backend) ── */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Panel className="p-5">
-          <PanelHeader
-            title="By Country"
-            subtitle="Top destination countries"
-            tag="Country"
-          />
+          <PanelHeader title="By Country" subtitle="Top destination countries" tag="Country" />
           <HBarList
             data={leads.byCountry
               .filter((r) => r.country)
@@ -1142,22 +1197,6 @@ function CounselorDetail({
                 label: r.country!,
                 count: r.count,
                 color: DATA_COLORS[i % DATA_COLORS.length],
-              }))}
-          />
-        </Panel>
-        <Panel className="p-5">
-          <PanelHeader
-            title="By Qualification"
-            subtitle="Academic background"
-            tag="Education"
-          />
-          <HBarList
-            data={leads.byQualification
-              .filter((r) => r.qualification)
-              .map((r, i) => ({
-                label: r.qualification!,
-                count: r.count,
-                color: PIE_COLORS[i % PIE_COLORS.length],
               }))}
           />
         </Panel>
@@ -1178,6 +1217,17 @@ function CounselorDetail({
           />
         </Panel>
       </div>
+
+      <Panel className="p-5">
+        <PanelHeader title="By Visa Stage" subtitle="Lead visa-stage distribution" tag="Visa Stage" />
+        <HBarList
+          data={leads.byVisaStage.map((r, i) => ({
+            label: r.stage,
+            count: r.count,
+            color: PIE_COLORS[i % PIE_COLORS.length],
+          }))}
+        />
+      </Panel>
 
       {/* ── Assigned status breakdown ── */}
       {assignedStatusData.length > 0 && (
@@ -1200,16 +1250,14 @@ function CounselorDetail({
                 <span className="text-[18px] font-bold tabular-nums text-slate-900 dark:text-white">
                   {item.count}
                 </span>
-                <span className="text-[11px] text-slate-500">
-                  {titleCase(item.status)}
-                </span>
+                <span className="text-[11px] text-slate-500">{titleCase(item.status)}</span>
               </div>
             ))}
           </div>
         </Panel>
       )}
 
-      {/* ── Students + Visa ── */}
+      {/* ── Students summary strip + table (REAL student data) ── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Panel className="p-5">
           <PanelHeader
@@ -1217,8 +1265,31 @@ function CounselorDetail({
             subtitle="Enrollment pipeline"
             tag="Students"
           />
+          <div className="mb-4 grid grid-cols-3 gap-2">
+            {[
+              { label: "Total", value: students.total, color: "text-slate-700 dark:text-white" },
+              {
+                label: "New this month",
+                value: students.newThisMonth,
+                color: "text-emerald-600",
+              },
+              {
+                label: "Conv. rate",
+                value: `${students.conversionRate}%`,
+                color: "text-red-500",
+              },
+            ].map((v) => (
+              <div
+                key={v.label}
+                className="rounded-lg border border-slate-100 bg-slate-50 p-2 text-center dark:border-white/5 dark:bg-white/[0.03]"
+              >
+                <div className={`text-[16px] font-bold tabular-nums ${v.color}`}>{v.value}</div>
+                <div className="text-[10px] text-slate-500">{v.label}</div>
+              </div>
+            ))}
+          </div>
           <HBarList
-            data={students.byStatus.map((r, i) => ({
+            data={students.byStatus.map((r) => ({
               label: r.status,
               count: r.count,
               color: statusColor(r.status),
@@ -1226,38 +1297,18 @@ function CounselorDetail({
           />
         </Panel>
         <Panel className="p-5">
-          <PanelHeader
-            title="Visa by Status"
-            subtitle="Application status breakdown"
-            tag="Visa"
-          />
+          <PanelHeader title="Visa by Status" subtitle="Application status breakdown" tag="Visa" />
           <div className="mb-4 grid grid-cols-3 gap-2">
             {[
-              {
-                label: "Total",
-                value: visa.total,
-                color: "text-slate-700 dark:text-white",
-              },
-              {
-                label: "Approved",
-                value: visa.approved,
-                color: "text-emerald-600",
-              },
-              {
-                label: "Rejected",
-                value: visa.rejected,
-                color: "text-red-600",
-              },
+              { label: "Total", value: visa.total, color: "text-slate-700 dark:text-white" },
+              { label: "Approved", value: visa.approved, color: "text-emerald-600" },
+              { label: "Rejected", value: visa.rejected, color: "text-red-600" },
             ].map((v) => (
               <div
                 key={v.label}
                 className="rounded-lg border border-slate-100 bg-slate-50 p-2 text-center dark:border-white/5 dark:bg-white/[0.03]"
               >
-                <div
-                  className={`text-[18px] font-bold tabular-nums ${v.color}`}
-                >
-                  {v.value}
-                </div>
+                <div className={`text-[18px] font-bold tabular-nums ${v.color}`}>{v.value}</div>
                 <div className="text-[10px] text-slate-500">{v.label}</div>
               </div>
             ))}
@@ -1272,36 +1323,15 @@ function CounselorDetail({
         </Panel>
       </div>
 
-      {/* ── Visa by type ── */}
-      {visa.byType.length > 0 && (
-        <Panel className="p-5">
-          <PanelHeader
-            title="Visa by Type"
-            subtitle="Application type distribution"
-            tag="Visa Type"
-          />
-          <HBarList
-            data={visa.byType
-              .filter((r) => r.visaType)
-              .map((r, i) => ({
-                label: r.visaType!,
-                count: r.count,
-                color: DATA_COLORS[i % DATA_COLORS.length],
-              }))}
-          />
-        </Panel>
-      )}
+      {/* ── Full student records table ── */}
+      <StudentsTable list={students.list} />
 
       {/* ── Courses + Universities ── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Panel className="p-5">
-          <PanelHeader
-            title="Course Applications"
-            subtitle="By application status"
-            tag="Courses"
-          />
+          <PanelHeader title="Course Applications" subtitle="By application status" tag="Courses" />
           <HBarList
-            data={courses.byApplicationStatus.map((r, i) => ({
+            data={courses.byApplicationStatus.map((r) => ({
               label: r.status,
               count: r.count,
               color: statusColor(r.status),
@@ -1334,34 +1364,20 @@ function CounselorDetail({
           />
           <div className="mb-4 grid grid-cols-3 gap-2">
             {[
-              {
-                label: "Total Remarks",
-                value: summary.totalRemarks,
-                color: "text-red-500",
-              },
+              { label: "Total Remarks", value: summary.totalRemarks, color: "text-red-500" },
               {
                 label: "Timelines",
                 value: summary.totalTimelinesCreated,
                 color: "text-rose-500",
               },
-              {
-                label: "Documents",
-                value: summary.totalDocs,
-                color: "text-orange-500",
-              },
+              { label: "Documents", value: summary.totalDocs, color: "text-orange-500" },
             ].map((v) => (
               <div
                 key={v.label}
                 className="flex flex-col items-center justify-center rounded-xl border border-slate-100 bg-slate-50/50 p-3 dark:border-white/5 dark:bg-white/[0.02]"
               >
-                <span
-                  className={`text-[20px] font-bold tabular-nums ${v.color}`}
-                >
-                  {v.value}
-                </span>
-                <span className="mt-1 text-[10px] text-slate-500">
-                  {v.label}
-                </span>
+                <span className={`text-[20px] font-bold tabular-nums ${v.color}`}>{v.value}</span>
+                <span className="mt-1 text-[10px] text-slate-500">{v.label}</span>
               </div>
             ))}
           </div>
@@ -1377,9 +1393,7 @@ function CounselorDetail({
                 </span>
               </div>
             ))}
-            {!activity.remarksByType.length && (
-              <EmptyState label="No activity data" />
-            )}
+            {!activity.remarksByType.length && <EmptyState label="No activity data" />}
           </div>
         </Panel>
 
@@ -1392,9 +1406,7 @@ function CounselorDetail({
           <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-100 bg-red-50 px-4 py-3 dark:border-red-500/10 dark:bg-red-500/5">
             <Landmark className="h-4 w-4 text-red-400" />
             <div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Total Approved
-              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Total Approved</p>
               <p className="text-[18px] font-bold text-red-500 tabular-nums">
                 {fmtCurrency(loans.totalApproved)}
               </p>
@@ -1409,13 +1421,8 @@ function CounselorDetail({
           />
           <div className="mt-4 space-y-2">
             {loans.byStatus.map((r) => (
-              <div
-                key={r.status}
-                className="flex items-center justify-between text-[12px]"
-              >
-                <span className="text-slate-500 dark:text-slate-400">
-                  {titleCase(r.status)}
-                </span>
+              <div key={r.status} className="flex items-center justify-between text-[12px]">
+                <span className="text-slate-500 dark:text-slate-400">{titleCase(r.status)}</span>
                 <span className="font-semibold text-slate-700 dark:text-slate-200">
                   {fmtCurrency(r.totalAmount)}
                 </span>
@@ -1428,11 +1435,7 @@ function CounselorDetail({
       {/* ── MBBS Leads ── */}
       {mbbsLeads.total > 0 && (
         <Panel className="p-5">
-          <PanelHeader
-            title="MBBS Leads"
-            subtitle="Medical program lead status"
-            tag="MBBS"
-          />
+          <PanelHeader title="MBBS Leads" subtitle="Medical program lead status" tag="MBBS" />
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {mbbsLeads.byStatus.map((item) => (
               <div
@@ -1442,16 +1445,14 @@ function CounselorDetail({
                 <span className="text-[18px] font-bold tabular-nums text-slate-900 dark:text-white">
                   {item.count}
                 </span>
-                <span className="text-[11px] text-slate-500">
-                  {titleCase(item.status)}
-                </span>
+                <span className="text-[11px] text-slate-500">{titleCase(item.status)}</span>
               </div>
             ))}
           </div>
         </Panel>
       )}
 
-      {/* ── Recent follow-up activity ── */}
+      {/* ── Recent follow-up activity (FIXED: lead.studentName instead of firstName/lastName) ── */}
       <Panel className="p-5">
         <div className="mb-4 flex items-start justify-between gap-2">
           <div>
@@ -1489,19 +1490,15 @@ function CounselorDetail({
                   </p>
                   {item.lead && (
                     <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      {item.lead.firstName} {item.lead.lastName} ·{" "}
-                      {item.lead.phone}
+                      {item.lead.studentName} · {item.lead.phone}
                     </p>
                   )}
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="text-[11px] text-slate-400">
-                    {timeAgo(item.createdAt)}
-                  </p>
+                  <p className="text-[11px] text-slate-400">{timeAgo(item.createdAt)}</p>
                   {item.nextFollowup && (
                     <p className="mt-0.5 text-[10px] text-orange-400">
-                      Follow:{" "}
-                      {new Date(item.nextFollowup).toLocaleDateString()}
+                      Follow: {new Date(item.nextFollowup).toLocaleDateString()}
                     </p>
                   )}
                 </div>
@@ -1530,7 +1527,8 @@ function AllCounselorsView({
   onSelect: (id: string | null) => void;
 }) {
   const [search, setSearch] = useState("");
-  const { globalSummary, leaderboard, topThisMonth, counselors } = data;
+  const [showStudents, setShowStudents] = useState(false);
+  const { globalSummary, leaderboard, topThisMonth, counselors, students } = data;
 
   const selectedCounselor = selectedId
     ? counselors.find((c) => c.counselorId === selectedId)
@@ -1542,9 +1540,7 @@ function AllCounselorsView({
         (c) =>
           c.counselorName.toLowerCase().includes(search.toLowerCase()) ||
           c.email.toLowerCase().includes(search.toLowerCase()) ||
-          c.branches.some((b) =>
-            b.name.toLowerCase().includes(search.toLowerCase())
-          )
+          c.branches.some((b) => b.name.toLowerCase().includes(search.toLowerCase()))
       ),
     [leaderboard, search]
   );
@@ -1571,11 +1567,11 @@ function AllCounselorsView({
                 value: fmtNum(globalSummary.totalLeads),
                 color: "text-red-400",
               },
-            //   {
-            //     label: "Total Students",
-            //     value: fmtNum(globalSummary.totalStudents),
-            //     color: "text-rose-400",
-            //   },
+              {
+                label: "Total Students",
+                value: fmtNum(globalSummary.totalStudents),
+                color: "text-rose-400",
+              },
               {
                 label: "Converted",
                 value: fmtNum(globalSummary.convertedLeads),
@@ -1603,9 +1599,7 @@ function AllCounselorsView({
                 >
                   {item.value}
                 </div>
-                <div className="mt-0.5 text-[12px] text-slate-400">
-                  {item.label}
-                </div>
+                <div className="mt-0.5 text-[12px] text-slate-400">{item.label}</div>
               </div>
             ))}
           </div>
@@ -1632,11 +1626,7 @@ function AllCounselorsView({
           {topThisMonth.map((c, i) => (
             <button
               key={c.counselorId}
-              onClick={() =>
-                onSelect(
-                  selectedId === c.counselorId ? null : c.counselorId
-                )
-              }
+              onClick={() => onSelect(selectedId === c.counselorId ? null : c.counselorId)}
               className="group relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-red-100 hover:shadow-lg hover:shadow-red-500/5 dark:border-red-500/10 dark:bg-[#1a1b24] dark:hover:border-red-500/20"
             >
               <div className="absolute -right-4 -top-4 h-16 w-16 rounded-full bg-red-500/5 blur-2xl transition group-hover:bg-red-500/10" />
@@ -1678,9 +1668,7 @@ function AllCounselorsView({
                     </div>
                   </div>
                 ) : (
-                  <p className="mt-1 text-[11px] text-slate-400">
-                    No target set
-                  </p>
+                  <p className="mt-1 text-[11px] text-slate-400">No target set</p>
                 )}
               </div>
             </button>
@@ -1705,10 +1693,7 @@ function AllCounselorsView({
             margin={{ left: -8, right: 8, top: 4, bottom: 0 }}
             barGap={4}
           >
-            <CartesianGrid
-              vertical={false}
-              stroke="rgba(239,68,68,0.07)"
-            />
+            <CartesianGrid vertical={false} stroke="rgba(239,68,68,0.07)" />
             <XAxis
               dataKey="name"
               tick={{ fontSize: 10, fill: "#94A3B8" }}
@@ -1721,27 +1706,10 @@ function AllCounselorsView({
               tickLine={false}
               width={32}
             />
-            <Tooltip
-              content={<ChartTooltip />}
-              cursor={{ fill: "rgba(239,68,68,.05)" }}
-            />
-            <Legend
-              wrapperStyle={{ fontSize: 11 }}
-              iconType="circle"
-              iconSize={7}
-            />
-            <Bar
-              dataKey="Leads"
-              fill="#ef4444"
-              radius={[4, 4, 0, 0]}
-              barSize={16}
-            />
-            <Bar
-              dataKey="Converted"
-              fill="#fb7185"
-              radius={[4, 4, 0, 0]}
-              barSize={16}
-            />
+            <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(239,68,68,.05)" }} />
+            <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" iconSize={7} />
+            <Bar dataKey="Leads" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={16} />
+            <Bar dataKey="Converted" fill="#fb7185" radius={[4, 4, 0, 0]} barSize={16} />
           </BarChart>
         </ResponsiveContainer>
       </Panel>
@@ -1785,6 +1753,7 @@ function AllCounselorsView({
                     { label: "Leads", right: true },
                     { label: "Converted", right: true },
                     { label: "Rate", right: true },
+                    { label: "Students", right: true },
                     { label: "This Month", right: true },
                     { label: "Target %", right: true },
                     { label: "Visa ✓", right: true },
@@ -1808,9 +1777,7 @@ function AllCounselorsView({
                   <tr
                     key={c.counselorId}
                     onClick={() =>
-                      onSelect(
-                        selectedId === c.counselorId ? null : c.counselorId
-                      )
+                      onSelect(selectedId === c.counselorId ? null : c.counselorId)
                     }
                     className={`cursor-pointer border-b border-slate-50 transition-all hover:bg-red-50/50 dark:border-red-500/5 dark:hover:bg-red-500/5 ${
                       selectedId === c.counselorId
@@ -1844,9 +1811,7 @@ function AllCounselorsView({
                           <p className="font-semibold text-slate-900 dark:text-white">
                             {c.counselorName}
                           </p>
-                          <p className="text-[11px] text-slate-400">
-                            {c.email}
-                          </p>
+                          <p className="text-[11px] text-slate-400">{c.email}</p>
                         </div>
                       </div>
                     </td>
@@ -1870,6 +1835,9 @@ function AllCounselorsView({
                     >
                       {c.conversionRate}%
                     </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-rose-400">
+                      {c.totalStudents}
+                    </td>
                     <td className="px-4 py-3 text-right tabular-nums text-slate-700 dark:text-slate-300">
                       +{c.newLeadsThisMonth}
                     </td>
@@ -1880,10 +1848,7 @@ function AllCounselorsView({
                             <div
                               className="h-full rounded-full bg-red-500"
                               style={{
-                                width: `${Math.min(
-                                  c.monthlyTargetAchievement,
-                                  100
-                                )}%`,
+                                width: `${Math.min(c.monthlyTargetAchievement, 100)}%`,
                               }}
                             />
                           </div>
@@ -1903,9 +1868,7 @@ function AllCounselorsView({
                     </td>
                     <td
                       className={`px-4 py-3 text-right tabular-nums font-semibold ${
-                        c.overdueFollowups > 0
-                          ? "text-red-500"
-                          : "text-slate-400"
+                        c.overdueFollowups > 0 ? "text-red-500" : "text-slate-400"
                       }`}
                     >
                       {c.overdueFollowups}
@@ -1917,10 +1880,7 @@ function AllCounselorsView({
                 ))}
                 {filteredLeaderboard.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={14}
-                      className="py-10 text-center text-[13px] text-slate-400"
-                    >
+                    <td colSpan={13} className="py-10 text-center text-[13px] text-slate-400">
                       No counselors match "{search}"
                     </td>
                   </tr>
@@ -1929,6 +1889,35 @@ function AllCounselorsView({
             </table>
           </div>
         </Panel>
+      </section>
+
+      {/* ── Global converted students list (collapsible) ── */}
+      <section>
+        <button
+          onClick={() => setShowStudents((v) => !v)}
+          className="mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white px-5 py-4 text-left shadow-sm transition hover:border-red-100 dark:border-red-500/10 dark:bg-[#1a1b24] dark:hover:border-red-500/20"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-500 dark:bg-rose-500/10">
+              <GraduationCap className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-[15px] font-bold text-slate-900 dark:text-white">
+                All Converted Students
+              </h2>
+              <p className="text-[12px] text-slate-500 dark:text-slate-400">
+                {students?.length} students across all counselors — click to{" "}
+                {showStudents ? "collapse" : "expand"}
+              </p>
+            </div>
+          </div>
+          <ChevronRight
+            className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${
+              showStudents ? "rotate-90" : ""
+            }`}
+          />
+        </button>
+        {showStudents && <GlobalStudentsTable list={students} />}
       </section>
 
       {/* ── Drilldown ── */}
@@ -1959,14 +1948,112 @@ function AllCounselorsView({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Global students table (counselor-tagged, used in AllCounselorsView)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function GlobalStudentsTable({ list }: { list: StudentRecord[] }) {
+  const [q, setQ] = useState("");
+
+  const filtered = useMemo(() => {
+    if (!q.trim()) return list;
+    const needle = q.toLowerCase();
+    return list.filter(
+      (s) =>
+        s.name?.toLowerCase().includes(needle) ||
+        s.email?.toLowerCase().includes(needle) ||
+        s.counselorName?.toLowerCase().includes(needle) ||
+        s.country?.toLowerCase().includes(needle)
+    );
+  }, [list, q]);
+
+  return (
+    <Panel className="p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[12px] text-slate-500 dark:text-slate-400">
+          {filtered.length} of {list.length} students
+        </p>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search student or counselor…"
+            className="w-64 rounded-xl border border-slate-200 bg-white py-1.5 pl-9 pr-3 text-[12px] text-slate-700 outline-none transition focus:border-red-300 focus:ring-2 focus:ring-red-500/10 dark:border-red-500/10 dark:bg-[#1a1b24] dark:text-slate-200"
+          />
+        </div>
+      </div>
+      <div className="max-h-[480px] overflow-y-auto overflow-x-auto">
+        <table className="w-full text-[12.5px]">
+          <thead className="sticky top-0 bg-white dark:bg-[#1a1b24]">
+            <tr className="border-b border-slate-100 dark:border-red-500/10">
+              {["Student", "Counselor", "Country", "Status", "Visa Stage", "Created"].map((h) => (
+                <th
+                  key={h}
+                  className="whitespace-nowrap px-3 py-2.5 text-left text-[10.5px] font-semibold text-slate-500 dark:text-slate-400"
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((s) => (
+              <tr
+                key={s.id}
+                className="border-b border-slate-50 transition hover:bg-red-50/40 dark:border-red-500/5 dark:hover:bg-red-500/5"
+              >
+                <td className="px-3 py-2.5">
+                  <p className="font-semibold text-slate-900 dark:text-white">
+                    {s.name || "Unnamed"}
+                  </p>
+                  <p className="text-[10.5px] text-slate-400">{s.email || s.phone || "—"}</p>
+                </td>
+                <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300">
+                  {s.counselorName || "—"}
+                </td>
+                <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300">
+                  {s.country || "—"}
+                </td>
+                <td className="px-3 py-2.5">
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10.5px] font-medium"
+                    style={{
+                      background: `${statusColor(s.status)}18`,
+                      color: statusColor(s.status),
+                    }}
+                  >
+                    {titleCase(s.status || "Unknown")}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300">
+                  {s.visaStage ? titleCase(s.visaStage) : "—"}
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-slate-400">
+                  {new Date(s.createdAt).toLocaleDateString("en-IN")}
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-10 text-center text-slate-400">
+                  {q ? `No students match "${q}"` : "No converted students yet"}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Root component
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function CounselorReports() {
   const today = new Date();
-  const startOfYear = new Date(today.getFullYear(), 0, 1)
-    .toISOString()
-    .slice(0, 10);
+  const startOfYear = new Date(today.getFullYear(), 0, 1).toISOString().slice(0, 10);
   const todayStr = today.toISOString().slice(0, 10);
 
   const [filters, setFilters] = useState({
@@ -1983,28 +2070,30 @@ export default function CounselorReports() {
   const [allData, setAllData] = useState<AllCounselorsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCounselor, setSelectedCounselor] = useState<string | null>(
-    null
-  );
+  const [selectedCounselor, setSelectedCounselor] = useState<string | null>(null);
 
-  const fetchAll = useCallback(async (f = filters) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({ from: f.from, to: f.to });
-      if (f.branchId) params.set("branchId", f.branchId);
-      const res = await fetch(`/api/report/dashboard/counselor?${params}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error ?? "Unknown error");
-      setAllData(json.data);
-      setFilters(f);
-    } catch (e: any) {
-      setError(e.message ?? "Failed to load data");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
+  const fetchAll = useCallback(
+    async (f = filters) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({ from: f.from, to: f.to });
+        if (f.branchId) params.set("branchId", f.branchId);
+        const res = await fetch(`/api/report/dashboard/counselor?${params}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error ?? "Unknown error");
+        
+        setAllData(json.data);
+        setFilters(f);
+      } catch (e: any) {
+        setError(e.message ?? "Failed to load data");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filters]
+  );
 
   useEffect(() => {
     fetchAll();
@@ -2052,22 +2141,12 @@ export default function CounselorReports() {
             }
             className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-700 outline-none transition focus:border-red-300 focus:ring-2 focus:ring-red-500/10 dark:border-red-500/10 dark:bg-[#232530] dark:text-slate-200"
           />
-          {/* <input
-            placeholder="Branch ID (optional)"
-            value={pendingFilters.branchId}
-            onChange={(e) =>
-              setPendingFilters((p) => ({ ...p, branchId: e.target.value }))
-            }
-            className="w-36 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-red-300 focus:ring-2 focus:ring-red-500/10 dark:border-red-500/10 dark:bg-[#232530] dark:text-slate-200"
-          /> */}
           <button
             onClick={handleApply}
             disabled={loading}
             className="flex items-center gap-2 rounded-xl bg-red-500 px-4 py-2 text-[13px] font-medium text-white shadow-sm shadow-red-500/20 transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-            />
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             {loading ? "Loading…" : "Apply"}
           </button>
         </div>
@@ -2100,8 +2179,7 @@ export default function CounselorReports() {
 
       {/* ── Footer ── */}
       <div className="mt-10 pb-3 text-center text-[12px] text-slate-400">
-        Showing data from{" "}
-        {new Date(filters.from).toLocaleDateString()} to{" "}
+        Showing data from {new Date(filters.from).toLocaleDateString()} to{" "}
         {new Date(filters.to).toLocaleDateString()}
       </div>
     </div>

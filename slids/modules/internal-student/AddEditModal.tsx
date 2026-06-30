@@ -213,7 +213,7 @@ export function AddEditModal({
       setCounselorId(studentToEdit.counselorId ?? '');
       setSelectedCounselor(studentToEdit.counselor?.id ?? '');
       setPreferredCountry(studentToEdit.preferredCountry ?? 'United Kingdom');
-      setIntake(studentToEdit.intakeSeason ?? 'Sep 2026');
+      setIntake(studentToEdit.intakeSeason ?? 'FALL');
       setAdmissionDate(toInputDate(studentToEdit.admissionDate));
       setApplicationType(studentToEdit.applicationType ?? 'MASTER');
       setPassport(studentToEdit.passport ?? '');
@@ -386,7 +386,7 @@ export function AddEditModal({
                   <div className='col-span-2 flex items-center justify-between'>
                     <div className="col-span-2">
                     <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">
-                      First Name <span className="text-red-500">*</span>
+                      Studebt Name<span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
