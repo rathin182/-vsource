@@ -73,7 +73,7 @@ const items = [
     to: "/reports",
     label: "Peformances",
     icon: BarChart3,
-    roles: ["ADMIN", "COUNSELLOR", "SUPER ADMIN"],
+    roles: ["ADMIN", "SUPER ADMIN"],
   },
 
   // Admin only
@@ -101,30 +101,30 @@ const items = [
     icon: UserCog,
     roles: ["ADMIN", "SUPER ADMIN"],
   },
-  // {
-  //   to: "/courses",
-  //   label: "Courses Management",
-  //   icon: School,
-  //   roles: ["ADMIN", "COUNSELLOR", "SUPER ADMIN"],
-  // },
-  //  {
-  //   to: "/course-finder",
-  //   label: "Course Finder",
-  //   icon: Search,
-  //   roles: ["ADMIN", "COUNSELLOR", "SUPER ADMIN", "RECEPTIONIST"],
-  // },
-  // {
-  //   to: "/assign-leads",
-  //   label: "Assign Leads",
-  //   icon: Headset,
-  //   roles: ["ADMIN", "SUPER ADMIN"],
-  // },
-  // {
-  //   to: "/counsellor",
-  //   label: "counsellor Management",
-  //   icon: FolderKanban,
-  //   roles: ["ADMIN", "SUPER ADMIN"],
-  // },
+  {
+    to: "/courses",
+    label: "Courses Management",
+    icon: School,
+    roles: ["ADMIN", "SUPER ADMIN"],
+  },
+   {
+    to: "/course-finder",
+    label: "Course Finder",
+    icon: Search,
+    roles: ["ADMIN", "COUNSELLOR", "SUPER ADMIN", "RECEPTIONIST"],
+  },
+  {
+    to: "/assign-leads",
+    label: "Assign Leads",
+    icon: Headset,
+    roles: ["ADMIN", "SUPER ADMIN"],
+  },
+  {
+    to: "/counsellor",
+    label: "counsellor Management",
+    icon: FolderKanban,
+    roles: ["ADMIN", "SUPER ADMIN"],
+  },
   // {
   //   to: "/profile",
   //   label: "Profile",

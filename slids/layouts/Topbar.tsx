@@ -33,7 +33,6 @@ export function Topbar() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const url = window.location.href;
   const getMe = async () => {
     const req = await axios.get("/api/auth/me");
     if (req.status === 200) {
@@ -58,10 +57,12 @@ export function Topbar() {
 
 
   const crumbs = pathname.split("/").filter(Boolean);
-  const parmName = url.split("?")[1];
   const displayBreadCrumbs =
   breadCrumbs.length > 0 ? breadCrumbs : crumbs;
 useEffect(() => {
+    const url = window.location.href;
+  const parmName = url.split("?")[1];
+
   if (parmName?.includes("studentName")) {
     const name = decodeURIComponent(parmName.split("=")[1]);
 
@@ -73,7 +74,7 @@ useEffect(() => {
   } else {
     setBreadCrumbs(crumbs);
   }
-}, [pathname, url]);
+}, [pathname]);
 
   return (
     <>
