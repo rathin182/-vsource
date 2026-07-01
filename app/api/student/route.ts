@@ -13,179 +13,179 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/jwt";
 
 export async function GET(req: NextRequest) {
-    try {
-        const studentId =
-            req.nextUrl.searchParams.get("id");
+  try {
+    const studentId =
+      req.nextUrl.searchParams.get("id");
 
-        const few = req.nextUrl.searchParams.get("few")
-        if (few) {
-            const students = await db.student.findMany({
-                select: {
-                    id: true,
-                    studentName: true,
-                    studentNumber: true,
-                    emailId: true,
-                }
-            })
-        return NextResponse.json({
-                success: true,
-                data: students,
-            });
+    const few = req.nextUrl.searchParams.get("few")
+    if (few) {
+      const students = await db.student.findMany({
+        select: {
+          id: true,
+          studentName: true,
+          studentNumber: true,
+          emailId: true,
         }
-        if (studentId) {
-            const student =
-                await db.student.findUnique({
-                    where: {
-                        id: studentId,
-                    },
-                    include: {
-                        branch: {
-                            select: {
-                                id: true,
-                                name: true,
-                                code: true,
-                            },
-                        },
-
-                        counselor: {
-                            select: {
-                                id: true,
-                                name: true,
-                                email: true,
-                            },
-                        },
-
-                        lead: {
-                            select: {
-                                id: true,
-                                firstName: true,
-                                lastName: true,
-                                email: true,
-                                phone: true,
-                                preferredCountry: true,
-                                preferredCourse: true,
-                                status: true,
-                                source: true,
-                            },
-                        },
-                        remarks: true,
-                        docs: true,
-                        loanInquiries: true,
-
-                        studentCourses: {
-                            select: {
-                                id: true,
-                                universityName: true,
-                                courseName: true,
-                                immigrationPortal: true,
-                                applicationDate: true,
-                                applicationStatus: true,
-                                studentId: true,
-                                createdAt: true,
-                                updatedAt: true,
-                            },
-                        },
-
-                        _count: {
-                            select: {
-                                timeline: true,
-                            },
-                        },
-                    },
-                });
-
-            if (!student) {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        message: "Student not found",
-                    },
-                    {
-                        status: 404,
-                    }
-                );
-            }
-
-            return NextResponse.json({
-                success: true,
-                data: student,
-            });
-        }
-
-        const students = await db.student.findMany({
-            orderBy: {
-                createdAt: "desc",
-            },
-            include: {
-                branch: {
-                    select: {
-                        id: true,
-                        name: true,
-                        code: true,
-                    },
-                },
-
-                counselor: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    },
-                },
-
-                lead: {
-                    select: {
-                        id: true,
-                        firstName: true,
-                        lastName: true,
-                        email: true,
-                        phone: true,
-                        preferredCountry: true,
-                        preferredCourse: true,
-                        status: true,
-                        source: true,
-                    },
-                },
-
-                studentCourses: {
-                    select: {
-                        id: true,
-                        universityName: true,
-                        courseName: true,
-                        immigrationPortal: true,
-                        applicationDate: true,
-                        applicationStatus: true,
-                        studentId: true,
-                        createdAt: true,
-                        updatedAt: true,
-                    },
-                },
-
-                _count: {
-                    select: {
-                        timeline: true,
-                    },
-                },
-            },
-        });
-
-        return NextResponse.json({
-            success: true,
-            data: students,
-        });
-    } catch (error) {
-        console.error(error);
-
-        return NextResponse.json(
-            {
-                success: false,
-                message: "Something went wrong",
-            },
-            {
-                status: 500,
-            }
-        );
+      })
+      return NextResponse.json({
+        success: true,
+        data: students,
+      });
     }
+    if (studentId) {
+      const student =
+        await db.student.findUnique({
+          where: {
+            id: studentId,
+          },
+          include: {
+            branch: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+              },
+            },
+
+            counselor: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+
+            lead: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+                preferredCountry: true,
+                preferredCourse: true,
+                status: true,
+                source: true,
+              },
+            },
+            remarks: true,
+            docs: true,
+            loanInquiries: true,
+
+            studentCourses: {
+              select: {
+                id: true,
+                universityName: true,
+                courseName: true,
+                immigrationPortal: true,
+                applicationDate: true,
+                applicationStatus: true,
+                studentId: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+            },
+
+            _count: {
+              select: {
+                timeline: true,
+              },
+            },
+          },
+        });
+
+      if (!student) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Student not found",
+          },
+          {
+            status: 404,
+          }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: student,
+      });
+    }
+
+    const students = await db.student.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+      include: {
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+
+        counselor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+
+        lead: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            preferredCountry: true,
+            preferredCourse: true,
+            status: true,
+            source: true,
+          },
+        },
+
+        studentCourses: {
+          select: {
+            id: true,
+            universityName: true,
+            courseName: true,
+            immigrationPortal: true,
+            applicationDate: true,
+            applicationStatus: true,
+            studentId: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+
+        _count: {
+          select: {
+            timeline: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: students,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Something went wrong",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }
 
 export async function POST(req: Request) {
@@ -244,9 +244,7 @@ export async function PATCH(req: NextRequest) {
           success: false,
           message: "Lead ID is required.",
         },
-        {
-          status: 400,
-        }
+        { status: 400 }
       );
     }
 
@@ -260,122 +258,15 @@ export async function PATCH(req: NextRequest) {
       return isNaN(date.getTime()) ? null : date;
     };
 
-    const data: Record<string, any> = {};
-
-    // Personal
-    if ("firstName" in body) data.firstName = body.firstName?.trim();
-    if ("lastName" in body) data.lastName = body.lastName || null;
-    if ("studentName" in body) data.studentName = body.studentName || null;
-
-    if ("phone" in body) data.phone = body.phone || null;
-    if ("email" in body) data.email = body.email || null;
-
-    if ("passport" in body) data.passport = body.passport || null;
-
-    // Relations
-    if ("counselorId" in body) {
-      if (body.counselorId) {
-        data.counselor = {
-          connect: {
-            id: body.counselorId,
-          },
-        };
-      } else {
-        data.counselor = {
-          disconnect: true,
-        };
-      }
-    }
-
-    // Study Preferences
-    if ("preferredCountry" in body)
-      data.preferredCountry = body.preferredCountry || null;
-
-    if ("preferredCourse" in body)
-      data.preferredCourse = body.preferredCourse || null;
-
-    if ("intake" in body) {
-      data.intakeSeason = body.intake
-        ? body.intake.toUpperCase() as IntakeSeason
-        : null;
-    }
-
-    // Dates
-    if ("dob" in body) data.dob = toDate(body.dob);
-
-    if ("admissionDate" in body)
-      data.admissionDate = toDate(body.admissionDate);
-
-    if ("depositDeadline" in body)
-      data.depositDeadline = toDate(body.depositDeadline);
-
-    if ("casDeadline" in body)
-      data.casDeadline = toDate(body.casDeadline);
-
-    if ("universityStart" in body)
-      data.universityStart = toDate(body.universityStart);
-
-    // Enums
-    if ("status" in body && body.status) {
-      data.status = body.status as LeadStatus;
-    }
-
-    if ("visaStage" in body && body.visaStage) {
-      data.visaStage = body.visaStage as StudentVisaStage;
-    }
-
-    if ("applicationType" in body && body.applicationType) {
-      data.applicationType =
-        body.applicationType as Application;
-    }
-
-    if ("englishWaiverType" in body && body.englishWaiverType) {
-      data.englishWaiverType =
-        body.englishWaiverType as EnglishWaiverType;
-    }
-
-    if ("currentStage" in body && body.currentStage) {
-      data.currentStage =
-        body.currentStage as Studentstage;
-    }
-
-    if ("immigrationPortalPassword" in body) {
-      data.immigrationPortalPassword =
-        body.immigrationPortalPassword || null;
-    }
-
-    if (Object.keys(data).length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "No fields provided to update.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    const lead = await db.lead.update({
-      where: {
-        id,
-      },
-      data,
+    // Find Lead + Student first
+    const existingLead = await db.lead.findUnique({
+      where: { id },
       include: {
-        branch: true,
-        counselor: true,
+        student: true,
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Lead updated successfully.",
-      data: lead,
-    });
-  } catch (error: any) {
-    console.error(error);
-
-    if (error.code === "P2025") {
+    if (!existingLead) {
       return NextResponse.json(
         {
           success: false,
@@ -387,10 +278,170 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    const leadData: any = {};
+    const studentData: any = {};
+
+    /* ------------------------
+       Lead + Student
+    -------------------------*/
+
+    if ("studentName" in body) {
+      leadData.studentName = body.studentName || null;
+      studentData.studentName = body.studentName || "";
+    }
+
+    if ("phone" in body) {
+      leadData.phone = body.phone || null;
+      studentData.mobileNumber = body.phone || null;
+    }
+
+    if ("email" in body) {
+      leadData.email = body.email || null;
+      studentData.emailId = body.email || null;
+    }
+
+    if ("passport" in body)
+      leadData.passport = body.passport || null;
+
+    if ("preferredCountry" in body)
+      leadData.preferredCountry = body.preferredCountry || null;
+
+    if ("preferredCourse" in body)
+      leadData.preferredCourse = body.preferredCourse || null;
+
+    if ("intake" in body) {
+      leadData.intakeSeason = body.intake
+        ? (body.intake as IntakeSeason)
+        : null;
+    }
+
+    if ("dob" in body) {
+      const date = toDate(body.dob);
+
+      leadData.dob = date;
+      studentData.dob = date;
+    }
+
+    if ("admissionDate" in body)
+      leadData.admissionDate = toDate(body.admissionDate);
+
+    if ("depositDeadline" in body)
+      leadData.depositDeadline = toDate(body.depositDeadline);
+
+    if ("casDeadline" in body)
+      leadData.casDeadline = toDate(body.casDeadline);
+
+    if ("universityStart" in body)
+      leadData.universityStart = toDate(body.universityStart);
+
+    if ("status" in body && body.status)
+      leadData.status = body.status as LeadStatus;
+
+    if ("visaStage" in body && body.visaStage)
+      leadData.visaStage = body.visaStage as StudentVisaStage;
+
+    if ("applicationType" in body && body.applicationType)
+      leadData.applicationType =
+        body.applicationType as Application;
+
+    if ("englishWaiverType" in body && body.englishWaiverType)
+      leadData.englishWaiverType =
+        body.englishWaiverType as EnglishWaiverType;
+
+    if ("currentStage" in body && body.currentStage)
+      leadData.currentStage =
+        body.currentStage as Studentstage;
+
+    if ("immigrationPortalPassword" in body)
+      leadData.immigrationPortalPassword =
+        body.immigrationPortalPassword || null;
+
+    /* ------------------------
+       Counselor
+    -------------------------*/
+
+    if ("counselorId" in body) {
+      if (body.counselorId) {
+        leadData.counselor = {
+          connect: {
+            id: body.counselorId,
+          },
+        };
+
+        studentData.counselor = {
+          connect: {
+            id: body.counselorId,
+          },
+        };
+      } else {
+        leadData.counselor = {
+          disconnect: true,
+        };
+
+        studentData.counselor = {
+          disconnect: true,
+        };
+      }
+    }
+
+    /* ------------------------
+       Update Lead
+    -------------------------*/
+
+    await db.lead.update({
+      where: {
+        id,
+      },
+      data: leadData,
+    });
+
+    /* ------------------------
+       Update Student
+       ONLY if Student exists
+    -------------------------*/
+
+    if (existingLead.student) {
+      await db.student.update({
+        where: {
+          id: existingLead.student.id,
+        },
+        data: studentData,
+      });
+    }
+
+    /* ------------------------
+       Return updated data
+    -------------------------*/
+
+    const updatedLead = await db.lead.findUnique({
+      where: {
+        id,
+      },
+      include: {
+        branch: true,
+        counselor: true,
+        student: {
+          include: {
+            branch: true,
+            counselor: true,
+          },
+        },
+      },
+    });
+    
+
+    return NextResponse.json({
+      success: true,
+      message: "Lead updated successfully.",
+      data: updatedLead,
+    });
+  } catch (error: any) {
+    console.error(error);
+
     return NextResponse.json(
       {
         success: false,
-        message: "Failed to update lead.",
+        message: error.message || "Failed to update lead.",
       },
       {
         status: 500,

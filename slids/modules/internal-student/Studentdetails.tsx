@@ -1214,52 +1214,142 @@ export default function StudentData({ student, reloadStudent, }: any) {
               </div>
 
               {/* VISUAL STEPPER TIMELINE AND COMPLIANCE INTEGRATION TRACKER (Interactive!) */}
-              <div className={`p-6 rounded-3xl border shadow-md space-y-4 dark:bg-slate-900 dark:border-slate-805 bg-white border-slate-100`}>
-                <div className="flex justify-between items-center">
-                  <span className="text-[9px] uppercase font-black text-slate-400 tracking-widest block">Visa compliance pipeline stepper</span>
-                  <span className="text-[9.5px] text-slate-400 font-medium">Click any node block to force trigger stage update</span>
-                </div>
+              {/* VISUAL STEPPER TIMELINE — VOLUME/SEEK BAR STYLE */}
+<div className="p-6 md:p-8 rounded-3xl border shadow-md space-y-8 dark:bg-slate-900 dark:border-slate-800 bg-white border-slate-100">
+  <div className="flex justify-between items-center">
+    <span className="text-[9px] uppercase font-black text-slate-400 tracking-widest block">
+      Visa compliance pipeline stepper
+    </span>
+    <span className="text-[9.5px] text-slate-400 font-medium">
+      Click any milestone to trigger a stage update
+    </span>
+  </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 relative py-2">
-                  {STEPS.map((step, index) => {
-                    const isCompleted = index < currentIndex;
-                    const isActive = index === currentIndex;
-                    const isBlocked = index <= currentIndex;
+  <div className="relative pt-8 pb-10 px-2 md:px-4">
+    {/* Labels row */}
+    <div className="absolute -top-1 left-0 w-full flex justify-between px-0">
+      {STEPS.map((step, index) => {
+        const isCompleted = index < currentIndex;
+        const isActive = index === currentIndex;
+        return (
+          <div
+            key={`label-${step.value}`}
+            className="flex-1 flex flex-col items-center text-center px-0.5"
+          >
+            <span
+              className={`text-[9px] md:text-[10px] font-black uppercase tracking-tight leading-tight transition-colors
+                ${isActive
+                  ? "text-red-600"
+                  : isCompleted
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-slate-400 dark:text-slate-600"
+                }`}
+            >
+              {step.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
 
-                    return (
-                      <button
-                        key={step.value}
-                        disabled={isBlocked}
-                        onClick={() => {
-                          setSelectedStage(step.value);
-                          setConfirmationText("");
-                          setStageModal(true);
-                        }}
-                        className={`p-3 rounded-2xl text-center border text-xs font-bold transition-all flex flex-col justify-between h-[85px] overflow-hidden select-none
-        ${isActive
-                            ? "bg-red-600 text-white border-red-600 shadow-lg shadow-red-600/15"
-                            : isCompleted
-                              ? "bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900"
-                              : "bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-950 dark:border-slate-850 dark:text-slate-500"
-                          }
-        ${isBlocked
-                            ? "cursor-not-allowed opacity-70"
-                            : "cursor-pointer hover:scale-[1.03]"
-                          }
-      `}
-                      >
-                        <span className="text-[10px] font-black font-mono self-start opacity-80">
-                          0{index + 1}
-                        </span>
+    {/* Track + fill */}
+    <div className="relative mt-10 h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-visible">
+      {/* Filled progress (red) */}
+      <motion.div
+        initial={false}
+        animate={{
+          width: `${(currentIndex / (STEPS.length - 1)) * 100}%`
+        }}
+        transition={{ type: "spring", stiffness: 120, damping: 20 }}
+        className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-red-500 to-red-600 shadow-[0_0_12px_rgba(220,38,38,0.5)]"
+      />
 
-                        <p className="text-[10px] tracking-tight uppercase leading-tight font-black text-left">
-                          {step.label}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+      {/* Milestone nodes, evenly spaced, overlaying the track */}
+      <div className="absolute inset-0 flex justify-between items-center">
+        {STEPS.map((step, index) => {
+          const isCompleted = index < currentIndex;
+          const isActive = index === currentIndex;
+          const isFuture = index > currentIndex;
+          const isBlocked = index <= currentIndex;
+
+          return (
+            <div
+              key={step.value}
+              className="relative flex items-center justify-center"
+              style={{ zIndex: isActive ? 20 : 10 }}
+            >
+              <button
+                disabled={isBlocked}
+                onClick={() => {
+                  setSelectedStage(step.value);
+                  setConfirmationText("");
+                  setStageModal(true);
+                }}
+                title={step.label}
+                className={`group relative flex items-center justify-center rounded-full border-2 transition-all duration-200
+                  ${isActive
+                    ? "h-7 w-7 md:h-8 md:w-8 bg-white dark:bg-slate-900 border-red-600 shadow-[0_0_0_6px_rgba(220,38,38,0.15)]"
+                    : isCompleted
+                      ? "h-4 w-4 md:h-5 md:w-5 bg-red-600 border-red-600"
+                      : "h-4 w-4 md:h-5 md:w-5 bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-700"
+                  }
+                  ${isFuture ? "cursor-pointer hover:scale-125" : ""}
+                  ${isBlocked ? "cursor-not-allowed" : ""}
+                `}
+              >
+                {/* Inner thumb dot for active stage */}
+                {isActive && (
+                  <motion.span
+                    layoutId="active-thumb-dot"
+                    className="h-2.5 w-2.5 md:h-3 md:w-3 rounded-full bg-red-600"
+                  />
+                )}
+
+                {/* Check style fill for completed */}
+                {isCompleted && (
+                  <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />
+                )}
+
+                {/* Step number tooltip on hover for future steps */}
+                {isFuture && (
+                  <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-[9px] font-black bg-slate-900 text-white px-1.5 py-0.5 rounded-md whitespace-nowrap">
+                    0{index + 1}
+                  </span>
+                )}
+              </button>
+
+              {/* Glow ring pulse on active thumb */}
+              {isActive && (
+                <motion.span
+                  className="absolute h-7 w-7 md:h-8 md:w-8 rounded-full border-2 border-red-500"
+                  initial={{ opacity: 0.6, scale: 1 }}
+                  animate={{ opacity: 0, scale: 1.8 }}
+                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+
+    {/* Current stage caption under the thumb */}
+    <div className="relative mt-3 h-4">
+      <motion.div
+        initial={false}
+        animate={{
+          left: `${(currentIndex / (STEPS.length - 1)) * 100}%`
+        }}
+        transition={{ type: "spring", stiffness: 120, damping: 20 }}
+        className="absolute -translate-x-1/2 flex flex-col items-center"
+      >
+        <span className="text-[9px] font-black uppercase tracking-widest text-red-600 whitespace-nowrap">
+          ▲ Current Stage
+        </span>
+      </motion.div>
+    </div>
+  </div>
+</div>
 
               <div className="space-y-6">
                 {/* Horizontal Tabs */}
@@ -2206,6 +2296,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
         isDarkMode={isDarkMode}
         studentToEdit={student}
         studentNames={studentName}
+        onrelaod= {reloadStudent}
         onSave={handleSaveStudentPayload}
       />
     </div>

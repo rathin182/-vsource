@@ -1,61 +1,179 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import axios from "axios";
+
 import {
-  CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
 } from "@/slids/components/ui/command";
+
 import { useUi } from "@/slids/store";
+
 import {
-  LayoutDashboard, Users, GraduationCap, FileText, Building2, BookOpen, Banknote,
-  BarChart3, Megaphone, UserCog, ShieldCheck, Settings2, MapPin, User, Settings,
+  Users,
+  FileText,
+  Building2,
+  BarChart3,
+  UserCog,
+  MapPin,
+  Activity,
 } from "lucide-react";
 
 const items = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/leads", label: "Leads", icon: Users },
-  { to: "/students", label: "Students", icon: GraduationCap },
-  { to: "/applications", label: "Applications", icon: FileText },
-  { to: "/universities", label: "Universities", icon: Building2 },
-  { to: "/coaching", label: "Coaching", icon: BookOpen },
-  { to: "/loans", label: "Education Loans", icon: Banknote },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
-  { to: "/promotional", label: "Promotional", icon: Megaphone },
-  { to: "/users", label: "Users", icon: UserCog },
-  { to: "/roles", label: "Roles", icon: ShieldCheck },
-  { to: "/master-settings", label: "Master Settings", icon: Settings2 },
-  { to: "/branches", label: "Branches", icon: MapPin },
-  { to: "/profile", label: "Profile", icon: User },
-  { to: "/settings", label: "Settings", icon: Settings },
+  {
+    to: "/leads",
+    label: "Master - Walkins",
+    icon: Users,
+    roles: ["ADMIN", "RECEPTIONIST", "SUPER ADMIN"],
+    children: [
+      {
+        to: "/leads/all",
+        label: "All Walk-In",
+      },
+      {
+        to: "/leads/add",
+        label: "Add Walk-in's",
+      },
+    ],
+  },
+  {
+    to: "/visa",
+    label: "Visa Applications",
+    icon: Activity,
+    roles: ["ADMIN", "COUNSELLOR", "SUPER ADMIN"],
+  },
+  {
+    to: "/applications",
+    label: "Daily Tracker - Masters",
+    icon: FileText,
+    roles: ["ADMIN", "COUNSELLOR", "SUPER ADMIN"],
+  },
+  {
+    to: "/reports",
+    label: "Performances",
+    icon: BarChart3,
+    roles: ["ADMIN", "COUNSELLOR", "SUPER ADMIN"],
+  },
+  {
+    to: "/branches",
+    label: "Branches",
+    icon: MapPin,
+    roles: ["ADMIN", "SUPER ADMIN"],
+  },
+  {
+    to: "/universities",
+    label: "Abroad Universities",
+    icon: Building2,
+    roles: ["ADMIN", "SUPER ADMIN"],
+  },
+  {
+    to: "/users",
+    label: "User Management",
+    icon: UserCog,
+    roles: ["ADMIN", "SUPER ADMIN"],
+  },
 ] as const;
 
 export function CommandPalette() {
-  const { commandOpen, setCommandOpen } = useUi();
   const router = useRouter();
+  const { commandOpen, setCommandOpen } = useUi();
+
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await axios.get("/api/auth/me");
+
+        if (res.status === 200) {
+          setUser(res.data);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+  const role = user?.role?.name?.toUpperCase();
+
+  const filteredItems = useMemo(() => {
+    if (!role) return [];
+
+    return items.filter((item) => item.roles.includes(role));
+  }, [role]);
+
+  const navigate = (url: string) => {
+    router.push(url);
+    setCommandOpen(false);
+  };
 
   return (
     <CommandDialog open={commandOpen} onOpenChange={setCommandOpen}>
-      <CommandInput placeholder="Search modules, students…" />
+      <CommandInput placeholder="Search modules..." />
+
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
-        <CommandGroup heading="Navigate">
-          {items.map((it) => {
-            const Icon = it.icon;
+
+        <CommandGroup heading="Navigation">
+          {filteredItems.map((item) => {
+            const Icon = item.icon;
+
             return (
-              <CommandItem
-                key={it.to}
-                onSelect={() => { router.push(it.to); setCommandOpen(false); }}
-              >
-                <Icon className="size-4 mr-2" /> {it.label}
-              </CommandItem>
+              <div key={item.to}>
+                <CommandItem onSelect={() => navigate(item.to)}>
+                  <Icon className="mr-2 h-4 w-4" />
+                  {item.label}
+                </CommandItem>
+
+                {"children" in item &&
+                  item.children?.map((child) => (
+                    <CommandItem
+                      key={child.to}
+                      value={`${item.label} ${child.label}`}
+                      onSelect={() => navigate(child.to)}
+                      className="pl-9"
+                    >
+                      {child.label}
+                    </CommandItem>
+                  ))}
+              </div>
             );
           })}
         </CommandGroup>
+
         <CommandSeparator />
-        <CommandGroup heading="Quick actions">
-          <CommandItem onSelect={() => { router.push("/leads"); setCommandOpen(false); }}>
-            + Add new lead
-          </CommandItem>
-          <CommandItem onSelect={() => { router.push("/students"); setCommandOpen(false); }}>
-            + Add new student
-          </CommandItem>
+
+        <CommandGroup heading="Quick Actions">
+          {(role === "ADMIN" ||
+            role === "SUPER ADMIN" ||
+            role === "RECEPTIONIST") && (
+            <CommandItem onSelect={() => navigate("/leads/add")}>
+              + Add Walk-in
+            </CommandItem>
+          )}
+
+          {(role === "ADMIN" ||
+            role === "COUNSELLOR" ||
+            role === "SUPER ADMIN") && (
+            <>
+              <CommandItem onSelect={() => navigate("/visa")}>
+                Open Visa Applications
+              </CommandItem>
+
+              <CommandItem onSelect={() => navigate("/applications")}>
+                Open Daily Tracker
+              </CommandItem>
+            </>
+          )}
         </CommandGroup>
       </CommandList>
     </CommandDialog>
