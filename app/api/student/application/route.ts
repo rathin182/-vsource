@@ -40,6 +40,27 @@ export async function POST(req: NextRequest) {
             },
         });
 
+        const lead = await db.lead.findUnique({
+            where: {
+                id: leadId,
+            },
+            select: {
+                leadStage: true,
+            },
+        });
+
+        // Update stage only if it's currently INQUIRY
+        if (lead?.leadStage === "INQUIRY" || lead?.leadStage === "DOCUMENTS") {
+            await db.lead.update({
+                where: {
+                    id: leadId,
+                },
+                data: {
+                    leadStage: "APPLIED",
+                },
+            });
+        }
+
         return NextResponse.json({
             success: true,
             data: application,

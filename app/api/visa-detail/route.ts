@@ -56,6 +56,27 @@ export async function PATCH(req: NextRequest) {
       },
     });;
 
+    const lead = await db.lead.findUnique({
+      where: {
+        id: leadId,
+      },
+      select: {
+        leadStage: true,
+      },
+    });
+
+    // Update stage only if it's currently INQUIRY
+    if (lead?.leadStage === "INQUIRY" || lead?.leadStage === "DOCUMENTS" || lead?.leadStage === "APPLIED") {
+      await db.lead.update({
+        where: {
+          id: leadId,
+        },
+        data: {
+          leadStage: "VISA",
+        },
+      });
+    }
+
     return NextResponse.json({
       success: true,
       message: "Visa details saved successfully.",
