@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
                 branch: true,
                 counselor: true,
                 student: true,
+                docs:true,
             },
       });
 

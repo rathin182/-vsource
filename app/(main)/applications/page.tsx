@@ -123,6 +123,7 @@ export default function ApplicationsPage() {
         branchName: lead.branch?.name ?? "N/A",
         createdAt: lead.createdAt,
       }));
+console.log(leadData, "leadData");
 
       setApps(formatted);
     } catch (error) {

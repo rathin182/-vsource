@@ -77,7 +77,7 @@ const items = [
     to: "/reports",
     label: "Peformances",
     icon: BarChart3,
-    roles: ["ADMIN", "SUPER ADMIN"],
+    roles: ["ADMIN", "SUPER ADMIN", "COUNSELLOR"],
   },
 
   // Admin only
