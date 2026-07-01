@@ -19,7 +19,15 @@ import {
   FolderOpen,
   LayoutGrid,
   TableProperties,
-  ShieldCheck
+  ShieldCheck,
+  Trash2,
+  Pencil,
+  Banknote,
+  Landmark,
+  Wallet,
+  BadgeCheck,
+  Clock,
+  PlaneTakeoff,
 } from 'lucide-react';
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -253,17 +261,28 @@ export default function StudentData({ student, reloadStudent, }: any) {
   const [remarkTitle, setRemarkTitle] = useState<string>('');
   const [remarkType, setRemarkType] = useState("NOTE");
   const [isRemarkLoading, setIsRemarkLoading] = useState(false);
+
+  // ---- FINANCE / LOAN TAB STATE ----
   const [loanBank, setLoanBank] = useState("");
   const [loanAmount, setLoanAmount] = useState("");
   const [loanEmi, setLoanEmi] = useState("");
   const [loanStatus, setLoanStatus] = useState("PENDING");
   const [isLoanLoading, setIsLoanLoading] = useState(false);
   const [loanAssignee, setLoanAssignee] = useState("");
-  const [stageModal, setStageModal] = useState(false);
   const [loanId, setLoanId] = useState("");
+  // Controls whether the finance tab shows the read-only view or the editable form
+  const [showLoanForm, setShowLoanForm] = useState(false);
+  const [isDeleteLoanDialogOpen, setIsDeleteLoanDialogOpen] = useState(false);
+  const [isDeletingLoan, setIsDeletingLoan] = useState(false);
+
+  const [stageModal, setStageModal] = useState(false);
+  const [deleteApplicationId, setDeleteApplicationId] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedStage, setSelectedStage] =
     useState<StudentVisaStage | null>(null);
   const [confirmationText, setConfirmationText] = useState("");
+
+  // ---- VISA TAB STATE ----
   const [visaForm, setVisaForm] = useState({
     depositDeadline: "",
     depositStatus: "",
@@ -274,6 +293,12 @@ export default function StudentData({ student, reloadStudent, }: any) {
     status: "NOT_STARTED",
     universityStartDate: "",
   });
+  const [visaDetailId, setVisaDetailId] = useState("");
+  // Controls whether the visa tab shows the read-only view or the editable form
+  const [showVisaForm, setShowVisaForm] = useState(false);
+  const [isSavingVisa, setIsSavingVisa] = useState(false);
+  const [isDeleteVisaDialogOpen, setIsDeleteVisaDialogOpen] = useState(false);
+  const [isDeletingVisa, setIsDeletingVisa] = useState(false);
 
 
   // Notification Banner triggers
@@ -797,6 +822,65 @@ export default function StudentData({ student, reloadStudent, }: any) {
     }
   };
 
+  // ---------------------------------------------------------------------
+  // FINANCE / LOAN TAB LOGIC
+  // ---------------------------------------------------------------------
+
+  // Populate the loan form fields from an existing loan record (used for Edit)
+  const prefillLoanForm = (loan: any) => {
+    if (!loan) return;
+    setLoanId(loan.id || "");
+    setLoanAssignee(loan.assignee || "");
+    setLoanBank(loan.bank || "");
+    setLoanAmount(loan.amount !== undefined && loan.amount !== null ? String(loan.amount) : "");
+    setLoanEmi(loan.emi !== undefined && loan.emi !== null ? String(loan.emi) : "");
+    setLoanStatus(loan.status || "PENDING");
+  };
+
+  const clearLoanForm = () => {
+    setLoanId("");
+    setLoanAssignee("");
+    setLoanBank("");
+    setLoanAmount("");
+    setLoanEmi("");
+    setLoanStatus("PENDING");
+  };
+
+  // Auto fill the form on page load / whenever student data changes, so the
+  // form is always ready to go, but we still default to the READ-ONLY view.
+  useEffect(() => {
+    const existingLoan = student?.loanInquiries?.[0];
+    if (existingLoan) {
+      prefillLoanForm(existingLoan);
+      setShowLoanForm(false); // show the view (details) by default when data exists
+    } else {
+      clearLoanForm();
+      setShowLoanForm(false); // still start on view; view will render an "Add" prompt
+    }
+  }, [student]);
+
+  const openAddLoanForm = () => {
+    clearLoanForm();
+    setShowLoanForm(true);
+  };
+
+  const openEditLoanForm = () => {
+    const existingLoan = student?.loanInquiries?.[0];
+    prefillLoanForm(existingLoan);
+    setShowLoanForm(true);
+  };
+
+  const closeLoanForm = () => {
+    // Reset back to whatever is currently saved & return to the view
+    const existingLoan = student?.loanInquiries?.[0];
+    if (existingLoan) {
+      prefillLoanForm(existingLoan);
+    } else {
+      clearLoanForm();
+    }
+    setShowLoanForm(false);
+  };
+
   const handleSaveLoan = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -838,10 +922,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
 
       toast.success("Loan inquiry added.");
 
-      setLoanBank("");
-      setLoanAmount("");
-      setLoanEmi("");
-      setLoanStatus("PENDING");
+      setShowLoanForm(false);
 
       await reloadStudent();
     } catch (error) {
@@ -853,6 +934,10 @@ export default function StudentData({ student, reloadStudent, }: any) {
   };
 
   const handleUpdateLoan = async () => {
+    if (!loanBank.trim() || !loanAmount || !loanEmi) {
+      return toast.error("Please fill all required fields.");
+    }
+
     try {
       setIsLoanLoading(true);
 
@@ -883,11 +968,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
 
       toast.success("Loan inquiry updated.");
 
-      setLoanId("");
-      setLoanBank("");
-      setLoanAmount("");
-      setLoanEmi("");
-      setLoanStatus("PENDING");
+      setShowLoanForm(false);
 
       await reloadStudent();
     } catch (error) {
@@ -895,6 +976,42 @@ export default function StudentData({ student, reloadStudent, }: any) {
       toast.error("Something went wrong.");
     } finally {
       setIsLoanLoading(false);
+    }
+  };
+
+  const handleDeleteLoan = () => {
+    setIsDeleteLoanDialogOpen(true);
+  };
+
+  const confirmDeleteLoan = async () => {
+    if (!loanId) {
+      setIsDeleteLoanDialogOpen(false);
+      return;
+    }
+    try {
+      setIsDeletingLoan(true);
+
+      const res = await fetch(
+        `/api/student/loaninquiry?id=${loanId}`,
+        { method: "DELETE" }
+      );
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        toast.error(data?.message || "Failed to delete loan inquiry.");
+      } else {
+        toast.success(data?.message || "Loan inquiry deleted successfully.");
+      }
+
+      clearLoanForm();
+      await reloadStudent();
+    } catch (error) {
+      console.error(error);
+      toast.error("Something went wrong while deleting the loan inquiry.");
+    } finally {
+      setIsDeletingLoan(false);
+      setIsDeleteLoanDialogOpen(false);
     }
   };
 
@@ -1019,37 +1136,46 @@ export default function StudentData({ student, reloadStudent, }: any) {
   };
 
   const handleDeleteUniversityApp = (appId: string) => {
-    if (confirm("Are you sure you want to delete this university application entry?")) {
-      setStudents(prev => prev.map(s => {
-        if (s.id === selectedStudentId) {
-          return {
-            ...s,
-            applications: s.applications.filter(app => app.id !== appId)
-          };
+    setDeleteApplicationId(appId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteUniversityApp = async () => {
+    if (!deleteApplicationId) return;
+
+    try {
+      const response = await fetch(
+        `/api/student/application?id=${deleteApplicationId}`,
+        {
+          method: "DELETE",
         }
-        return s;
-      }));
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        toast.error(result.message || "Failed to delete application.");
+      }
+
+      toast.success(result.message || "University application deleted successfully.");
+       await reloadStudent();
+    } catch (error) {
+      console.error(error);
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete application."
+      );
+    } finally {
+      setDeleteApplicationId(null);
+      setIsDeleteDialogOpen(false);
     }
   };
 
-  // SAVE TAB 4 FINANCIAL DETAILS FORM BACK TO IMMIGRATION FOLDER
-  const handleSaveFinancesTab = (e: React.FormEvent, finPayload: any) => {
-    e.preventDefault();
-    if (!selectedStudentId) return;
-    setStudents(prev => prev.map(s => {
-      if (s.id === selectedStudentId) {
-        return {
-          ...s,
-          loan: {
-            ...s.loan,
-            ...finPayload
-          }
-        };
-      }
-      return s;
-    }));
-    alert("Financial credit and NBFC parameters updated successfully!");
-  };
+  // ---------------------------------------------------------------------
+  // VISA TAB LOGIC
+  // ---------------------------------------------------------------------
 
   const confirmStageChange = async () => {
     if (!selectedStage) return;
@@ -1061,8 +1187,82 @@ export default function StudentData({ student, reloadStudent, }: any) {
     setConfirmationText("");
   };
 
+  const formatDateTimeLocal = (
+    value: string | Date | null | undefined
+  ): string => {
+    if (!value) return "";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().slice(0, 16);
+  };
+
+  // Populate the visa form fields from an existing visa detail record (used for Edit)
+  const prefillVisaForm = (visa: any) => {
+    if (!visa) return;
+    setVisaDetailId(visa.id || "");
+    setVisaForm({
+      depositDeadline: formatDateTimeLocal(visa.depositDeadline),
+      depositStatus: visa.depositStatus ?? "",
+      ihsStatus: visa.ihsStatus ?? "",
+      visaFeeStatus: visa.visaFeeStatus ?? "",
+      casDeadline: formatDateTimeLocal(visa.casDeadline),
+      casStatus: visa.casStatus ?? "",
+      status: visa.status ?? "NOT_STARTED",
+      universityStartDate: formatDateTimeLocal(visa.universityStartDate),
+    });
+  };
+
+  const clearVisaForm = () => {
+    setVisaDetailId("");
+    setVisaForm({
+      depositDeadline: "",
+      depositStatus: "",
+      ihsStatus: "",
+      visaFeeStatus: "",
+      casDeadline: "",
+      casStatus: "",
+      status: "NOT_STARTED",
+      universityStartDate: "",
+    });
+  };
+
+  // Auto fill on page load / whenever student data changes; default to the view.
+  useEffect(() => {
+    const visa = student?.visaDetail?.[0];
+    if (visa) {
+      prefillVisaForm(visa);
+      setShowVisaForm(false);
+    } else {
+      clearVisaForm();
+      setShowVisaForm(false);
+    }
+  }, [student]);
+
+  const openAddVisaForm = () => {
+    clearVisaForm();
+    setShowVisaForm(true);
+  };
+
+  const openEditVisaForm = () => {
+    const visa = student?.visaDetail?.[0];
+    prefillVisaForm(visa);
+    setShowVisaForm(true);
+  };
+
+  const closeVisaForm = () => {
+    const visa = student?.visaDetail?.[0];
+    if (visa) {
+      prefillVisaForm(visa);
+    } else {
+      clearVisaForm();
+    }
+    setShowVisaForm(false);
+  };
+
   const handleVisaSubmit = async () => {
     try {
+      setIsSavingVisa(true);
+
       const payload = {
         ...visaForm,
         depositDeadline: visaForm.depositDeadline
@@ -1092,51 +1292,49 @@ export default function StudentData({ student, reloadStudent, }: any) {
 
       toast.success("Visa details saved successfully.");
 
+      setShowVisaForm(false);
+
       await reloadStudent();
     } catch (error) {
       console.error("Visa Submit Error:", error);
       toast.error("Something went wrong while saving visa details.");
+    } finally {
+      setIsSavingVisa(false);
     }
   };
 
-  useEffect(() => {
-    if (!student?.loanInquiries?.length) return;
-
-    const loan = student.loanInquiries[0];
-    setLoanId(loan.id || "");
-    setLoanAssignee(loan.assignee || "");
-    setLoanBank(loan.bank || "");
-    setLoanAmount(String(loan.amount || ""));
-    setLoanEmi(String(loan.emi || ""));
-    setLoanStatus(loan.status || "PENDING");
-  }, [student]);
-
-  const formatDateTimeLocal = (
-    value: string | Date | null | undefined
-  ): string => {
-    if (!value) return "";
-    const d = new Date(value);
-    if (isNaN(d.getTime())) return "";
-    return d.toISOString().slice(0, 16);
+  const handleDeleteVisaDetail = () => {
+    setIsDeleteVisaDialogOpen(true);
   };
 
+  const confirmDeleteVisaDetail = async () => {
+    try {
+      setIsDeletingVisa(true);
 
-  useEffect(() => {
-    const visa = student?.visaDetail?.[0];
+      const res = await fetch(
+        `/api/visa-detail?studentId=${student.id}${visaDetailId ? `&id=${visaDetailId}` : ""}`,
+        { method: "DELETE" }
+      );
 
-    if (!visa) return;
+      const data = await res.json().catch(() => ({}));
 
-    setVisaForm({
-      depositDeadline: formatDateTimeLocal(visa.depositDeadline),
-      depositStatus: visa.depositStatus ?? "",
-      ihsStatus: visa.ihsStatus ?? "",
-      visaFeeStatus: visa.visaFeeStatus ?? "",
-      casDeadline: formatDateTimeLocal(visa.casDeadline),
-      casStatus: visa.casStatus ?? "",
-      status: visa.status ?? "NOT_STARTED",
-      universityStartDate: formatDateTimeLocal(visa.universityStartDate),
-    });
-  }, [student]);
+      if (!res.ok) {
+        toast.error(data?.message || "Failed to delete visa details.");
+      } else {
+        toast.success(data?.message || "Visa details deleted successfully.");
+      }
+
+      clearVisaForm();
+      await reloadStudent();
+    } catch (error) {
+      console.error(error);
+      toast.error("Something went wrong while deleting visa details.");
+    } finally {
+      setIsDeletingVisa(false);
+      setIsDeleteVisaDialogOpen(false);
+    }
+  };
+
   const currentStage =
     student?.visaStage ?? "LEAD_CREATED";
 
@@ -1160,6 +1358,50 @@ export default function StudentData({ student, reloadStudent, }: any) {
 
   const activeTabLabel = tabs.find(tab => tab.key === detailTab)?.label ?? 'Module';
   const studentName = student.studentName;
+
+  // ---- small display helpers ----
+  const existingLoan = student?.loanInquiries?.[0] || null;
+  const existingVisa = student?.visaDetail?.[0] || null;
+
+  const formatCurrency = (val: any) => {
+    if (val === undefined || val === null || val === "") return "—";
+    const num = Number(val);
+    if (isNaN(num)) return String(val);
+    return `₹${num.toLocaleString("en-IN")}`;
+  };
+
+  const formatDisplayDate = (val: any) => {
+    if (!val) return "—";
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const prettyStatus = (val: any) => {
+    if (!val) return "—";
+    return String(val).replaceAll("_", " ");
+  };
+
+  const statusBadgeClasses = (val: any) => {
+    const v = String(val || "").toUpperCase();
+    if (["APPROVED", "PAID", "DISBURSED", "RECEIVED"].includes(v)) {
+      return "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400";
+    }
+    if (["REJECTED", "WITHDRAWN"].includes(v)) {
+      return "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400";
+    }
+    if (["PENDING", "NOT_STARTED", "DOCUMENTS_PENDING", "UNDER_REVIEW", "DECISION_PENDING"].includes(v)) {
+      return "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400";
+    }
+    return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
+  };
+
   return (
     <div className={`flex min-h-screen bg-background text-foreground transition-colors duration-200`}>
       <div className="grow flex flex-col min-w-0 min-h-screen">
@@ -1200,141 +1442,141 @@ export default function StudentData({ student, reloadStudent, }: any) {
 
               {/* VISUAL STEPPER TIMELINE AND COMPLIANCE INTEGRATION TRACKER (Interactive!) */}
               {/* VISUAL STEPPER TIMELINE — VOLUME/SEEK BAR STYLE */}
-<div className="p-6 md:p-8 rounded-3xl border shadow-md space-y-8 dark:bg-slate-900 dark:border-slate-800 bg-white border-slate-100">
-  <div className="flex justify-between items-center">
-    <span className="text-[9px] uppercase font-black text-slate-400 tracking-widest block">
-      Visa compliance pipeline stepper
-    </span>
-    <span className="text-[9.5px] text-slate-400 font-medium">
-      Click any milestone to trigger a stage update
-    </span>
-  </div>
+              <div className="p-6 md:p-8 rounded-3xl border shadow-md space-y-8 dark:bg-slate-900 dark:border-slate-800 bg-white border-slate-100">
+                <div className="flex justify-between items-center">
+                  <span className="text-[9px] uppercase font-black text-slate-400 tracking-widest block">
+                    Visa compliance pipeline stepper
+                  </span>
+                  <span className="text-[9.5px] text-slate-400 font-medium">
+                    Click any milestone to trigger a stage update
+                  </span>
+                </div>
 
-  <div className="relative pt-8 pb-10 px-2 md:px-4">
-    {/* Labels row */}
-    <div className="absolute -top-1 left-0 w-full flex justify-between px-0">
-      {STEPS.map((step, index) => {
-        const isCompleted = index < currentIndex;
-        const isActive = index === currentIndex;
-        return (
-          <div
-            key={`label-${step.value}`}
-            className="flex-1 flex flex-col items-center text-center px-0.5"
-          >
-            <span
-              className={`text-[9px] md:text-[10px] font-black uppercase tracking-tight leading-tight transition-colors
+                <div className="relative pt-8 pb-10 px-2 md:px-4">
+                  {/* Labels row */}
+                  <div className="absolute -top-1 left-0 w-full flex justify-between px-0">
+                    {STEPS.map((step, index) => {
+                      const isCompleted = index < currentIndex;
+                      const isActive = index === currentIndex;
+                      return (
+                        <div
+                          key={`label-${step.value}`}
+                          className="flex-1 flex flex-col items-center text-center px-0.5"
+                        >
+                          <span
+                            className={`text-[9px] md:text-[10px] font-black uppercase tracking-tight leading-tight transition-colors
                 ${isActive
-                  ? "text-red-600"
-                  : isCompleted
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-slate-400 dark:text-slate-600"
-                }`}
-            >
-              {step.label}
-            </span>
-          </div>
-        );
-      })}
-    </div>
+                                ? "text-red-600"
+                                : isCompleted
+                                  ? "text-emerald-600 dark:text-emerald-400"
+                                  : "text-slate-400 dark:text-slate-600"
+                              }`}
+                          >
+                            {step.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
 
-    {/* Track + fill */}
-    <div className="relative mt-10 h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-visible">
-      {/* Filled progress (red) */}
-      <motion.div
-        initial={false}
-        animate={{
-          width: `${(currentIndex / (STEPS.length - 1)) * 100}%`
-        }}
-        transition={{ type: "spring", stiffness: 120, damping: 20 }}
-        className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-red-500 to-red-600 shadow-[0_0_12px_rgba(220,38,38,0.5)]"
-      />
+                  {/* Track + fill */}
+                  <div className="relative mt-10 h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-visible">
+                    {/* Filled progress (red) */}
+                    <motion.div
+                      initial={false}
+                      animate={{
+                        width: `${(currentIndex / (STEPS.length - 1)) * 100}%`
+                      }}
+                      transition={{ type: "spring", stiffness: 120, damping: 20 }}
+                      className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-red-500 to-red-600 shadow-[0_0_12px_rgba(220,38,38,0.5)]"
+                    />
 
-      {/* Milestone nodes, evenly spaced, overlaying the track */}
-      <div className="absolute inset-0 flex justify-between items-center">
-        {STEPS.map((step, index) => {
-          const isCompleted = index < currentIndex;
-          const isActive = index === currentIndex;
-          const isFuture = index > currentIndex;
-          const isBlocked = index <= currentIndex;
+                    {/* Milestone nodes, evenly spaced, overlaying the track */}
+                    <div className="absolute inset-0 flex justify-between items-center">
+                      {STEPS.map((step, index) => {
+                        const isCompleted = index < currentIndex;
+                        const isActive = index === currentIndex;
+                        const isFuture = index > currentIndex;
+                        const isBlocked = index <= currentIndex;
 
-          return (
-            <div
-              key={step.value}
-              className="relative flex items-center justify-center"
-              style={{ zIndex: isActive ? 20 : 10 }}
-            >
-              <button
-                disabled={isBlocked}
-                onClick={() => {
-                  setSelectedStage(step.value);
-                  setConfirmationText("");
-                  setStageModal(true);
-                }}
-                title={step.label}
-                className={`group relative flex items-center justify-center rounded-full border-2 transition-all duration-200
+                        return (
+                          <div
+                            key={step.value}
+                            className="relative flex items-center justify-center"
+                            style={{ zIndex: isActive ? 20 : 10 }}
+                          >
+                            <button
+                              disabled={isBlocked}
+                              onClick={() => {
+                                setSelectedStage(step.value);
+                                setConfirmationText("");
+                                setStageModal(true);
+                              }}
+                              title={step.label}
+                              className={`group relative flex items-center justify-center rounded-full border-2 transition-all duration-200
                   ${isActive
-                    ? "h-7 w-7 md:h-8 md:w-8 bg-white dark:bg-slate-900 border-red-600 shadow-[0_0_0_6px_rgba(220,38,38,0.15)]"
-                    : isCompleted
-                      ? "h-4 w-4 md:h-5 md:w-5 bg-red-600 border-red-600"
-                      : "h-4 w-4 md:h-5 md:w-5 bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-700"
-                  }
+                                  ? "h-7 w-7 md:h-8 md:w-8 bg-white dark:bg-slate-900 border-red-600 shadow-[0_0_0_6px_rgba(220,38,38,0.15)]"
+                                  : isCompleted
+                                    ? "h-4 w-4 md:h-5 md:w-5 bg-red-600 border-red-600"
+                                    : "h-4 w-4 md:h-5 md:w-5 bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-700"
+                                }
                   ${isFuture ? "cursor-pointer hover:scale-125" : ""}
                   ${isBlocked ? "cursor-not-allowed" : ""}
                 `}
-              >
-                {/* Inner thumb dot for active stage */}
-                {isActive && (
-                  <motion.span
-                    layoutId="active-thumb-dot"
-                    className="h-2.5 w-2.5 md:h-3 md:w-3 rounded-full bg-red-600"
-                  />
-                )}
+                            >
+                              {/* Inner thumb dot for active stage */}
+                              {isActive && (
+                                <motion.span
+                                  layoutId="active-thumb-dot"
+                                  className="h-2.5 w-2.5 md:h-3 md:w-3 rounded-full bg-red-600"
+                                />
+                              )}
 
-                {/* Check style fill for completed */}
-                {isCompleted && (
-                  <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />
-                )}
+                              {/* Check style fill for completed */}
+                              {isCompleted && (
+                                <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />
+                              )}
 
-                {/* Step number tooltip on hover for future steps */}
-                {isFuture && (
-                  <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-[9px] font-black bg-slate-900 text-white px-1.5 py-0.5 rounded-md whitespace-nowrap">
-                    0{index + 1}
-                  </span>
-                )}
-              </button>
+                              {/* Step number tooltip on hover for future steps */}
+                              {isFuture && (
+                                <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-[9px] font-black bg-slate-900 text-white px-1.5 py-0.5 rounded-md whitespace-nowrap">
+                                  0{index + 1}
+                                </span>
+                              )}
+                            </button>
 
-              {/* Glow ring pulse on active thumb */}
-              {isActive && (
-                <motion.span
-                  className="absolute h-7 w-7 md:h-8 md:w-8 rounded-full border-2 border-red-500"
-                  initial={{ opacity: 0.6, scale: 1 }}
-                  animate={{ opacity: 0, scale: 1.8 }}
-                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
+                            {/* Glow ring pulse on active thumb */}
+                            {isActive && (
+                              <motion.span
+                                className="absolute h-7 w-7 md:h-8 md:w-8 rounded-full border-2 border-red-500"
+                                initial={{ opacity: 0.6, scale: 1 }}
+                                animate={{ opacity: 0, scale: 1.8 }}
+                                transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-    {/* Current stage caption under the thumb */}
-    <div className="relative mt-3 h-4">
-      <motion.div
-        initial={false}
-        animate={{
-          left: `${(currentIndex / (STEPS.length - 1)) * 100}%`
-        }}
-        transition={{ type: "spring", stiffness: 120, damping: 20 }}
-        className="absolute -translate-x-1/2 flex flex-col items-center"
-      >
-        <span className="text-[9px] font-black uppercase tracking-widest text-red-600 whitespace-nowrap">
-          ▲ Current Stage
-        </span>
-      </motion.div>
-    </div>
-  </div>
-</div>
+                  {/* Current stage caption under the thumb */}
+                  <div className="relative mt-3 h-4">
+                    <motion.div
+                      initial={false}
+                      animate={{
+                        left: `${(currentIndex / (STEPS.length - 1)) * 100}%`
+                      }}
+                      transition={{ type: "spring", stiffness: 120, damping: 20 }}
+                      className="absolute -translate-x-1/2 flex flex-col items-center"
+                    >
+                      <span className="text-[9px] font-black uppercase tracking-widest text-red-600 whitespace-nowrap">
+                        ▲ Current Stage
+                      </span>
+                    </motion.div>
+                  </div>
+                </div>
+              </div>
 
               <div className="space-y-6">
                 {/* Horizontal Tabs */}
@@ -1711,332 +1953,600 @@ export default function StudentData({ student, reloadStudent, }: any) {
                   {/* T4. FINANCIAL CREDIT CONTROL PANEL */}
                   {detailTab === 'finance' && (
                     <div className="space-y-6">
-                      <div className="pb-3 border-b border-inherit">
-                        <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Finance & Lending</h4>
-                        <p className="text-xs text-slate-400">Manage Lending NBFC credits, processing fee waivers, and sanctioned payouts.</p>
+                      <div className="flex items-center justify-between pb-3 border-b border-inherit">
+                        <div>
+                          <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Finance & Lending</h4>
+                          <p className="text-xs text-slate-400">Manage Lending NBFC credits, processing fee waivers, and sanctioned payouts.</p>
+                        </div>
+
+                        {/* Only show header actions in VIEW mode */}
+                        {!showLoanForm && (
+                          existingLoan ? (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={openEditLoanForm}
+                                className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-4 py-2 rounded-xl transition-all"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit
+                              </button>
+                              <button
+                                onClick={handleDeleteLoan}
+                                className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black px-4 py-2 rounded-xl transition-all"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Delete
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={openAddLoanForm}
+                              className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black px-4 py-2 rounded-xl transition-all"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Add Loan Inquiry
+                            </button>
+                          )
+                        )}
                       </div>
-                      <form
-                        onSubmit={handleSaveLoan}
-                        className="space-y-4 text-xs"
-                      >
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                          <div>
-                            <label className="text-[9px] uppercase font-bold text-slate-400 mb-1.5 block">
-                              Fintech Assignee Representative
-                            </label>
+                      {/* ---------------- VIEW MODE (read-only summary UI) ---------------- */}
+                      {!showLoanForm && (
+                        existingLoan ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[
+                              { label: 'Fintech Assignee Representative', val: existingLoan.assignee, icon: User },
+                              { label: 'Lending Partner / Bank', val: existingLoan.bank, icon: Landmark },
+                              { label: 'Loan Amount', val: formatCurrency(existingLoan.amount), icon: Banknote },
+                              { label: 'EMI Amount', val: formatCurrency(existingLoan.emi), icon: Wallet },
+                            ].map((v, i) => {
+                              const ItemIcon = v.icon;
+                              return (
+                                <div key={i} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 flex items-center gap-3 border border-slate-100 dark:border-slate-850">
+                                  <div className="p-2 bg-amber-500/10 text-amber-600 rounded-xl">
+                                    <ItemIcon className="h-4.5 w-4.5" />
+                                  </div>
+                                  <div>
+                                    <span className="text-[9px] uppercase font-black tracking-wider text-slate-400 block mb-0.5">{v.label}</span>
+                                    <span className="text-xs font-extrabold text-slate-850 dark:text-slate-150">{v.val || 'Not provided'}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
 
-                            <input
-                              type="text"
-                              value={loanAssignee}
-                              onChange={(e) => setLoanAssignee(e.target.value)}
-                              placeholder="John Smith"
-                              className="w-full px-3.5 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
-                            />
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 flex items-center gap-3 border border-slate-100 dark:border-slate-850 md:col-span-2">
+                              <div className="p-2 bg-amber-500/10 text-amber-600 rounded-xl">
+                                <BadgeCheck className="h-4.5 w-4.5" />
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase font-black tracking-wider text-slate-400 block mb-0.5">Loan Status</span>
+                                <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wide ${statusBadgeClasses(existingLoan.status)}`}>
+                                  {prettyStatus(existingLoan.status)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-center py-16 gap-3">
+                            <div className="p-4 rounded-2xl bg-amber-500/10 text-amber-600">
+                              <CreditCard className="h-6 w-6" />
+                            </div>
+                            <p className="text-sm font-bold text-slate-500 dark:text-slate-400">No loan inquiry recorded yet.</p>
+                            <p className="text-xs text-slate-400 max-w-sm">Add a loan inquiry to track NBFC lending status, EMI schedule, and sanctioned amounts for this student.</p>
+                            <button
+                              onClick={openAddLoanForm}
+                              className="mt-2 inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black px-4 py-2 rounded-xl transition-all"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Add Loan Inquiry
+                            </button>
+                          </div>
+                        )
+                      )}
+
+                      {/* ---------------- FORM MODE (add / edit, auto-prefilled) ---------------- */}
+                      {showLoanForm && (
+                        <form
+                          onSubmit={handleSaveLoan}
+                          className="space-y-4 text-xs"
+                        >
+                          <div className="flex items-center justify-between pb-1">
+                            <h5 className="font-extrabold text-xs uppercase tracking-wider text-amber-600">
+                              {loanId ? 'Update Loan Inquiry' : 'Register New Loan Inquiry'}
+                            </h5>
                           </div>
 
-                          <div>
-                            <label className="text-[9px] uppercase font-bold text-slate-400 mb-1.5 block">
-                              Lending Partner / Bank
-                            </label>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                            <select
-                              value={loanBank}
-                              onChange={(e) =>
-                                setLoanBank(e.target.value)
-                              }
-                              className="w-full px-3.5 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
-                              required
-                            >
-                              <option value="">
-                                Select Bank
-                              </option>
+                            <div>
+                              <label className="text-[9px] uppercase font-bold text-slate-400 mb-1.5 block">
+                                Fintech Assignee Representative
+                              </label>
 
-                              {BANK_OPTIONS.map((bank) => (
-                                <option
-                                  key={bank}
-                                  value={bank}
-                                >
-                                  {bank}
+                              <input
+                                type="text"
+                                value={loanAssignee}
+                                onChange={(e) => setLoanAssignee(e.target.value)}
+                                placeholder="John Smith"
+                                className="w-full px-3.5 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] uppercase font-bold text-slate-400 mb-1.5 block">
+                                Lending Partner / Bank
+                              </label>
+
+                              <select
+                                value={loanBank}
+                                onChange={(e) =>
+                                  setLoanBank(e.target.value)
+                                }
+                                className="w-full px-3.5 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                                required
+                              >
+                                <option value="">
+                                  Select Bank
                                 </option>
-                              ))}
-                            </select>
+
+                                {BANK_OPTIONS.map((bank) => (
+                                  <option
+                                    key={bank}
+                                    value={bank}
+                                  >
+                                    {bank}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] uppercase font-bold text-slate-400 mb-1.5 block">
+                                Loan Status
+                              </label>
+
+                              <select
+                                value={loanStatus}
+                                onChange={(e) =>
+                                  setLoanStatus(e.target.value)
+                                }
+                                className="w-full px-3.5 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                              >
+                                <option value="PENDING">
+                                  Pending
+                                </option>
+
+                                <option value="APPROVED">
+                                  Approved
+                                </option>
+
+                                <option value="REJECTED">
+                                  Rejected
+                                </option>
+
+                                <option value="DISBURSED">
+                                  Disbursed
+                                </option>
+                              </select>
+                            </div>
                           </div>
 
-                          <div>
-                            <label className="text-[9px] uppercase font-bold text-slate-400 mb-1.5 block">
-                              Loan Status
-                            </label>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-[9px] uppercase font-bold text-slate-400 mb-1.5 block">
+                                Loan Amount
+                              </label>
 
-                            <select
-                              value={loanStatus}
-                              onChange={(e) =>
-                                setLoanStatus(e.target.value)
-                              }
-                              className="w-full px-3.5 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                              <input
+                                type="number"
+                                value={loanAmount}
+                                onChange={(e) =>
+                                  setLoanAmount(e.target.value)
+                                }
+                                placeholder="1500000"
+                                required
+                                className="w-full px-3.5 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] uppercase font-bold text-slate-400 mb-1.5 block">
+                                EMI Amount
+                              </label>
+
+                              <input
+                                type="number"
+                                value={loanEmi}
+                                onChange={(e) =>
+                                  setLoanEmi(e.target.value)
+                                }
+                                placeholder="25000"
+                                required
+                                className="w-full px-3.5 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pt-4 border-t border-inherit flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={closeLoanForm}
+                              className="px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-800 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-850"
                             >
-                              <option value="PENDING">
-                                Pending
-                              </option>
-
-                              <option value="APPROVED">
-                                Approved
-                              </option>
-
-                              <option value="REJECTED">
-                                Rejected
-                              </option>
-
-                              <option value="DISBURSED">
-                                Disbursed
-                              </option>
-                            </select>
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={isLoanLoading}
+                              className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-black px-6 py-2.5 rounded-xl uppercase tracking-wider shadow"
+                            >
+                              {isLoanLoading
+                                ? loanId
+                                  ? "Updating..."
+                                  : "Saving..."
+                                : loanId
+                                  ? "Update Loan"
+                                  : "Save Loan"}
+                            </button>
                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="text-[9px] uppercase font-bold text-slate-400 mb-1.5 block">
-                              Loan Amount
-                            </label>
-
-                            <input
-                              type="number"
-                              value={loanAmount}
-                              onChange={(e) =>
-                                setLoanAmount(e.target.value)
-                              }
-                              placeholder="1500000"
-                              required
-                              className="w-full px-3.5 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[9px] uppercase font-bold text-slate-400 mb-1.5 block">
-                              EMI Amount
-                            </label>
-
-                            <input
-                              type="number"
-                              value={loanEmi}
-                              onChange={(e) =>
-                                setLoanEmi(e.target.value)
-                              }
-                              placeholder="25000"
-                              required
-                              className="w-full px-3.5 py-2 rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 dark:bg-[#020618] dark:border-[#020618] bg-white border-slate-200"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="pt-4 border-t border-inherit flex justify-end">
-                          <button
-                            type="submit"
-                            disabled={isLoanLoading}
-                            className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-black px-6 py-2.5 rounded-xl uppercase tracking-wider shadow"
-                          >
-                            {isLoanLoading
-                              ? loanId
-                                ? "Updating..."
-                                : "Saving..."
-                              : loanId
-                                ? "Update Loan"
-                                : "Save Loan"}
-                          </button>
-                        </div>
-                      </form>
+                        </form>
+                      )}
                     </div>
                   )}
 
                   {/* T5. VISA STATS MILESTONES PROGRESS TRACKER */}
                   {detailTab === "visa" && (
-                    <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-6">
+                    <div className="space-y-6">
                       {/* Header */}
-                      <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
-                        <div className="size-9 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
-                          <ShieldCheck className="size-4 text-purple-600" />
-                        </div>
-                        <div>
-                          <h4 className="text-[13px] font-black uppercase text-slate-800 tracking-widest mb-0.5">
-                            Deposit, CAS &amp; Visa
-                          </h4>
-                          <p className="text-xs text-slate-400">
-                            Select both date and time for deadline fields
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Fields */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
-
-                        {/* Deposit Deadline Date & Time */}
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
-                            Deposit Deadline Date &amp; Time
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="datetime-local"
-                              value={visaForm.depositDeadline}
-                              onChange={(e) =>
-                                setVisaForm({ ...visaForm, depositDeadline: e.target.value })
-                              }
-                              className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                            />
-                            <Calendar className="size-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <div className="flex items-start justify-between gap-3 pb-3 border-b border-inherit">
+                        <div className="flex items-start gap-3">
+                          <div className="size-9 rounded-xl bg-purple-100 dark:bg-purple-950/40 flex items-center justify-center shrink-0">
+                            <ShieldCheck className="size-4 text-purple-600 dark:text-purple-400" />
+                          </div>
+                          <div>
+                            <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">
+                              Deposit, CAS &amp; Visa
+                            </h4>
+                            <p className="text-xs text-slate-400">
+                              Track deposit deadlines, CAS milestones, and visa decision status.
+                            </p>
                           </div>
                         </div>
 
-                        {/* Deposit Status */}
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
-                            Deposit Status
-                          </label>
-                          <select
-                            value={visaForm.depositStatus}
-                            onChange={(e) =>
-                              setVisaForm({ ...visaForm, depositStatus: e.target.value })
-                            }
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                          >
-                            <option value="">Select deposit status</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="PAID">Paid</option>
-                            <option value="REFUNDED">Refunded</option>
-                            <option value="WAIVED">Waived</option>
-                          </select>
-                        </div>
-
-                        {/* IHS Paid Status */}
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
-                            IHS Paid Status
-                          </label>
-                          <select
-                            value={visaForm.ihsStatus}
-                            onChange={(e) =>
-                              setVisaForm({ ...visaForm, ihsStatus: e.target.value })
-                            }
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                          >
-                            <option value="">Select IHS status</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="PAID">Paid</option>
-                            <option value="NOT_REQUIRED">Not Required</option>
-                          </select>
-                        </div>
-
-                        {/* Visa Fee Paid Status */}
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
-                            Visa Fee Paid Status
-                          </label>
-                          <select
-                            value={visaForm.visaFeeStatus}
-                            onChange={(e) =>
-                              setVisaForm({ ...visaForm, visaFeeStatus: e.target.value })
-                            }
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                          >
-                            <option value="">Select visa payment status</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="PAID">Paid</option>
-                            <option value="NOT_REQUIRED">Not Required</option>
-                          </select>
-                        </div>
-
-                        {/* CAS Deadline Date & Time */}
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
-                            CAS Deadline Date &amp; Time
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="datetime-local"
-                              value={visaForm.casDeadline}
-                              onChange={(e) =>
-                                setVisaForm({ ...visaForm, casDeadline: e.target.value })
-                              }
-                              className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                            />
-                            <Calendar className="size-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          </div>
-                        </div>
-
-                        {/* CAS Status */}
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
-                            CAS Status
-                          </label>
-                          <select
-                            value={visaForm.casStatus}
-                            onChange={(e) =>
-                              setVisaForm({ ...visaForm, casStatus: e.target.value })
-                            }
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                          >
-                            <option value="">Select CAS status</option>
-                            <option value="NOT_STARTED">Not Started</option>
-                            <option value="DOCUMENTS_PENDING">Documents Prnding</option>
-                            <option value="UNDER_REVIEW">Under Review</option>
-                            <option value="RECEIVED">Received</option>
-                            <option value="REJECTED">Rejected</option>
-                            <option value="NOT_REQUIRED">Not Required</option>
-                          </select>
-                        </div>
-
-                        {/* Visa Status */}
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
-                            Visa Status
-                          </label>
-                          <select
-                            value={visaForm.status}
-                            onChange={(e) =>
-                              setVisaForm({ ...visaForm, status: e.target.value })
-                            }
-                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                          >
-                            <option value="">Select visa status</option>
-                            <option value="NOT_STARTED">Not Started</option>
-                            <option value="DOCUMENTS_PENDING">Documents Pending</option>
-                            <option value="APPLIED">Applied</option>
-                            <option value="DECISION_PENDING">Decision Pending</option>
-                            <option value="APPROVED">Approved</option>
-                            <option value="REJECTED">Rejected</option>
-                            <option value="WITHDRAWN">Withdrawn</option>
-                          </select>
-                        </div>
-
-                        {/* University Start Date & Time */}
-                        <div>
-                          <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
-                            University Start Date &amp; Time
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="datetime-local"
-                              value={visaForm.universityStartDate}
-                              onChange={(e) =>
-                                setVisaForm({ ...visaForm, universityStartDate: e.target.value })
-                              }
-                              className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                            />
-                            <Calendar className="size-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          </div>
-                        </div>
+                        {/* Only show header actions in VIEW mode */}
+                        {!showVisaForm && (
+                          existingVisa ? (
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                onClick={openEditVisaForm}
+                                className="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black px-4 py-2 rounded-xl transition-all"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit
+                              </button>
+                              <button
+                                onClick={handleDeleteVisaDetail}
+                                className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black px-4 py-2 rounded-xl transition-all"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Delete
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={openAddVisaForm}
+                              className="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black px-4 py-2 rounded-xl transition-all shrink-0"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Add Visa Details
+                            </button>
+                          )
+                        )}
                       </div>
 
-                      {/* Submit */}
-                      <div className="flex justify-end pt-4 border-t border-slate-200">
-                        <button
-                          onClick={handleVisaSubmit}
-                          className="px-5 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition"
-                        >
-                          Save Visa Details
-                        </button>
-                      </div>
+                      {/* ---------------- VIEW MODE (read-only summary UI) ---------------- */}
+                      {!showVisaForm && (
+                        existingVisa ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 flex items-center gap-3 border border-slate-100 dark:border-slate-850">
+                              <div className="p-2 bg-purple-500/10 text-purple-600 rounded-xl">
+                                <Calendar className="h-4.5 w-4.5" />
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase font-black tracking-wider text-slate-400 block mb-0.5">Deposit Deadline</span>
+                                <span className="text-xs font-extrabold text-slate-850 dark:text-slate-150">{formatDisplayDate(existingVisa.depositDeadline)}</span>
+                              </div>
+                            </div>
+
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 flex items-center gap-3 border border-slate-100 dark:border-slate-850">
+                              <div className="p-2 bg-purple-500/10 text-purple-600 rounded-xl">
+                                <Wallet className="h-4.5 w-4.5" />
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase font-black tracking-wider text-slate-400 block mb-0.5">Deposit Status</span>
+                                <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wide ${statusBadgeClasses(existingVisa.depositStatus)}`}>
+                                  {prettyStatus(existingVisa.depositStatus) || "Not provided"}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 flex items-center gap-3 border border-slate-100 dark:border-slate-850">
+                              <div className="p-2 bg-purple-500/10 text-purple-600 rounded-xl">
+                                <BadgeCheck className="h-4.5 w-4.5" />
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase font-black tracking-wider text-slate-400 block mb-0.5">IHS Paid Status</span>
+                                <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wide ${statusBadgeClasses(existingVisa.ihsStatus)}`}>
+                                  {prettyStatus(existingVisa.ihsStatus) || "Not provided"}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 flex items-center gap-3 border border-slate-100 dark:border-slate-850">
+                              <div className="p-2 bg-purple-500/10 text-purple-600 rounded-xl">
+                                <Banknote className="h-4.5 w-4.5" />
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase font-black tracking-wider text-slate-400 block mb-0.5">Visa Fee Paid Status</span>
+                                <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wide ${statusBadgeClasses(existingVisa.visaFeeStatus)}`}>
+                                  {prettyStatus(existingVisa.visaFeeStatus) || "Not provided"}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 flex items-center gap-3 border border-slate-100 dark:border-slate-850">
+                              <div className="p-2 bg-purple-500/10 text-purple-600 rounded-xl">
+                                <Calendar className="h-4.5 w-4.5" />
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase font-black tracking-wider text-slate-400 block mb-0.5">CAS Deadline</span>
+                                <span className="text-xs font-extrabold text-slate-850 dark:text-slate-150">{formatDisplayDate(existingVisa.casDeadline)}</span>
+                              </div>
+                            </div>
+
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 flex items-center gap-3 border border-slate-100 dark:border-slate-850">
+                              <div className="p-2 bg-purple-500/10 text-purple-600 rounded-xl">
+                                <FileCheck2 className="h-4.5 w-4.5" />
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase font-black tracking-wider text-slate-400 block mb-0.5">CAS Status</span>
+                                <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wide ${statusBadgeClasses(existingVisa.casStatus)}`}>
+                                  {prettyStatus(existingVisa.casStatus) || "Not provided"}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 flex items-center gap-3 border border-slate-100 dark:border-slate-850">
+                              <div className="p-2 bg-purple-500/10 text-purple-600 rounded-xl">
+                                <ShieldCheck className="h-4.5 w-4.5" />
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase font-black tracking-wider text-slate-400 block mb-0.5">Visa Status</span>
+                                <span className={`inline-flex px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wide ${statusBadgeClasses(existingVisa.status)}`}>
+                                  {prettyStatus(existingVisa.status) || "Not provided"}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 flex items-center gap-3 border border-slate-100 dark:border-slate-850">
+                              <div className="p-2 bg-purple-500/10 text-purple-600 rounded-xl">
+                                <PlaneTakeoff className="h-4.5 w-4.5" />
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase font-black tracking-wider text-slate-400 block mb-0.5">University Start Date</span>
+                                <span className="text-xs font-extrabold text-slate-850 dark:text-slate-150">{formatDisplayDate(existingVisa.universityStartDate)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-center py-16 gap-3">
+                            <div className="p-4 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                              <ShieldCheck className="h-6 w-6" />
+                            </div>
+                            <p className="text-sm font-bold text-slate-500 dark:text-slate-400">No visa details recorded yet.</p>
+                            <p className="text-xs text-slate-400 max-w-sm">Add deposit, IHS, CAS and visa milestone details to keep this student's compliance journey on track.</p>
+                            <button
+                              onClick={openAddVisaForm}
+                              className="mt-2 inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-black px-4 py-2 rounded-xl transition-all"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Add Visa Details
+                            </button>
+                          </div>
+                        )
+                      )}
+
+                      {/* ---------------- FORM MODE (add / edit, auto-prefilled) ---------------- */}
+                      {showVisaForm && (
+                        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 space-y-6">
+                          <h5 className="font-extrabold text-xs uppercase tracking-wider text-purple-600">
+                            {existingVisa ? 'Update Visa Details' : 'Register Visa Details'}
+                          </h5>
+
+                          {/* Fields */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+
+                            {/* Deposit Deadline Date & Time */}
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                                Deposit Deadline Date &amp; Time
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="datetime-local"
+                                  value={visaForm.depositDeadline}
+                                  onChange={(e) =>
+                                    setVisaForm({ ...visaForm, depositDeadline: e.target.value })
+                                  }
+                                  className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020618] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                                />
+                                <Calendar className="size-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              </div>
+                            </div>
+
+                            {/* Deposit Status */}
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                                Deposit Status
+                              </label>
+                              <select
+                                value={visaForm.depositStatus}
+                                onChange={(e) =>
+                                  setVisaForm({ ...visaForm, depositStatus: e.target.value })
+                                }
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020618] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                              >
+                                <option value="">Select deposit status</option>
+                                <option value="PENDING">Pending</option>
+                                <option value="PAID">Paid</option>
+                                <option value="REFUNDED">Refunded</option>
+                                <option value="WAIVED">Waived</option>
+                              </select>
+                            </div>
+
+                            {/* IHS Paid Status */}
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                                IHS Paid Status
+                              </label>
+                              <select
+                                value={visaForm.ihsStatus}
+                                onChange={(e) =>
+                                  setVisaForm({ ...visaForm, ihsStatus: e.target.value })
+                                }
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020618] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                              >
+                                <option value="">Select IHS status</option>
+                                <option value="PENDING">Pending</option>
+                                <option value="PAID">Paid</option>
+                                <option value="NOT_REQUIRED">Not Required</option>
+                              </select>
+                            </div>
+
+                            {/* Visa Fee Paid Status */}
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                                Visa Fee Paid Status
+                              </label>
+                              <select
+                                value={visaForm.visaFeeStatus}
+                                onChange={(e) =>
+                                  setVisaForm({ ...visaForm, visaFeeStatus: e.target.value })
+                                }
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020618] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                              >
+                                <option value="">Select visa payment status</option>
+                                <option value="PENDING">Pending</option>
+                                <option value="PAID">Paid</option>
+                                <option value="NOT_REQUIRED">Not Required</option>
+                              </select>
+                            </div>
+
+                            {/* CAS Deadline Date & Time */}
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                                CAS Deadline Date &amp; Time
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="datetime-local"
+                                  value={visaForm.casDeadline}
+                                  onChange={(e) =>
+                                    setVisaForm({ ...visaForm, casDeadline: e.target.value })
+                                  }
+                                  className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020618] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                                />
+                                <Calendar className="size-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              </div>
+                            </div>
+
+                            {/* CAS Status */}
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                                CAS Status
+                              </label>
+                              <select
+                                value={visaForm.casStatus}
+                                onChange={(e) =>
+                                  setVisaForm({ ...visaForm, casStatus: e.target.value })
+                                }
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020618] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                              >
+                                <option value="">Select CAS status</option>
+                                <option value="NOT_STARTED">Not Started</option>
+                                <option value="DOCUMENTS_PENDING">Documents Pending</option>
+                                <option value="UNDER_REVIEW">Under Review</option>
+                                <option value="RECEIVED">Received</option>
+                                <option value="REJECTED">Rejected</option>
+                                <option value="NOT_REQUIRED">Not Required</option>
+                              </select>
+                            </div>
+
+                            {/* Visa Status */}
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                                Visa Status
+                              </label>
+                              <select
+                                value={visaForm.status}
+                                onChange={(e) =>
+                                  setVisaForm({ ...visaForm, status: e.target.value })
+                                }
+                                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020618] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                              >
+                                <option value="">Select visa status</option>
+                                <option value="NOT_STARTED">Not Started</option>
+                                <option value="DOCUMENTS_PENDING">Documents Pending</option>
+                                <option value="APPLIED">Applied</option>
+                                <option value="DECISION_PENDING">Decision Pending</option>
+                                <option value="APPROVED">Approved</option>
+                                <option value="REJECTED">Rejected</option>
+                                <option value="WITHDRAWN">Withdrawn</option>
+                              </select>
+                            </div>
+
+                            {/* University Start Date & Time */}
+                            <div>
+                              <label className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-1.5">
+                                University Start Date &amp; Time
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="datetime-local"
+                                  value={visaForm.universityStartDate}
+                                  onChange={(e) =>
+                                    setVisaForm({ ...visaForm, universityStartDate: e.target.value })
+                                  }
+                                  className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020618] text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                                />
+                                <Calendar className="size-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Submit */}
+                          <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-800">
+                            <button
+                              type="button"
+                              onClick={closeVisaForm}
+                              className="px-5 py-2 rounded-xl border border-slate-300 dark:border-slate-800 text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-850 transition"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleVisaSubmit}
+                              disabled={isSavingVisa}
+                              className="px-5 py-2 rounded-xl bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition"
+                            >
+                              {isSavingVisa
+                                ? "Saving..."
+                                : existingVisa
+                                  ? "Update Visa Details"
+                                  : "Save Visa Details"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -2238,6 +2748,154 @@ export default function StudentData({ student, reloadStudent, }: any) {
         </div>
       )}
 
+      {isDeleteDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => {
+              setIsDeleteDialogOpen(false);
+              setDeleteApplicationId(null);
+            }}
+          />
+
+          {/* Modal */}
+          <div className="relative z-10 w-full max-w-md rounded-xl border bg-background p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold">
+                  Delete University Application?
+                </h2>
+
+                <p className="mt-2 text-sm text-muted-foreground">
+                  This action cannot be undone. This will permanently delete this
+                  university application.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setIsDeleteDialogOpen(false);
+                  setDeleteApplicationId(null);
+                }}
+                className="rounded-lg border px-4 py-2 text-sm font-medium transition hover:bg-muted"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={confirmDeleteUniversityApp}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION — LOAN INQUIRY */}
+      {isDeleteLoanDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsDeleteLoanDialogOpen(false)}
+          />
+
+          {/* Modal */}
+          <div className="relative z-10 w-full max-w-md rounded-xl border bg-background p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold">
+                  Delete Loan Inquiry?
+                </h2>
+
+                <p className="mt-2 text-sm text-muted-foreground">
+                  This action cannot be undone. This will permanently delete this
+                  student's loan inquiry record.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setIsDeleteLoanDialogOpen(false)}
+                className="rounded-lg border px-4 py-2 text-sm font-medium transition hover:bg-muted"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={confirmDeleteLoan}
+                disabled={isDeletingLoan}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeletingLoan ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION — VISA DETAILS */}
+      {isDeleteVisaDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsDeleteVisaDialogOpen(false)}
+          />
+
+          {/* Modal */}
+          <div className="relative z-10 w-full max-w-md rounded-xl border bg-background p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold">
+                  Delete Visa Details?
+                </h2>
+
+                <p className="mt-2 text-sm text-muted-foreground">
+                  This action cannot be undone. This will permanently delete this
+                  student's visa/CAS/deposit compliance record.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setIsDeleteVisaDialogOpen(false)}
+                className="rounded-lg border px-4 py-2 text-sm font-medium transition hover:bg-muted"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={confirmDeleteVisaDetail}
+                disabled={isDeletingVisa}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeletingVisa ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 3. FLOATING FILTER SIDEBAR DRAWER PANEL (Fully Responsive!) */}
       <FilterSidebar
         isOpen={isFilterSidebarOpen}
@@ -2282,7 +2940,6 @@ export default function StudentData({ student, reloadStudent, }: any) {
         isDarkMode={isDarkMode}
         studentToEdit={student}
         studentNames={studentName}
-        onrelaod= {reloadStudent}
         onSave={handleSaveStudentPayload}
       />
     </div>

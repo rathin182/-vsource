@@ -714,7 +714,7 @@ model StudentCourses {
 
   // studentId String
   // student   Student @relation(fields: [studentId], references: [id])
-  leadId String? @unique
+  leadId String? 
   lead   Lead?   @relation(fields: [leadId], references: [id])
 
   createdAt DateTime @default(now())
