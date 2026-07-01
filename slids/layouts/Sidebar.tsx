@@ -24,6 +24,7 @@ import {
   Headset,
   FolderKanban,
   Activity,
+  Plus,
 } from "lucide-react";
 
 import { useUi } from "@/slids/store";
@@ -50,6 +51,12 @@ const items = [
       // { to: "/leads/all-followup", label: "All Follow-ups" },
       { to: "/leads/add", label: "Add Walk-in's" },
     ],
+  },
+    {
+    to: "/leads/add",
+    label: "Add Lead",
+    icon: Plus,
+    roles: ["COUNSELLOR"],
   },
   {
     to: "/visa",
