@@ -68,7 +68,11 @@ export async function GET(req: NextRequest) {
                 source: true,
               },
             },
-            remarks: true,
+            remarks: {
+              include: {
+                createdBy: true
+              }
+            },
             docs: true,
             loanInquiries: true,
 

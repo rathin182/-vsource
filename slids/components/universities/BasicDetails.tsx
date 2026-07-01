@@ -18,7 +18,6 @@ interface Props {
   onNext: () => void;
 }
 
-const CURRENCIES = ["USD", "AUD", "GBP", "CAD", "EUR", "INR"];
 
 const tier = [
   {
@@ -66,8 +65,7 @@ export default function BasicDetailsForm({ data, onChange, onNext }: Props) {
     Partial<Record<keyof BasicDetails, string>>
   >({});
 
-  const [countries, setCountries] = useState<{id: string, name: string}[]>([])
-
+  const [countries, setCountries] = useState<{id: string, name: string, currency: string, code: string}[]>([])
   async function getCountries() {
     const req = await axios.get("/api/countries/all");
     if (req.status === 200) {
@@ -227,9 +225,9 @@ export default function BasicDetailsForm({ data, onChange, onNext }: Props) {
               </SelectTrigger>
 
               <SelectContent>
-                {CURRENCIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
+                {countries.length > 0 && countries.map((c) => (
+                  <SelectItem key={c.id} value={c.currency}>
+                    {c.currency === null ? `${c.code} - N/A` : `${c.code} - ${c.currency}`}
                   </SelectItem>
                 ))}
               </SelectContent>

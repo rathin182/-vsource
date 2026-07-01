@@ -4,35 +4,48 @@
  * POST /api/lead-sources
  */
 
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/prisma";
-import { LeadSourceCreateSchema } from "@/lib/schemas";
-import { buildMeta, created, handleError, ok, parsePagination } from "@/lib/api-helpers";
+import { created, handleError } from "@/lib/api-helpers";
 
 export async function GET(req: NextRequest) {
   try {
-    const sp = req.nextUrl.searchParams;
-    const { skip, take, page, limit } = parsePagination(sp);
-    const status =
-      sp.get("status") !== null ? sp.get("status") === "true" : undefined;
+    const all = req.nextUrl.searchParams.get("all");
+    if (Boolean(all)) {
+      const data = await db.leadSource.findMany({
+        orderBy: {
+          createdAt: "desc",
+        },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          createdAt: true,
+        },
+      });
+      return NextResponse.json({ data }, { status: 200 });
+    }
+    const data = await db.leadSource.findMany({
+      where: {
+        status: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        createdAt: true,
+      },
+    });
 
-    const where = { ...(status !== undefined && { status }) };
-
-    const [sources, total] = await Promise.all([
-      db.leadSource.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { name: "asc" },
-      }),
-      db.leadSource.count({ where }),
-    ]);
-
-    return ok(sources, undefined, buildMeta(total, page, limit));
+    return NextResponse.json({ data }, { status: 200 });
   } catch (err) {
     return handleError(err);
   }
 }
+
 
 export async function POST(req: NextRequest) {
   try {

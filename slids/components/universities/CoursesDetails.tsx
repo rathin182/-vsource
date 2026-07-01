@@ -27,7 +27,6 @@ const DEGREE_TYPES: { value: DegreeType; label: string }[] = [
   { value: "certificate", label: "Certificate" },
 ];
 
-const CURRENCIES = ["USD", "AUD", "GBP", "CAD", "EUR", "INR"];
 
 const emptyCourse = (): Course => ({
   id: crypto.randomUUID(),
@@ -72,6 +71,8 @@ function CourseCard({ course, index, onUpdate, onRemove }: CourseCardProps) {
   const [errors, setErrors] = useState<Partial<Record<keyof Course, string>>>(
     {},
   );
+  const [currencies, setCurrencies] = useState<{currency: string, code: string}[]>([]);
+
   const [touched, setTouched] = useState<
     Partial<Record<keyof Course, boolean>>
   >({});
@@ -85,7 +86,16 @@ function CourseCard({ course, index, onUpdate, onRemove }: CourseCardProps) {
     }
   }
 
+    async function getCountries() {
+    const req = await axios.get("/api/countries/all");
+    if (req.status === 200) {
+      setCurrencies(req.data.data)
+    }
+  }
+
+  
   useEffect(() => {
+    getCountries()
     getIntake()
   }, [])
 
@@ -252,11 +262,11 @@ function CourseCard({ course, index, onUpdate, onRemove }: CourseCardProps) {
                   </SelectTrigger>
 
                   <SelectContent>
-                    {CURRENCIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
+                {currencies.length > 0 && currencies.map((c, i) => (
+                  <SelectItem key={i} value={c.currency}>
+                    {c.currency === null ? `${c.code} - N/A` : `${c.code} - ${c.currency}`}
+                  </SelectItem>
+                ))}
                   </SelectContent>
                 </Select>
               </div>

@@ -2,22 +2,11 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import {
-  LayoutDashboard,
-  Users,
+
   FileText,
   CreditCard,
   FileCheck2,
-  BarChart3,
-  Search,
-  Bell,
-  Sun,
-  Moon,
   Plus,
-  ChevronRight,
-  Filter,
-  TrendingUp,
-  Percent,
-  DollarSign,
   User,
   MapPin,
   Calendar,
@@ -25,17 +14,11 @@ import {
   Check,
   Briefcase,
   Globe2,
-  Trash2,
-  Eye,
+
   FileSignature,
-  SlidersHorizontal,
   FolderOpen,
   LayoutGrid,
   TableProperties,
-  ArrowUpRight,
-  ExternalLink,
-  GripVertical,
-  X,
   ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from "framer-motion";
@@ -373,6 +356,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
         if (!matchesSearch) return false;
       }
 
+
       if (filterCounsellor !== 'All' && student.counsellor !== filterCounsellor) return false;
       if (filterIntake !== 'All' && student.intake !== filterIntake) return false;
       if (filterCountry !== 'All' && student.country !== filterCountry) return false;
@@ -401,6 +385,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
     filterCasStatus, filterNbfc, filterFintechAssignee, filterAppStatus, filterUniversity, filterDateType,
     customStartDate, customEndDate
   ]);
+
 
   // Target statistics strictly reactive to filters / specs
   const stats = useMemo(() => {
@@ -774,7 +759,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
       const payload = {
         title: remarkTitle,
         message: newRemarkText,
-        type: remarkType,
+        type: remarkType
       };
 
       const res = await fetch(
@@ -2140,7 +2125,8 @@ export default function StudentData({ student, reloadStudent, }: any) {
                                     })}
                                   </span>
 
-                                  <span className="text-[10px] text-slate-400 font-semibold">
+                                  <span className="text-sm text-slate-400 font-semibold text-right">
+                                    <span className="text-xs font-normal">Created by:</span> <br />
                                     {rem.createdBy?.name ||
                                       "System"}
                                   </span>

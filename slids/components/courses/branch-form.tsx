@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -28,6 +28,7 @@ SelectItem,
 SelectTrigger,
 SelectValue,
 } from "@/slids/components/ui/select";
+import axios from "axios";
 
 const BranchFormSchema = z.object({
 name: z
@@ -69,28 +70,25 @@ status: z.boolean().optional(),
 type BranchFormValues = z.infer<
 typeof BranchFormSchema
 
-> ;
-
-const countries = [
-"India",
-"Canada",
-"Australia",
-"United States",
-"United Kingdom",
-"Germany",
-"Ireland",
-"New Zealand",
-"France",
-"Singapore",
-"UAE",
-];
+>
 
 export default function BranchFormPage() {
 const router = useRouter();
 
 const [loading, setLoading] =
 useState(false);
+  const [countries, setCountries] = useState<{id: string, name: string}[]>([]);
 
+  const getCountries = async () => {
+    const res = await axios.get("/api/countries/all");
+    if (res.status === 200) {
+      setCountries(res.data.data); 
+    }
+  }
+
+  useEffect(() => {
+    getCountries();
+  }, [])
 const {
 register,
 handleSubmit,
@@ -356,20 +354,20 @@ return ( <div className="max-w-7xl mx-auto p-6">
                 </SelectTrigger>
 
                 <SelectContent>
-                  {countries.map(
+                  {countries.length > 0 && countries.map(
                     (
                       country
                     ) => (
                       <SelectItem
                         key={
-                          country
+                          country.id
                         }
                         value={
-                          country
+                          country.name
                         }
                       >
                         {
-                          country
+                          country.name
                         }
                       </SelectItem>
                     )

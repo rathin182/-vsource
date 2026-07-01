@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/slids/components/ui/select";
+import axios from "axios";
 
 const BranchFormSchema = z.object({
   name: z.string().min(1, "Branch name is required"),
@@ -55,25 +56,13 @@ const BranchFormSchema = z.object({
 
 type BranchFormValues = z.infer<typeof BranchFormSchema>;
 
-const countries = [
-  "India",
-  "Canada",
-  "Australia",
-  "United States",
-  "United Kingdom",
-  "Germany",
-  "Ireland",
-  "New Zealand",
-  "France",
-  "Singapore",
-  "UAE",
-];
 
 export default function EditBranchPage() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id as string;
 
+  const [countries, setCountries] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -171,6 +160,18 @@ export default function EditBranchPage() {
     }
   };
 
+  
+
+  const getCountries = async () => {
+    const res = await axios.get("/api/countries/all");
+    if (res.status === 200) {
+      setCountries(res.data.data); 
+    }
+  }
+
+  useEffect(() => {
+    getCountries();
+  }, [])
   // Loading skeleton
   if (fetching) {
     return (
@@ -338,9 +339,9 @@ export default function EditBranchPage() {
                       <SelectValue placeholder="Select Country" />
                     </SelectTrigger>
                     <SelectContent>
-                      {countries.map((country) => (
-                        <SelectItem key={country} value={country}>
-                          {country}
+                      {countries.length > 0 && countries.map((country) => (
+                        <SelectItem key={country.id} value={country.name}>
+                          {country.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -49,7 +49,11 @@ export async function GET(req: NextRequest) {
                     updatedBy: true,
                     student: true,
                     timelines: true,
-                    remarks: true,
+                    remarks: {
+                        include: {
+                            createdBy: true,
+                        }
+                    },
                     docs: true,
                     loanInquiries: true,
                     visaDetail: true,
@@ -68,7 +72,7 @@ export async function GET(req: NextRequest) {
                     }
                 );
             }
-
+            
             return NextResponse.json({
                 success: true,
                 data: lead,
@@ -78,8 +82,7 @@ export async function GET(req: NextRequest) {
         // ======================================================
         // 2. COUNSELLOR -> ONLY HIS LEADS
         // ======================================================
-        console.log(payload);
-        
+
         if (role.toUpperCase() === "COUNSELLOR") {
             const leads = await db.lead.findMany({
                 where: {

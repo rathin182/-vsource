@@ -373,12 +373,9 @@ model Remark {
   type RemarkType @default(NOTE)
 
   createdById String?
-
-  // student Student @relation(fields: [studentId], references: [id])
-
   createdBy User? @relation(fields: [createdById], references: [id])
 
-  leadId String? @unique
+  leadId String?
   lead   Lead?   @relation(fields: [leadId], references: [id])
 
   createdAt DateTime @default(now())

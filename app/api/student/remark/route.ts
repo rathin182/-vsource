@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     const token: string | undefined = (await cookies()).get("access_token")?.value;
     if (!token) throw new Error("Unauthorized");
     const payload = verifyToken(token) as any;
-    const userId = payload.id;
+    const userId = payload.userId;
 
     if (!leadId && !userId) {
       return NextResponse.json(
@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
       title,
       message,
       type,
-      createdById,
     } = body;
 
     if (!message?.trim()) {
@@ -48,16 +47,12 @@ export async function POST(req: NextRequest) {
     const remark = await db.remark.create({
       data: {
         leadId,
-
         title: title || null,
-
         message,
-
         type: (
           type || "NOTE"
         ).toUpperCase() as RemarkType,
-
-        createdById: createdById || null,
+        createdById: userId,
       },
     });
 

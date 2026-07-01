@@ -75,7 +75,7 @@ const items = [
   },
   {
     to: "/reports",
-    label: "Peformances",
+    label: "Peformance",
     icon: BarChart3,
     roles: ["ADMIN", "SUPER ADMIN", "COUNSELLOR"],
   },

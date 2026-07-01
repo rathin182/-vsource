@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, UserPlus, FileEdit, RefreshCcw, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import axios from 'axios';
 
 // ─── Enum mirrors ────────────────────────────────────────────────────────────
 
@@ -107,10 +108,6 @@ const CURRENT_STAGE_OPTIONS: { value: Studentstage; label: string }[] = [
   { value: 'PURSUING', label: 'Pursuing' },
 ];
 
-const COUNTRIES = [
-  'United Kingdom', 'Australia', 'Canada', 'United States', 'Ireland',
-  'Germany', 'New Zealand', 'France', 'Netherlands', 'Singapore',
-];
 
 const INTAKES = [
   'WINTER', 'FALL', 'SUMMER', 'SPRING'
@@ -163,7 +160,7 @@ export function AddEditModal({
   const [lastName, setLastname]= useState('');
   const [counselorId, setCounselorId] = useState('');
   const [selectedCounselor, setSelectedCounselor] = useState("");
-  const [preferredCountry, setPreferredCountry] = useState('United Kingdom');
+  const [preferredCountry, setPreferredCountry] = useState('');
   const [intake, setIntake] = useState('');
   const [admissionDate, setAdmissionDate] = useState('');
   const [applicationType, setApplicationType] = useState<ApplicationType>('MASTER');
@@ -185,6 +182,19 @@ export function AddEditModal({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [counselors, setCounselors] = useState<any[]>([]);
+  
+  const [countries, setCountries] = useState<{id: string, name: string}[]>([]);
+
+  const getCountries = async () => {
+    const res = await axios.get("/api/countries/all");
+    if (res.status === 200) {
+      setCountries(res.data.data); 
+    }
+  }
+
+  useEffect(() => {
+    getCountries();
+  }, [])
 
   const fetchCounsellor = async () => {
     try {
@@ -450,7 +460,7 @@ export function AddEditModal({
                   <div>
                     <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">Preferred Country</label>
                     <select value={preferredCountry} onChange={e => setPreferredCountry(e.target.value)} className={select}>
-                      {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      {countries.length > 0 && countries.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                     </select>
                   </div>
 

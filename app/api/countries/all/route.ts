@@ -6,22 +6,41 @@ import {
 
 export async function GET(req: NextRequest) {
   try {
-
+    const all = req.nextUrl.searchParams.get("all");
+    if (Boolean(all)) {
+      const data = await db.country.findMany({
+        orderBy: {
+          createdAt: "desc",
+        },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          createdAt: true,
+          code: true,
+          currency: true,
+        },
+      });
+      return NextResponse.json({ data }, { status: 200 });
+    }
     const data = await db.country.findMany({
-          orderBy: {
-            createdAt: "desc",
-          },
-          select: {
-            id: true,
-            name: true,
-            createdAt: true,
-            status: true,
-            currency: true,
-            code: true,
-          }
-        })
+      where: {
+        status: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        createdAt: true,
+        code: true,
+        currency: true,
+      },
+    });
 
-    return NextResponse.json({data}, {status: 200})
+    return NextResponse.json({ data }, { status: 200 });
   } catch (err) {
     return handleError(err);
   }

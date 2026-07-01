@@ -472,7 +472,7 @@ export function DMSSection({
       {/* RIGHT COLUMN: DOCUMENT VIEWER */}
       <div className="xl:col-span-3">
         <div
-          className="p-5 rounded-3xl border shadow-sm min-h-[550px] flex flex-col justify-between dark:bg-[#12161F] dark:border-[#12161F] bg-white border-slate-100"
+          className="p-5 rounded-3xl border shadow-sm min-h-[830px] h-auto flex flex-col justify-between dark:bg-[#12161F] dark:border-[#12161F] bg-white border-slate-100"
           id="document-viewer-box"
         >
           {/* TOP CONTROLS */}
@@ -541,9 +541,9 @@ export function DMSSection({
                 >
                   <div
                     className="transition-transform duration-200 origin-center text-xs shadow-lg max-w-full max-h-full"
-                    style={{ transform: `rotate(${rotateDeg}deg) scale(${zoomScale})`, width: '100%', maxWidth: '380px' }}
+                    style={{ transform: `rotate(${rotateDeg}deg) scale(${zoomScale})`, width: '100%', maxWidth: '740px' }}
                   >
-                    <div className="bg-white text-slate-900 border border-slate-300 rounded-lg p-3 min-h-[330px] flex flex-col justify-between shadow-sm overflow-hidden select-none">
+                    <div className="bg-white text-slate-900 border border-slate-300 rounded-lg p-3 flex min-h-[600px] flex-col justify-between shadow-sm overflow-hidden select-none">
                       <div className="border-b border-slate-200 pb-1.5 text-center leading-snug">
                         <div className="text-[10px] font-black tracking-wider text-red-600 uppercase">SECURE DEVICE ATTACHMENT</div>
                         <div className="text-[8px] font-bold text-slate-400 mt-0.5 uppercase">
