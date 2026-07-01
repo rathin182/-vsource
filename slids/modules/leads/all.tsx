@@ -309,8 +309,6 @@ export default function AllLeadsPage() {
     try {
       setIsLoading(true);
       const { data } = await axios.get("/api/leads", { withCredentials: true });
-      console.log(data);
-      
       setLeads(Array.isArray(data?.data) ? data.data : []);
     } catch (err) {
       console.error(err);
