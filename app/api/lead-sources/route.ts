@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = LeadSourceCreateSchema.parse(await req.json());
+    const body = await req.json();
     const source = await db.leadSource.create({ data: body });
     return created(source, "Lead source created successfully");
   } catch (err) {

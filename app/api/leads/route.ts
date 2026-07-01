@@ -333,7 +333,7 @@ export async function POST(req: NextRequest) {
       counselorId: payload.counselorId               || undefined,
       notes:       payload.notes                     || undefined,
     });
-
+    
     const lead = await db.lead.create({
       data: {
         // Personal

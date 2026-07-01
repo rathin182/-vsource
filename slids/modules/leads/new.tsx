@@ -119,13 +119,6 @@ type LeadFormValues = {
 const ENGLISH_TEST_OPTIONS = ["IELTS", "TOEFL", "DUOLINGO", "PTE"] as const;
 const TIER_OPTIONS = ["T1", "T2", "T3", "T4"];
 
-const MOCK_LEAD_SOURCES: LeadSource[] = [
-  { id: "1", name: "Walk-in" },
-  { id: "2", name: "Referral" },
-  { id: "3", name: "Social Media" },
-  { id: "4", name: "Website" },
-  { id: "5", name: "Event" },
-];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -368,6 +361,7 @@ function UniversityCombobox({
                   type="button"
                   onClick={() => {
                     if (!search.trim()) return;
+                    // ok()
                     onChange("", search.trim(), []);
                     setOpen(false);
                     setSearch("");
@@ -536,6 +530,8 @@ export default function AddNewLead() {
   );
   const [countries, setCountries] = useState<Country[]>([]);
   const [intakes, setIntakes] = useState<Intake[]>([]);
+  const [leadSource, setLeadSource] = useState<Intake[]>([]);
+  const [degrees, setDegrees] = useState<Intake[]>([]);
   const [counsellors, setCounsellor] = useState<{ id: string; name: string }[]>(
     [],
   );
@@ -551,14 +547,20 @@ export default function AddNewLead() {
           axios.get(`/api/branches/all?role=${user.role.name}&me=${user.id}`, {
             withCredentials: true,
           }),
-          axios.get("/api/universities/all", {
-            params: { course: true },
+          axios.get("/api/lead-universities", {
             withCredentials: true,
           }),
           axios.get("/api/countries/all", {
             withCredentials: true,
           }),
           axios.get("/api/intakes/all", {
+            withCredentials: true,
+          }),
+
+          axios.get("/api/lead-sources", {
+            withCredentials: true,
+          }),
+                    axios.get("/api/lead-degrees", {
             withCredentials: true,
           }),
         ];
@@ -573,13 +575,14 @@ export default function AddNewLead() {
 
         const responses = await Promise.all(requests);
 
-        const [branchRes, uniRes, countryRes, intakeRes, users] = responses;
+        const [branchRes, uniRes, countryRes, intakeRes, leadSource, degrees, users] = responses;
 
         setBranches(branchRes.data?.data ?? []);
         setUniversities(uniRes.data?.data ?? []);
         setCountries(countryRes.data?.data ?? []);
         setIntakes(intakeRes.data?.data ?? []);
-
+        setLeadSource(leadSource.data?.data ?? []);
+        setDegrees(degrees?.data?.data ?? []);
         if (isCounsellor) {
           setCounsellor([
             {
@@ -657,18 +660,6 @@ export default function AddNewLead() {
     setIsSaving(true);
 
     try {
-      /**
-       * Build the payload using the exact field names the backend's
-       * LeadCreateSchema expects (see POST /api/leads handler).
-       *
-       * Field-name mapping (frontend → backend):
-       *   counsellingDate       → applicationDate   (via payload.counsellingDate)
-       *   tenthPercentage       → tenthPassingPercentage
-       *   tenthYearOfPassing    → tenthPassingYear
-       *   phone                 → phone             (backend also accepts mobileNumber)
-       *   email                 → email             (backend also accepts emailId)
-       *   status                → must be uppercase ("NEW")
-       */
       const payload = {
         // ── Personal ──
         studentName: form.studentName.trim(),
@@ -736,6 +727,22 @@ export default function AddNewLead() {
         status: "NEW", // backend expects uppercase
       };
 
+      const existU = universities.some(u => u.name.toLowerCase() === form.bachelorsUniversityName.toLowerCase());
+      const existD = degrees.some(d => d.name.toLowerCase() === form.bachelorsCourse.toLowerCase());
+      
+      if (form.bachelorsUniversityName && !existU) {
+        await axios.post("/api/lead-universities", {
+          name: strOrUndef(form.bachelorsUniversityName)
+        })
+      }
+
+      if (form.bachelorsCourse &&!existD) {
+        await axios.post("/api/lead-degrees", {
+          name: strOrUndef(form.bachelorsCourse)
+        })
+      }
+
+
       await axios.post("/api/leads", payload, {
         withCredentials: true,
       });
@@ -756,9 +763,6 @@ export default function AddNewLead() {
     }
   };
 
-  // ── Derived: show overall score input for non-IELTS tests ──
-
-  // ─────────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen relative">
@@ -921,7 +925,7 @@ export default function AddNewLead() {
                       <SelectValue placeholder="Select Source" />
                     </SelectTrigger>
                     <SelectContent>
-                      {MOCK_LEAD_SOURCES.map((s) => (
+                      {leadSource.length > 0 && leadSource.map((s) => (
                         <SelectItem key={s.id} value={s.name}>
                           {s.name}
                         </SelectItem>
@@ -944,7 +948,7 @@ export default function AddNewLead() {
                     </SelectTrigger>
                     <SelectContent>
                       {counsellors.map((s) => (
-                        <SelectItem key={s.id} value={s.name}>
+                        <SelectItem key={s.id} value={s.id}>
                           {s.name}
                         </SelectItem>
                       ))}
@@ -1024,36 +1028,12 @@ export default function AddNewLead() {
                   {/* Course — driven by selected university's courses */}
                   <div>
                     <FieldLabel>Course / Major</FieldLabel>
-                    {availableCourses.length > 0 ? (
-                      <Select
-                        value={form.bachelorsCourse}
-                        onValueChange={(v) => set("bachelorsCourse", v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={
-                              availableCourses.length === 0
-                                ? "Select a university first"
-                                : "Select Course"
-                            }
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableCourses.map((c) => (
-                            <SelectItem key={c.id} value={c.name}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
                       <TextInput
                         id="bachelorsCourse"
                         placeholder={"M. Tech"}
                         value={form.bachelorsCourse}
                         onChange={(v) => set("bachelorsCourse", v)}
                       />
-                    )}
                   </div>
 
                   {/* CGPA */}

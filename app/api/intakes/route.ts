@@ -6,13 +6,6 @@
 
 import { NextRequest } from "next/server";
 import db from "@/lib/prisma";
-// import {
-//   ok,
-//   created,
-//   handleError,
-//   parsePagination,
-//   buildMeta,
-// } from "@/lib/api-helpers";
 import { IntakeCreateSchema } from "@/lib/schemas";
 import { buildMeta, created, handleError, ok, parsePagination } from "@/lib/api-helpers";
 
@@ -44,7 +37,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = IntakeCreateSchema.parse(await req.json());
+    const body = await req.json();
     const intake = await db.intake.create({ data: body });
     return created(intake, "Intake created successfully");
   } catch (err) {

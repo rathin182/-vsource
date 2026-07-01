@@ -45,11 +45,8 @@ const items = [
     icon: Users,
     roles: ["ADMIN", "RECEPTIONIST", "SUPER ADMIN"],
     children: [
-      { to: "/leads/all", label: "All Walk-In" },
-      // { to: "/leads/allocated", label: "Allocated" },
-      // { to: "/leads/today-followup", label: "Today Follow-up" },
-      // { to: "/leads/all-followup", label: "All Follow-ups" },
       { to: "/leads/add", label: "Add Walk-in's" },
+      { to: "/leads/all", label: "All Walk-In" },
     ],
   },
     {
@@ -84,12 +81,12 @@ const items = [
   },
 
   // Admin only
-  // {
-  //   to: "/loans",
-  //   label: "Education Loans",
-  //   icon: Banknote,
-  //   roles: ["ADMIN", "SUPER ADMIN"],
-  // },
+  {
+    to: "/loans",
+    label: "Education Loans",
+    icon: Banknote,
+    roles: ["ADMIN", "SUPER ADMIN", "COUNSELLOR"],
+  },
   {
     to: "/branches",
     label: "Branches",
@@ -124,7 +121,7 @@ const items = [
     to: "/assign-leads",
     label: "Assign Leads",
     icon: Headset,
-    roles: ["ADMIN", "SUPER ADMIN"],
+    roles: ["ADMIN", "SUPER ADMIN", "RECEPTIONIST"],
   },
   {
     to: "/counsellor",
@@ -138,12 +135,12 @@ const items = [
   //   icon: User,
   //   roles: ["ADMIN", "RECEPTIONIST", "COUNSELLOR", "SUPER ADMIN"],
   // },
-  // {
-  //   to: "/settings",
-  //   label: "Settings",
-  //   icon: Settings,
-  //   roles: ["ADMIN", "SUPER ADMIN"],
-  // },
+  {
+    to: "/master-settings",
+    label: "Master Settings",
+    icon: Settings,
+    roles: ["ADMIN", "SUPER ADMIN"],
+  },
 ] as const;
 
 export function Sidebar() {

@@ -820,11 +820,10 @@ model Intake {
   id String @id @default(uuid())
 
   name String @unique
-
   status Boolean @default(true)
-
+  
   courses UniversityCourse[]
-
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

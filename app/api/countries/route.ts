@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = CountryCreateSchema.parse(await req.json());
+    const body = await req.json();
     const country = await db.country.create({ data: body });
     return created(country, "Country created successfully");
   } catch (err) {

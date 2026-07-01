@@ -34,7 +34,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 export async function PUT(req: NextRequest, { params }: Ctx) {
   try {
     const { id } = await params;
-    const body = CountryUpdateSchema.parse(await req.json());
+    const body = await req.json();
     const country = await db.country.update({ where: { id }, data: body });
     return ok(country, "Country updated successfully");
   } catch (err) {
