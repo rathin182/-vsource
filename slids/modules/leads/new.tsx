@@ -314,7 +314,7 @@ function TextareaInput({
 
 // ─── University Combobox ──────────────────────────────────────────────────────
 
-function UniversityCombobox({
+export function UniversityCombobox({
   value,
   onChange,
   universities,
@@ -330,6 +330,8 @@ function UniversityCombobox({
     u.name.toLowerCase().includes(search.toLowerCase()),
   );
 
+  const [name, setName] = useState(value);
+
   return (
     <div className="relative">
       <button
@@ -337,8 +339,8 @@ function UniversityCombobox({
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition"
       >
-        <span className={value ? "text-foreground" : "text-muted-foreground"}>
-          {value || "Select or Type University"}
+        <span className={name ? "text-foreground" : "text-muted-foreground"}>
+          {name || "Select or Type University"}
         </span>
         <ChevronsUpDown className="h-4 w-4 text-muted-foreground shrink-0" />
       </button>
@@ -361,8 +363,7 @@ function UniversityCombobox({
                   type="button"
                   onClick={() => {
                     if (!search.trim()) return;
-                    // ok()
-                    onChange("", search.trim(), []);
+                    onChange(search.trim(), "", []);
                     setOpen(false);
                     setSearch("");
                   }}
@@ -378,7 +379,8 @@ function UniversityCombobox({
                   <button
                     type="button"
                     onClick={() => {
-                      onChange(u.id, u.name, u.courses ?? []);
+                      setName(u.name);
+                      onChange(u.name, u.id, u.courses ?? []);
                       setOpen(false);
                       setSearch("");
                     }}

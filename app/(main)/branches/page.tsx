@@ -23,6 +23,8 @@ import {
 import type { Branch } from "@/slids/types";
 import axios from "axios";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/slids/components/ui/dialog";
 
 interface MetaData {
   totalPages: number;
@@ -49,21 +51,38 @@ export default function Branches() {
       }
     });
 
-  const delData = (id: string) =>
-    startTransition(async () => {
+  const delData = async (id: string) => {
       const req = await axios.delete(`/api/branches/${id}`);
       if (req.status === 200) {
-        window.location.reload()
+        fetchData();
       }
-    });
+      else {
+        toast.error("Failed to delete.");
+      }
+    };
 
-  const delAsk = (id: string, name: string) => {
-    const ok = window.confirm(`Are you sure want to delete ${name}`)
-    if (ok) {
-      delData(id)
-    }
+// state
+const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+const [deleteLoading, setDeleteLoading] = useState(false);
+
+// replaces delAsk — just opens the dialog now
+const delAsk = (id: string, name: string) => {
+  setDeleteTarget({ id, name });
+};
+
+const confirmDelete = async () => {
+  if (!deleteTarget) return;
+  setDeleteLoading(true);
+  try {
+    await delData(deleteTarget.id);
+    setDeleteTarget(null);
+  } catch (err: any) {
+    toast.error("Failed to delete.");
+  } finally {
+    fetchData();
+    setDeleteLoading(false);
   }
-
+};
   useEffect(() => {
     fetchData();
   }, [page]);
@@ -169,6 +188,29 @@ export default function Branches() {
           </button>
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+<Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+  <DialogContent className="sm:max-w-md">
+    <DialogHeader>
+      <DialogTitle>Delete</DialogTitle>
+      <DialogDescription>
+        Are you sure you want to delete{" "}
+        <span className="font-medium text-foreground">{deleteTarget?.name}</span>? This action
+        cannot be undone.
+      </DialogDescription>
+    </DialogHeader>
+    <DialogFooter>
+      <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteLoading}>
+        Cancel
+      </Button>
+      <Button variant="destructive" onClick={confirmDelete} disabled={deleteLoading}>
+        {deleteLoading && <LucideLoader2 className="size-3.5 mr-1.5 animate-spin" />}
+        Delete
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
     </PageTransition>
   );
 }

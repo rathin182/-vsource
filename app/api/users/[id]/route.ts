@@ -12,6 +12,8 @@ import db from "@/lib/prisma";
 import { ok, notFound, noContent, handleError } from "@/lib/api-helpers";
 import { UserUpdateSchema } from "@/lib/schemas";
 import { MODULES, PERMISSIONS } from "@/lib/module-codes";
+import { verifyToken } from "@/lib/jwt";
+import { cookies } from "next/headers";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -47,13 +49,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 
     const body = await req.json();
 
-    console.log(body);
-    
-    const {
-      branchIds,
-      password,
-      ...data
-    } = body;
+    const { branchIds, password, ...data } = body;
 
     const updateData: Record<string, unknown> = {
       ...data, // includes monthlyTarget, name, email, roleId
@@ -78,34 +74,44 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     });
 
     return ok(user, "User updated successfully");
-
   } catch (err) {
     console.log(err);
     return handleError(err);
   }
 }
 
-export async function DELETE(req: NextRequest,
-  { params }: { params: { id: string } }) {
+export async function DELETE(
+  req: NextRequest,
+  { params }:  Ctx,
+) {
   try {
-     const sp = req.nextUrl.searchParams;
-    const id = sp.get("id") as string;
-
-    console.log("Deleting user:", id);
-
+    const { id } = await params;
+    const token: string | undefined = (await cookies()).get(
+      "access_token",
+    )?.value;
+    if (!token) throw new Error("Unauthorized");
+    const payload = verifyToken(token) as any;
+    const userId = payload.userId;
+    
+    
     const user = await db.user.findUnique({
       where: { id },
     });
-
-    console.log(user);
-
+    
+    if (id === userId) {
+      return NextResponse.json({
+        success: false,
+        message: "You cannot delete your own account.",
+      }, { status: 400
+      })
+    }
     if (!user) {
       return NextResponse.json(
         {
           success: false,
           message: "User not found.",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 

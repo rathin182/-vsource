@@ -161,35 +161,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
-export async function DELETE(req: NextRequest) {
-  try {
-     const sp = req.nextUrl.searchParams;
-    const id = sp.get("id") as string;
-
-    const user = await db.user.findUnique({
-      where: { id },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "User not found.",
-        },
-        { status: 404 }
-      );
-    }
-
-    await db.user.delete({
-      where: { id },
-    });
-
-    return NextResponse.json({
-      success: true,
-    });
-  } catch (err) {
-    console.error(err);
-    return handleError(err);
-  }
-}

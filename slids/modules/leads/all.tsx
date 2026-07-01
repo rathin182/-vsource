@@ -34,6 +34,7 @@ import { useRouter } from "next/navigation";
 import { MODULES } from "@/lib/module-codes";
 // import type { Lead, LeadStatus } from "@/types";
 import { useAuth } from "@/slids/store";
+import { UniversityCombobox } from "./new";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,11 @@ const TIER_OPTIONS = ["T1", "T2", "T3", "T4"];
 const PAGE_SIZE = 10;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+interface Init {
+  id: string;
+  name: string;
+}
 
 const formatDate = (value?: string | Date | null) => {
   if (!value) return "—";
@@ -167,7 +173,7 @@ const leadToEditForm = (lead: any): EditForm => ({
   preferredCourse: lead.preferredCourse ?? "",
   preferredTiers: Array.isArray(lead.preferredTiers) ? lead.preferredTiers : [],
   status: lead.status ?? "new",
-  counsellorId: lead.counselorId ?? ""
+  counsellorId: lead.counselorId ?? "",
 });
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -197,6 +203,11 @@ function EditInput({
   onChange,
   step,
   min,
+  max,
+  maxLength,
+  inputMode,
+  onKeyDown,
+  onPaste,
 }: {
   id?: string;
   type?: string;
@@ -205,6 +216,11 @@ function EditInput({
   onChange: (v: string) => void;
   step?: string;
   min?: number;
+  max?: number;
+  maxLength?: number;
+  inputMode?: "text" | "numeric" | "decimal" | "tel";
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
 }) {
   return (
     <input
@@ -214,7 +230,12 @@ function EditInput({
       value={value}
       step={step}
       min={min}
+      max={max}
+      maxLength={maxLength}
+      inputMode={inputMode}
       onChange={(e) => onChange(e.target.value)}
+      onKeyDown={onKeyDown}
+      onPaste={onPaste}
       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring transition"
     />
   );
@@ -296,14 +317,55 @@ export default function AllLeadsPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [counsellorList, setCounsellorList] = useState<{id: string, name: string}[]>([])
+  const [countries, setCountries] = useState<Init[]>([]);
+  const [intakes, setIntakes] = useState<Init[]>([]);
+  const [universities, setUniversities] = useState<Init[]>([]);
+  const [leadSource, setLeadSource] = useState<Init[]>([]);
+  const [degrees, setDegrees] = useState<Init[]>([]);
+  const [counsellorList, setCounsellorList] = useState<Init[]>([]);
 
-  async function getCounsellors() {
-    const req = await axios.get("/api/users/counsellor?few=true");
-    if (req.status === 200) {
-      setCounsellorList(req.data.data)
-    } 
-  }
+  const fetchAll = async () => {
+    try {
+      const requests = [
+        axios.get("/api/lead-universities", {
+          withCredentials: true,
+        }),
+        axios.get("/api/countries/all", {
+          withCredentials: true,
+        }),
+        axios.get("/api/intakes/all", {
+          withCredentials: true,
+        }),
+
+        axios.get("/api/lead-sources", {
+          withCredentials: true,
+        }),
+
+        axios.get("/api/lead-degrees", {
+          withCredentials: true,
+        }),
+
+        axios.get("/api/users/counsellor?few=true", {
+          withCredentials: true,
+        }),
+      ];
+
+      const responses = await Promise.all(requests);
+
+      const [uniRes, countryRes, intakeRes, leadSource, degrees, usersRes] =
+        responses;
+
+      setUniversities(uniRes.data?.data ?? []);
+      setCountries(countryRes.data?.data ?? []);
+      setIntakes(intakeRes.data?.data ?? []);
+      setLeadSource(leadSource.data?.data ?? []);
+      setDegrees(degrees?.data?.data ?? []);
+      setCounsellorList(usersRes.data?.data ?? []);
+    } catch (err) {
+      console.error("Failed to load master data:", err);
+      toast.error("Failed to load dropdown data");
+    }
+  };
   // ── Load leads ──
   const loadLeads = async () => {
     try {
@@ -378,7 +440,7 @@ export default function AllLeadsPage() {
   const openEdit = (lead: any) => {
     setEditingLead(lead);
     setEditForm(leadToEditForm(lead));
-    getCounsellors()
+    fetchAll();
   };
 
   const setField = <K extends keyof EditForm>(key: K, value: EditForm[K]) =>
@@ -455,7 +517,7 @@ export default function AllLeadsPage() {
         preferredIntake: strOrUndef(editForm.preferredIntake),
         preferredTiers: editForm.preferredTiers,
         status: editForm.status.toUpperCase(),
-        counselorId: editForm.counsellorId
+        counselorId: editForm.counsellorId,
       };
 
       await axios.put(`/api/leads/${editingLead.id}`, payload, {
@@ -494,7 +556,52 @@ export default function AllLeadsPage() {
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
+  const setNumericField = (key: any, v: string) => {
+    setField(key, v.replace(/-/g, "")); // strip minus signs
+  };
 
+  const blockInvalidNumberKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (["-", "+", "e", "E"].includes(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  const blockInvalidNumberPaste = (
+    e: React.ClipboardEvent<HTMLInputElement>,
+  ) => {
+    const pasted = e.clipboardData.getData("text");
+    if (/[-+eE]/.test(pasted)) {
+      e.preventDefault();
+      document.execCommand("insertText", false, pasted.replace(/[-+eE]/g, ""));
+    }
+  };
+
+  const handlePhoneField = (v: string) => {
+    setField("phone", v.replace(/[^0-9]/g, "").slice(0, 10));
+  };
+
+  const blockInvalidPhoneKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (
+      [
+        "Backspace",
+        "Delete",
+        "Tab",
+        "ArrowLeft",
+        "ArrowRight",
+        "Home",
+        "End",
+      ].includes(e.key) ||
+      e.ctrlKey ||
+      e.metaKey
+    ) {
+      return;
+    }
+    if (!/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  // -------------------------------------------------
   return (
     <PageTransition>
       <PageHeader
@@ -790,15 +897,15 @@ export default function AllLeadsPage() {
                           <td className="px-2 py-2.5 xl:px-3">
                             <div className="flex flex-col gap-1 items-start">
                               {lead.counselor ? (
-                                  <Badge
-                                    key={lead.counselor?.id || i}
-                                    className="h-5 max-w-full px-2 text-[10px] font-semibold"
-                                    title={lead.counselor?.name || ""}
-                                  >
-                                    <span className="block truncate">
-                                      {lead.counselor?.name || "—"}
-                                    </span>
-                                  </Badge>
+                                <Badge
+                                  key={lead.counselor?.id || i}
+                                  className="h-5 max-w-full px-2 text-[10px] font-semibold"
+                                  title={lead.counselor?.name || ""}
+                                >
+                                  <span className="block truncate">
+                                    {lead.counselor?.name || "—"}
+                                  </span>
+                                </Badge>
                               ) : (
                                 <span className="text-[11px] text-muted-foreground">
                                   Unassigned
@@ -918,9 +1025,6 @@ export default function AllLeadsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center justify-between">
               <span>Lead Details</span>
-              <span className="font-mono text-xs text-muted-foreground">
-                {viewLead?.studentName}
-              </span>
             </DialogTitle>
           </DialogHeader>
 
@@ -1039,493 +1143,537 @@ export default function AllLeadsPage() {
       {/* ════════════════════════════════════════════════════════════
           EDIT DIALOG
       ════════════════════════════════════════════════════════════ */}
-      <Dialog
-        open={Boolean(editingLead)}
-        onOpenChange={() => {
+<Dialog
+  open={Boolean(editingLead)}
+  onOpenChange={() => {
+    setEditingLead(null);
+    setEditForm(null);
+  }}
+>
+  <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle>Edit Lead</DialogTitle>
+    </DialogHeader>
+    {editForm && (
+      <div className="space-y-4">
+        {/* ── Status ── */}
+        <div className="w-48">
+          <FieldLabel>Status</FieldLabel>
+          <Select value={editForm.status} onValueChange={(v) => setField("status", v)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {["new", "contacted", "qualified", "converted", "lost", "draft"].map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <SectionDivider label="Personal" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <FieldLabel>Student Name *</FieldLabel>
+            <EditInput
+              value={editForm.studentName}
+              onChange={(v) => setField("studentName", v)}
+              placeholder="Rahul"
+            />
+          </div>
+          <div>
+            <FieldLabel>Father Name</FieldLabel>
+            <EditInput
+              value={editForm.fatherName}
+              onChange={(v) => setField("fatherName", v)}
+              placeholder="Venkatesh"
+            />
+          </div>
+          <div>
+            <FieldLabel>Mobile *</FieldLabel>
+            <EditInput
+              type="tel"
+              inputMode="numeric"
+              maxLength={10}
+              value={editForm.phone}
+              onChange={handlePhoneField}
+              onKeyDown={blockInvalidPhoneKeys}
+              onPaste={blockInvalidNumberPaste}
+              placeholder="9876543210"
+            />
+          </div>
+          <div>
+            <FieldLabel>Email *</FieldLabel>
+            <EditInput
+              type="email"
+              value={editForm.email}
+              onChange={(v) => setField("email", v)}
+              placeholder="rahul@example.com"
+            />
+          </div>
+          <div>
+            <FieldLabel>Source</FieldLabel>
+            <Select value={editForm.source} onValueChange={(v) => setField("source", v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select Source" />
+              </SelectTrigger>
+              <SelectContent>
+                {leadSource.length > 0 &&
+                  leadSource.map((s) => (
+                    <SelectItem key={s.id} value={s.name}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <FieldLabel>Passport Number</FieldLabel>
+            <EditInput
+              value={editForm.passport}
+              onChange={(v) => setField("passport", v)}
+              placeholder="U12345678"
+            />
+          </div>
+          <div>
+            <FieldLabel>Passport Expiry</FieldLabel>
+            <EditInput
+              type="date"
+              value={editForm.passportExpireDate}
+              onChange={(v) => setField("passportExpireDate", v)}
+            />
+          </div>
+          <div>
+            <FieldLabel>Application Date</FieldLabel>
+            <EditInput
+              type="datetime-local"
+              value={editForm.counsellingDate}
+              onChange={(v) => setField("counsellingDate", v)}
+            />
+          </div>
+          <div>
+            <FieldLabel>Counsellor</FieldLabel>
+            <Select
+              value={editForm.counsellorId}
+              onValueChange={(v) => setField("counsellorId", v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {counsellorList.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <SectionDivider label="Education" />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div>
+            <FieldLabel>10th %</FieldLabel>
+            <EditInput
+              type="number"
+              min={0}
+              onKeyDown={blockInvalidNumberKeys}
+              onPaste={blockInvalidNumberPaste}
+              value={editForm.tenthPercentage}
+              onChange={(v) => setNumericField("tenthPercentage", v)}
+              placeholder="85"
+            />
+          </div>
+          <div>
+            <FieldLabel>10th Year</FieldLabel>
+            <EditInput
+              type="number"
+              min={0}
+              onKeyDown={blockInvalidNumberKeys}
+              onPaste={blockInvalidNumberPaste}
+              value={editForm.tenthYearOfPassing}
+              onChange={(v) => setNumericField("tenthYearOfPassing", v)}
+              placeholder="YYYY"
+            />
+          </div>
+          <div>
+            <FieldLabel>12th %</FieldLabel>
+            <EditInput
+              type="number"
+              min={0}
+              onKeyDown={blockInvalidNumberKeys}
+              onPaste={blockInvalidNumberPaste}
+              value={editForm.twelfthPercentage}
+              onChange={(v) => setNumericField("twelfthPercentage", v)}
+              placeholder="88"
+            />
+          </div>
+          <div>
+            <FieldLabel>12th Year</FieldLabel>
+            <EditInput
+              type="number"
+              min={0}
+              onKeyDown={blockInvalidNumberKeys}
+              onPaste={blockInvalidNumberPaste}
+              value={editForm.twelfthYearOfPassing}
+              onChange={(v) => setNumericField("twelfthYearOfPassing", v)}
+              placeholder="YYYY"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="sm:col-span-2 lg:col-span-2">
+            <FieldLabel>University / College</FieldLabel>
+            <UniversityCombobox
+              onChange={(v) => setField("bachelorsUniversityName", v)}
+              value={editForm.bachelorsUniversityName}
+              universities={universities as any}
+            />
+          </div>
+          <div>
+            <FieldLabel>Course / Major</FieldLabel>
+            <EditInput
+              value={editForm.bachelorsCourse}
+              onChange={(v) => setField("bachelorsCourse", v)}
+              placeholder="B.Tech"
+            />
+          </div>
+          <div>
+            <FieldLabel>CGPA / %</FieldLabel>
+            <EditInput
+              type="number"
+              step="0.01"
+              min={0}
+              onKeyDown={blockInvalidNumberKeys}
+              onPaste={blockInvalidNumberPaste}
+              value={editForm.bachelorsPercentage}
+              onChange={(v) => setNumericField("bachelorsPercentage", v)}
+              placeholder="75"
+            />
+          </div>
+          <div>
+            <FieldLabel>Year of Passing</FieldLabel>
+            <EditInput
+              type="number"
+              min={0}
+              onKeyDown={blockInvalidNumberKeys}
+              onPaste={blockInvalidNumberPaste}
+              value={editForm.bachelorsYearOfPassing}
+              onChange={(v) => setNumericField("bachelorsYearOfPassing", v)}
+              placeholder="YYYY"
+            />
+          </div>
+          <div>
+            <FieldLabel>Backlogs</FieldLabel>
+            <EditInput
+              type="number"
+              min={0}
+              onKeyDown={blockInvalidNumberKeys}
+              onPaste={blockInvalidNumberPaste}
+              value={editForm.backlogs}
+              onChange={(v) => setNumericField("backlogs", v)}
+              placeholder="0"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <FieldLabel>Education Gaps</FieldLabel>
+            <EditTextarea
+              value={editForm.gapsIfAny}
+              onChange={(v) => setField("gapsIfAny", v)}
+              placeholder="Explain any gaps..."
+            />
+          </div>
+          <div>
+            <FieldLabel>Work Experience</FieldLabel>
+            <EditTextarea
+              value={editForm.workExperience}
+              onChange={(v) => setField("workExperience", v)}
+              placeholder="Employment details..."
+            />
+          </div>
+        </div>
+
+        <SectionDivider label="EPT / Test Scores" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <FieldLabel>Test Type</FieldLabel>
+            <Select
+              value={editForm.englishTestType}
+              onValueChange={(v) => {
+                setEditForm((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        englishTestType: v,
+                        listeningScore: "",
+                        readingScore: "",
+                        writingScore: "",
+                        speakingScore: "",
+                        toeflScore: "",
+                        pteScore: "",
+                        duolingoScore: "",
+                      }
+                    : prev
+                );
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {ENGLISH_TEST_OPTIONS.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {editForm.englishTestType === "IELTS" && (
+            <>
+              {(["listeningScore", "readingScore", "writingScore", "speakingScore"] as const).map(
+                (k) => (
+                  <div key={k}>
+                    <FieldLabel>{k.replace("Score", "")}</FieldLabel>
+                    <EditInput
+                      type="number"
+                      step="0.5"
+                      min={0}
+                      onKeyDown={blockInvalidNumberKeys}
+                      onPaste={blockInvalidNumberPaste}
+                      value={editForm[k]}
+                      onChange={(v) => setNumericField(k, v)}
+                      placeholder="0.0"
+                    />
+                  </div>
+                )
+              )}
+            </>
+          )}
+
+          {editForm.englishTestType === "TOEFL" && (
+            <div>
+              <FieldLabel>TOEFL Score</FieldLabel>
+              <EditInput
+                type="number"
+                min={0}
+                onKeyDown={blockInvalidNumberKeys}
+                onPaste={blockInvalidNumberPaste}
+                value={editForm.toeflScore}
+                onChange={(v) => setNumericField("toeflScore", v)}
+                placeholder="100"
+              />
+            </div>
+          )}
+
+          {editForm.englishTestType === "PTE" && (
+            <div>
+              <FieldLabel>PTE Score</FieldLabel>
+              <EditInput
+                type="number"
+                min={0}
+                onKeyDown={blockInvalidNumberKeys}
+                onPaste={blockInvalidNumberPaste}
+                value={editForm.pteScore}
+                onChange={(v) => setNumericField("pteScore", v)}
+                placeholder="65"
+              />
+            </div>
+          )}
+
+          {editForm.englishTestType === "DUOLINGO" && (
+            <div>
+              <FieldLabel>Duolingo Score</FieldLabel>
+              <EditInput
+                type="number"
+                min={0}
+                onKeyDown={blockInvalidNumberKeys}
+                onPaste={blockInvalidNumberPaste}
+                value={editForm.duolingoScore}
+                onChange={(v) => setNumericField("duolingoScore", v)}
+                placeholder="120"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div>
+            <FieldLabel>GRE/GMAT Total</FieldLabel>
+            <EditInput
+              type="number"
+              min={0}
+              onKeyDown={blockInvalidNumberKeys}
+              onPaste={blockInvalidNumberPaste}
+              value={editForm.greGmatScore}
+              onChange={(v) => setNumericField("greGmatScore", v)}
+              placeholder="320"
+            />
+          </div>
+          <div>
+            <FieldLabel>Quantitative</FieldLabel>
+            <EditInput
+              type="number"
+              min={0}
+              onKeyDown={blockInvalidNumberKeys}
+              onPaste={blockInvalidNumberPaste}
+              value={editForm.quantitativeScore}
+              onChange={(v) => setNumericField("quantitativeScore", v)}
+              placeholder="165"
+            />
+          </div>
+          <div>
+            <FieldLabel>Verbal</FieldLabel>
+            <EditInput
+              type="number"
+              min={0}
+              onKeyDown={blockInvalidNumberKeys}
+              onPaste={blockInvalidNumberPaste}
+              value={editForm.verbalScore}
+              onChange={(v) => setNumericField("verbalScore", v)}
+              placeholder="155"
+            />
+          </div>
+          <div>
+            <FieldLabel>AWA</FieldLabel>
+            <EditInput
+              type="number"
+              step="0.5"
+              min={0}
+              onKeyDown={blockInvalidNumberKeys}
+              onPaste={blockInvalidNumberPaste}
+              value={editForm.analyticalWritingScore}
+              onChange={(v) => setNumericField("analyticalWritingScore", v)}
+              placeholder="4.5"
+            />
+          </div>
+        </div>
+
+        <SectionDivider label="Preferences" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <FieldLabel>Country</FieldLabel>
+            <Select
+              value={editForm.preferredCountry}
+              onValueChange={(v) => setField("preferredCountry", v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select Country" />
+              </SelectTrigger>
+              <SelectContent>
+                {countries.map((c) => (
+                  <SelectItem key={c.id} value={c.name}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <FieldLabel>Intake</FieldLabel>
+            <Select
+              value={editForm.preferredIntake}
+              onValueChange={(v) => setField("preferredIntake", v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select Intake" />
+              </SelectTrigger>
+              <SelectContent>
+                {intakes.map((i) => (
+                  <SelectItem key={i.id} value={i.name}>
+                    {i.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <FieldLabel>Course</FieldLabel>
+            <EditInput
+              value={editForm.preferredCourse}
+              onChange={(v) => setField("preferredCourse", v)}
+              placeholder="MS in CS"
+            />
+          </div>
+          <div>
+            <FieldLabel>Tiers</FieldLabel>
+            <Select
+              value=""
+              onValueChange={(t) => {
+                if (!editForm.preferredTiers.includes(t))
+                  setField("preferredTiers", [...editForm.preferredTiers, t]);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Add tier" />
+              </SelectTrigger>
+              <SelectContent>
+                {TIER_OPTIONS.filter((t) => !editForm.preferredTiers.includes(t)).map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {editForm.preferredTiers.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {editForm.preferredTiers.map((t) => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium"
+                  >
+                    {t}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setField(
+                          "preferredTiers",
+                          editForm.preferredTiers.filter((x) => x !== t)
+                        )
+                      }
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    <DialogFooter className="mt-4 gap-2">
+      <Button
+        variant="outline"
+        disabled={isSaving}
+        onClick={() => {
           setEditingLead(null);
           setEditForm(null);
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Lead</DialogTitle>
-          </DialogHeader>
-
-          {editForm && (
-            <div className="space-y-4">
-              {/* ── Status ── */}
-              <div className="w-48">
-                <FieldLabel>Status</FieldLabel>
-                <Select
-                  value={editForm.status}
-                  onValueChange={(v) => setField("status", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[
-                      "new",
-                      "contacted",
-                      "qualified",
-                      "converted",
-                      "lost",
-                      "draft",
-                    ].map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s.charAt(0).toUpperCase() + s.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <SectionDivider label="Personal" />
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
-                  <FieldLabel>Student Name *</FieldLabel>
-                  <EditInput
-                    value={editForm.studentName}
-                    onChange={(v) => setField("studentName", v)}
-                    placeholder="Rahul"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Father Name</FieldLabel>
-                  <EditInput
-                    value={editForm.fatherName}
-                    onChange={(v) => setField("fatherName", v)}
-                    placeholder="Venkatesh"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Mobile *</FieldLabel>
-                  <EditInput
-                    type="tel"
-                    value={editForm.phone}
-                    onChange={(v) =>
-                      setField("phone", v.replace(/[^0-9]/g, "").slice(0, 10))
-                    }
-                    placeholder="9876543210"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Email *</FieldLabel>
-                  <EditInput
-                    type="email"
-                    value={editForm.email}
-                    onChange={(v) => setField("email", v)}
-                    placeholder="rahul@example.com"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Source</FieldLabel>
-                  <EditInput
-                    value={editForm.source}
-                    onChange={(v) => setField("source", v)}
-                    placeholder="Walk-in"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Passport Number</FieldLabel>
-                  <EditInput
-                    value={editForm.passport}
-                    onChange={(v) => setField("passport", v)}
-                    placeholder="U12345678"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Passport Expiry</FieldLabel>
-                  <EditInput
-                    type="date"
-                    value={editForm.passportExpireDate}
-                    onChange={(v) => setField("passportExpireDate", v)}
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Application Date</FieldLabel>
-                  <EditInput
-                    type="datetime-local"
-                    value={editForm.counsellingDate}
-                    onChange={(v) => setField("counsellingDate", v)}
-                  />
-                </div>
-
-                <div>
-                  <FieldLabel>Counsellor</FieldLabel>
-                  <Select
-                    value={editForm.counsellorId}
-                    onValueChange={(v) => {setField("counsellorId", v)}}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {counsellorList.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <SectionDivider label="Education" />
-              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                <div>
-                  <FieldLabel>10th %</FieldLabel>
-                  <EditInput
-                    type="number"
-                    min={0}
-                    value={editForm.tenthPercentage}
-                    onChange={(v) => setField("tenthPercentage", v)}
-                    placeholder="85"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>10th Year</FieldLabel>
-                  <EditInput
-                    type="number"
-                    min={0}
-                    value={editForm.tenthYearOfPassing}
-                    onChange={(v) => setField("tenthYearOfPassing", v)}
-                    placeholder="YYYY"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>12th %</FieldLabel>
-                  <EditInput
-                    type="number"
-                    min={0}
-                    value={editForm.twelfthPercentage}
-                    onChange={(v) => setField("twelfthPercentage", v)}
-                    placeholder="88"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>12th Year</FieldLabel>
-                  <EditInput
-                    type="number"
-                    min={0}
-                    value={editForm.twelfthYearOfPassing}
-                    onChange={(v) => setField("twelfthYearOfPassing", v)}
-                    placeholder="YYYY"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="sm:col-span-2 lg:col-span-2">
-                  <FieldLabel>University / College</FieldLabel>
-                  <EditInput
-                    value={editForm.bachelorsUniversityName}
-                    onChange={(v) => setField("bachelorsUniversityName", v)}
-                    placeholder="University name"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Course / Major</FieldLabel>
-                  <EditInput
-                    value={editForm.bachelorsCourse}
-                    onChange={(v) => setField("bachelorsCourse", v)}
-                    placeholder="B.Tech"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>CGPA / %</FieldLabel>
-                  <EditInput
-                    type="number"
-                    step="0.01"
-                    min={0}
-                    value={editForm.bachelorsPercentage}
-                    onChange={(v) => setField("bachelorsPercentage", v)}
-                    placeholder="75"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Year of Passing</FieldLabel>
-                  <EditInput
-                    type="number"
-                    min={0}
-                    value={editForm.bachelorsYearOfPassing}
-                    onChange={(v) => setField("bachelorsYearOfPassing", v)}
-                    placeholder="YYYY"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Backlogs</FieldLabel>
-                  <EditInput
-                    type="number"
-                    min={0}
-                    value={editForm.backlogs}
-                    onChange={(v) => setField("backlogs", v)}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <FieldLabel>Education Gaps</FieldLabel>
-                  <EditTextarea
-                    value={editForm.gapsIfAny}
-                    onChange={(v) => setField("gapsIfAny", v)}
-                    placeholder="Explain any gaps..."
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Work Experience</FieldLabel>
-                  <EditTextarea
-                    value={editForm.workExperience}
-                    onChange={(v) => setField("workExperience", v)}
-                    placeholder="Employment details..."
-                  />
-                </div>
-              </div>
-
-              <SectionDivider label="EPT / Test Scores" />
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
-                  <FieldLabel>Test Type</FieldLabel>
-                  <Select
-                    value={editForm.englishTestType}
-                    onValueChange={(v) => {
-                      setEditForm((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              englishTestType: v,
-                              listeningScore: "",
-                              readingScore: "",
-                              writingScore: "",
-                              speakingScore: "",
-                              toeflScore: "",
-                              pteScore: "",
-                              duolingoScore: "",
-                            }
-                          : prev,
-                      );
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ENGLISH_TEST_OPTIONS.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {editForm.englishTestType === "IELTS" && (
-                  <>
-                    {(
-                      [
-                        "listeningScore",
-                        "readingScore",
-                        "writingScore",
-                        "speakingScore",
-                      ] as const
-                    ).map((k) => (
-                      <div key={k}>
-                        <FieldLabel>{k.replace("Score", "")}</FieldLabel>
-                        <EditInput
-                          type="number"
-                          step="0.5"
-                          min={0}
-                          value={editForm[k]}
-                          onChange={(v) => setField(k, v)}
-                          placeholder="0.0"
-                        />
-                      </div>
-                    ))}
-                  </>
-                )}
-                {editForm.englishTestType === "TOEFL" && (
-                  <div>
-                    <FieldLabel>TOEFL Score</FieldLabel>
-                    <EditInput
-                      type="number"
-                      min={0}
-                      value={editForm.toeflScore}
-                      onChange={(v) => setField("toeflScore", v)}
-                      placeholder="100"
-                    />
-                  </div>
-                )}
-                {editForm.englishTestType === "PTE" && (
-                  <div>
-                    <FieldLabel>PTE Score</FieldLabel>
-                    <EditInput
-                      type="number"
-                      min={0}
-                      value={editForm.pteScore}
-                      onChange={(v) => setField("pteScore", v)}
-                      placeholder="65"
-                    />
-                  </div>
-                )}
-                {editForm.englishTestType === "DUOLINGO" && (
-                  <div>
-                    <FieldLabel>Duolingo Score</FieldLabel>
-                    <EditInput
-                      type="number"
-                      min={0}
-                      value={editForm.duolingoScore}
-                      onChange={(v) => setField("duolingoScore", v)}
-                      placeholder="120"
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <div>
-                  <FieldLabel>GRE/GMAT Total</FieldLabel>
-                  <EditInput
-                    type="number"
-                    min={0}
-                    value={editForm.greGmatScore}
-                    onChange={(v) => setField("greGmatScore", v)}
-                    placeholder="320"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Quantitative</FieldLabel>
-                  <EditInput
-                    type="number"
-                    min={0}
-                    value={editForm.quantitativeScore}
-                    onChange={(v) => setField("quantitativeScore", v)}
-                    placeholder="165"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Verbal</FieldLabel>
-                  <EditInput
-                    type="number"
-                    min={0}
-                    value={editForm.verbalScore}
-                    onChange={(v) => setField("verbalScore", v)}
-                    placeholder="155"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>AWA</FieldLabel>
-                  <EditInput
-                    type="number"
-                    step="0.5"
-                    min={0}
-                    value={editForm.analyticalWritingScore}
-                    onChange={(v) => setField("analyticalWritingScore", v)}
-                    placeholder="4.5"
-                  />
-                </div>
-              </div>
-
-              <SectionDivider label="Preferences" />
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <FieldLabel>Country</FieldLabel>
-                  <EditInput
-                    value={editForm.preferredCountry}
-                    onChange={(v) => setField("preferredCountry", v)}
-                    placeholder="USA"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Intake</FieldLabel>
-                  <EditInput
-                    value={editForm.preferredIntake}
-                    onChange={(v) => setField("preferredIntake", v)}
-                    placeholder="Fall 2025"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Course</FieldLabel>
-                  <EditInput
-                    value={editForm.preferredCourse}
-                    onChange={(v) => setField("preferredCourse", v)}
-                    placeholder="MS in CS"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Tiers</FieldLabel>
-                  <Select
-                    value=""
-                    onValueChange={(t) => {
-                      if (!editForm.preferredTiers.includes(t))
-                        setField("preferredTiers", [
-                          ...editForm.preferredTiers,
-                          t,
-                        ]);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Add tier" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TIER_OPTIONS.filter(
-                        (t) => !editForm.preferredTiers.includes(t),
-                      ).map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {editForm.preferredTiers.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {editForm.preferredTiers.map((t) => (
-                        <span
-                          key={t}
-                          className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium"
-                        >
-                          {t}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setField(
-                                "preferredTiers",
-                                editForm.preferredTiers.filter((x) => x !== t),
-                              )
-                            }
-                          >
-                            <X className="size-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="mt-4 gap-2">
-            <Button
-              variant="outline"
-              disabled={isSaving}
-              onClick={() => {
-                setEditingLead(null);
-                setEditForm(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleSaveEdit} disabled={isSaving}>
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                  Saving…
-                </>
-              ) : (
-                "Save Changes"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        Cancel
+      </Button>
+      <Button onClick={handleSaveEdit} disabled={isSaving}>
+        {isSaving ? (
+          <>
+            <Loader2 className="mr-2 size-4 animate-spin" />
+            Saving…
+          </>
+        ) : (
+          "Save Changes"
+        )}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
 
       {/* ════════════════════════════════════════════════════════════
           DELETE CONFIRMATION DIALOG

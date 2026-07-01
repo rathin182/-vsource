@@ -43,7 +43,7 @@ const items = [
     to: "/leads",
     label: "Master - Walkins",
     icon: Users,
-    roles: ["ADMIN", "RECEPTIONIST", "SUPER ADMIN"],
+    roles: ["ADMIN", "RECEPTIONIST", "SUPER ADMIN", "COUNSELLOR"],
     children: [
       { to: "/leads/add", label: "Add Walk-in's" },
       { to: "/leads/all", label: "All Walk-In" },

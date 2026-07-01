@@ -29,6 +29,7 @@ SelectTrigger,
 SelectValue,
 } from "@/slids/components/ui/select";
 import axios from "axios";
+import { toast } from "sonner";
 
 const BranchFormSchema = z.object({
 name: z
@@ -153,10 +154,7 @@ setLoading(true);
     );
   }
 
-  alert(
-    "Branch created successfully"
-  );
-
+  toast.success("Branch created successfully...")
   reset();
 
   router.back();

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { PageHeader, PageTransition } from "@/slids/components/common/PageHeader";
 import { Card, CardContent } from "@/slids/components/ui/card";
 import { Button } from "@/slids/components/ui/button";
@@ -25,7 +25,10 @@ import {
 import {
   Search, Plus, Pencil, Trash2, Shield, LucideLoader2,
   LucideArrowLeft,
-  X,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -58,6 +61,8 @@ interface UserRow {
   updatedAt: string;
 }
 
+type FormMode = "add" | "edit";
+
 export default function Users() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [q, setQ] = useState("");
@@ -65,36 +70,32 @@ export default function Users() {
   const [metaData, setMetaData] = useState<MetaData>();
   const [page, setPage] = useState(1);
 
-  // Edit state
-  const [editOpen, setEditOpen] = useState(false);
-  const [editUser, setEditUser] = useState<UserRow | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editPass, setEditPass] = useState("");
-
-  const [editSaving, setEditSaving] = useState(false);
-
   // Delete state
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteUser, setDeleteUser] = useState<UserRow | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // ── Add User state ──────────────────────────────────────────────────────
-  const [addOpen, setAddOpen] = useState(false);
-  const [addSaving, setAddSaving] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
+  // ── Add / Edit User dialog state (shared) ───────────────────────────────
+  const [formOpen, setFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<FormMode>("add");
+  const [formUserId, setFormUserId] = useState<string | null>(null);
+  const [formSaving, setFormSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
+  const branchDropdownRef = useRef<HTMLDivElement>(null);
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [rolesLoading, setRolesLoading] = useState(false);
   const [branchesLoading, setBranchesLoading] = useState(false);
 
-  const [newName, setNewName] = useState("");
-  const [newEmail, setNewEmail] = useState("");
-  const [newPhone, setNewPhone] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [newRoleId, setNewRoleId] = useState("");
-  const [newBranchIds, setNewBranchIds] = useState<string[]>([]);
+  const [formName, setFormName] = useState("");
+  const [formEmail, setFormEmail] = useState("");
+  const [formPhone, setFormPhone] = useState("");
+  const [formPassword, setFormPassword] = useState("");
+  const [formRoleId, setFormRoleId] = useState("");
+  const [formBranchIds, setFormBranchIds] = useState<string[]>([]);
 
   const filtered = users.filter(
     (u) =>
@@ -116,23 +117,35 @@ export default function Users() {
     fetchData();
   }, [page]);
 
-  // ── Add User handlers ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (!branchDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        branchDropdownRef.current &&
+        !branchDropdownRef.current.contains(e.target as Node)
+      ) {
+        setBranchDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [branchDropdownOpen]);
 
-  const resetAddForm = () => {
-    setNewName("");
-    setNewEmail("");
-    setNewPhone("");
-    setNewPassword("");
-    setNewRoleId("");
-    setNewBranchIds([]);
-    setAddError(null);
+  // ── Shared Add/Edit handlers ────────────────────────────────────────────
+
+  const resetForm = () => {
+    setFormName("");
+    setFormEmail("");
+    setFormPhone("");
+    setFormPassword("");
+    setFormRoleId("");
+    setFormBranchIds([]);
+    setFormError(null);
+    setShowPassword(false);
+    setBranchDropdownOpen(false);
   };
 
-  const openAdd = async () => {
-    setAddOpen(true);
-    resetAddForm();
-
-    // Fetch roles and branches in parallel, only if not already loaded
+  const loadRolesAndBranches = async () => {
     if (branches.length === 0) {
       setBranchesLoading(true);
       try {
@@ -163,91 +176,124 @@ export default function Users() {
     }
   };
 
+  const openAdd = async () => {
+    setFormMode("add");
+    setFormUserId(null);
+    resetForm();
+    setFormOpen(true);
+    await loadRolesAndBranches();
+  };
+
+  const openEdit = async (u: UserRow) => {
+    setFormMode("edit");
+    setFormUserId(u.id);
+    setFormName(u.name);
+    setFormEmail(u.email);
+    setFormPhone(u.phone ?? "");
+    setFormPassword("");
+    setFormRoleId(u.role.id);
+    setFormBranchIds(u.branches.map((b) => b.id));
+    setFormError(null);
+    setShowPassword(false);
+    setFormOpen(true);
+    await loadRolesAndBranches();
+  };
+
   const toggleBranch = (branchId: string) => {
-    setNewBranchIds((prev) =>
+    setFormBranchIds((prev) =>
       prev.includes(branchId)
         ? prev.filter((id) => id !== branchId)
         : [...prev, branchId]
     );
   };
 
-  const createUser = async () => {
-    setAddError(null);
+  const handlePhoneChange = (value: string) => {
+    // strip anything that isn't a digit, cap at 10 digits
+    const digitsOnly = value.replace(/\D/g, "").slice(0, 10);
+    setFormPhone(digitsOnly);
+  };
 
-    if (!newName || !newEmail || !newPassword || !newRoleId) {
-      setAddError("Name, email, password, and role are required.");
+  const submitForm = async () => {
+    setFormError(null);
+
+    const missingPassword = formMode === "add" && !formPassword;
+    if (!formName || !formEmail || missingPassword || !formRoleId) {
+      setFormError(
+        formMode === "add"
+          ? "Name, email, password, and role are required."
+          : "Name, email, and role are required."
+      );
       return;
     }
 
-    setAddSaving(true);
-    try {
-      const res = await axios.post("/api/users", {
-        name: newName,
-        email: newEmail,
-        password: newPassword,
-        phone: newPhone || undefined,
-        roleId: newRoleId,
-        branches: newBranchIds,
-      });
+    if (formPhone && formPhone.length !== 10) {
+      setFormError("Phone number must be exactly 10 digits.");
+      return;
+    }
 
-      if (res.status === 201 || res.status === 200) {
-        // Prepend new user locally so it shows immediately without a refetch
-        setUsers((prev) => [res.data.data, ...prev]);
-        setAddOpen(false);
-        resetAddForm();
+    setFormSaving(true);
+    try {
+      if (formMode === "add") {
+        const res = await axios.post("/api/users", {
+          name: formName,
+          email: formEmail,
+          password: formPassword,
+          phone: formPhone || undefined,
+          roleId: formRoleId,
+          branchIds: formBranchIds,
+        });
+
+        if (res.status === 201 || res.status === 200) {
+          // Prepend new user locally so it shows immediately without a refetch
+          setUsers((prev) => [res.data.data, ...prev]);
+          toast.success(res.data?.message || "User created successfully.");
+          setFormOpen(false);
+          resetForm();
+        }
+      } else if (formUserId) {
+        const res = await axios.put(`/api/users/${formUserId}`, {
+          name: formName,
+          email: formEmail,
+          phone: formPhone || undefined,
+          roleId: formRoleId,
+          branchIds: formBranchIds,
+          // only send password if the user actually typed a new one
+          ...(formPassword ? { password: formPassword } : {}),
+        });
+
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === formUserId
+              ? {
+                  ...u,
+                  name: formName,
+                  email: formEmail,
+                  phone: formPhone,
+                  role: roles.find((r) => r.id === formRoleId) ?? u.role,
+                  branches: branches.filter((b) =>
+                    formBranchIds.includes(b.id)
+                  ),
+                }
+              : u
+          )
+        );
+
+        toast.success(res.data?.message || "User updated successfully.");
+        setFormOpen(false);
+        resetForm();
       }
     } catch (err: any) {
-      setAddError(
-        err?.response?.data?.error ?? "Failed to create user. Please try again."
-      );
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        (formMode === "add"
+          ? "Failed to create user. Please try again."
+          : "Failed to update user.");
+      setFormError(message);
+      toast.error(message);
     } finally {
-      setAddSaving(false);
-    }
-  };
-
-  // ── Edit handlers ────────────────────────────────────────────────────────
-  const openEdit = (u: UserRow) => {
-    setEditUser(u);
-    setEditName(u.name);
-    setEditEmail(u.email);
-    setEditOpen(true);
-  };
-
-
-  const saveEdit = async () => {
-    if (!editUser) return;
-
-    setEditSaving(true);
-
-    try {
-      const res = await axios.put(`/api/users/${editUser.id}`, {
-        name: editName,
-        email: editEmail,
-        password: editPass
-      });
-
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === editUser.id
-            ? { ...u, name: editName, email: editEmail }
-            : u
-        )
-      );
-
-      setEditOpen(false);
-
-      toast.success(
-        res.data?.message || "User updated successfully."
-      );
-    } catch (err: any) {
-      toast.error(
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        err.message ||
-        "Failed to update user."
-      );
-    } finally {
-      setEditSaving(false);
+      setFormSaving(false);
     }
   };
 
@@ -263,7 +309,7 @@ export default function Users() {
     setDeleteLoading(true);
 
     try {
-      const res = await axios.delete(`/api/users?id=${deleteUser.id}`);
+      const res = await axios.delete(`/api/users/${deleteUser.id}`);
 
       setUsers((prev) => prev.filter((u) => u.id !== deleteUser.id));
       setDeleteOpen(false);
@@ -403,69 +449,125 @@ export default function Users() {
         </div>
       </div>
 
-      {/* Add User dialog */}
-      <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) resetAddForm(); }}>
+      {/* Add / Edit User dialog (shared) */}
+      <Dialog
+        open={formOpen}
+        onOpenChange={(open) => {
+          setFormOpen(open);
+          if (!open) resetForm();
+        }}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add user</DialogTitle>
+            <DialogTitle>{formMode === "add" ? "Add user" : "Edit user"}</DialogTitle>
             <DialogDescription>
-              Create a staff account and assign their role and branches.
+              {formMode === "add"
+                ? "Create a staff account and assign their role and branches."
+                : "Update this user's details, role and branch assignments."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-4 py-2 max-h-[60vh] overflow-y-auto pr-1 pl-2">
-            {addError && (
+            {formError && (
               <div className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">
-                {addError}
+                {formError}
               </div>
             )}
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="add-name">Name</Label>
+              <Label htmlFor="form-name">Name</Label>
               <Input
-                id="add-name"
+                id="form-name"
                 placeholder="Jane Doe"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="add-email">Email</Label>
+              <Label htmlFor="form-email">Email</Label>
               <Input
-                id="add-email"
+                id="form-email"
                 type="email"
                 placeholder="jane@example.com"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
+                value={formEmail}
+                onChange={(e) => setFormEmail(e.target.value)}
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="add-phone">Phone</Label>
+              <Label htmlFor="form-phone">Phone</Label>
               <Input
-                id="add-phone"
+                id="form-phone"
                 type="tel"
-                placeholder="+91 90000 00000"
-                value={newPhone}
-                onChange={(e) => setNewPhone(e.target.value)}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={10}
+                placeholder="10-digit mobile number"
+                value={formPhone}
+                onChange={(e) => handlePhoneChange(e.target.value)}
+                onKeyDown={(e) => {
+                  // block letters/symbols; allow navigation & control keys
+                  if (
+                    ["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Home", "End"].includes(
+                      e.key
+                    ) ||
+                    e.ctrlKey ||
+                    e.metaKey
+                  ) {
+                    return;
+                  }
+                  if (!/^[0-9]$/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
+                onPaste={(e) => {
+                  e.preventDefault();
+                  const pasted = e.clipboardData.getData("text");
+                  handlePhoneChange(formPhone + pasted);
+                }}
               />
+              {formPhone.length > 0 && formPhone.length < 10 && (
+                <p className="text-[11px] text-muted-foreground">
+                  {10 - formPhone.length} digit{10 - formPhone.length > 1 ? "s" : ""} remaining
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="add-password">Password</Label>
-              <Input
-                id="add-password"
-                type="password"
-                placeholder="Temporary password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
+              <Label htmlFor="form-password">
+                {formMode === "add" ? "Password" : "New password"}
+              </Label>
+              <div className="relative">
+                <Input
+                  id="form-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder={
+                    formMode === "add" ? "Type password" : "Leave blank to keep current password"
+                  }
+                  className="pr-9"
+                  value={formPassword}
+                  onChange={(e) => setFormPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+              {formMode === "edit" && (
+                <p className="text-[11px] text-muted-foreground">
+                  Leave blank to keep the current password.
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5">
               <Label>Role</Label>
-              <Select value={newRoleId} onValueChange={setNewRoleId}>
+              <Select value={formRoleId} onValueChange={setFormRoleId}>
                 <SelectTrigger>
                   <SelectValue placeholder={rolesLoading ? "Loading roles…" : "Select a role…"} />
                 </SelectTrigger>
@@ -479,100 +581,77 @@ export default function Users() {
               </Select>
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5" ref={branchDropdownRef}>
               <Label>Branches</Label>
-              {branchesLoading ? (
-                <p className="text-xs text-muted-foreground">Loading branches…</p>
-              ) : branches.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">No branches found.</p>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {branches.map((b) => {
-                    const selected = newBranchIds.includes(b.id);
-                    return (
-                      <button
-                        key={b.id}
-                        type="button"
-                        onClick={() => toggleBranch(b.id)}
-                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${selected
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-transparent text-muted-foreground border-border hover:border-foreground/30"
-                          }`}
-                      >
-                        {b.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {newBranchIds.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  disabled={branchesLoading || branches.length === 0}
+                  onClick={() => setBranchDropdownOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between gap-2 text-sm border border-input rounded-md px-3 py-2 bg-transparent hover:bg-secondary/30 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <span
+                    className={`truncate text-left ${formBranchIds.length === 0 ? "text-muted-foreground" : ""
+                      }`}
+                  >
+                    {branchesLoading
+                      ? "Loading branches…"
+                      : branches.length === 0
+                        ? "No branches found"
+                        : formBranchIds.length === 0
+                          ? "Select branches…"
+                          : branches
+                            .filter((b) => formBranchIds.includes(b.id))
+                            .map((b) => b.name)
+                            .join(", ")}
+                  </span>
+                  <ChevronDown
+                    className={`size-4 shrink-0 text-muted-foreground transition-transform ${branchDropdownOpen ? "rotate-180" : ""
+                      }`}
+                  />
+                </button>
+
+                {branchDropdownOpen && branches.length > 0 && (
+                  <div className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto rounded-md border border-border bg-popover shadow-md py-1">
+                    {branches.map((b) => {
+                      const selected = formBranchIds.includes(b.id);
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => toggleBranch(b.id)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-secondary/50"
+                        >
+                          <span
+                            className={`flex items-center justify-center size-4 rounded border shrink-0 ${selected
+                              ? "bg-primary border-primary text-primary-foreground"
+                              : "border-border"
+                              }`}
+                          >
+                            {selected && <Check className="size-3" />}
+                          </span>
+                          <span className="truncate">{b.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {formBranchIds.length > 0 && (
                 <p className="text-[11px] text-muted-foreground">
-                  {newBranchIds.length} branch{newBranchIds.length > 1 ? "es" : ""} selected
+                  {formBranchIds.length} branch{formBranchIds.length > 1 ? "es" : ""} selected
                 </p>
               )}
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)} disabled={addSaving}>
+            <Button variant="outline" onClick={() => setFormOpen(false)} disabled={formSaving}>
               Cancel
             </Button>
-            <Button onClick={createUser} disabled={addSaving}>
-              {addSaving && <LucideLoader2 className="size-3.5 mr-1.5 animate-spin" />}
-              Create user
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit user</DialogTitle>
-            <DialogDescription>
-              Update name or email for <span className="font-medium">{editUser?.name}</span>.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="edit-name">Name</Label>
-              <Input
-                id="edit-name"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={editEmail}
-                onChange={(e) => setEditEmail(e.target.value)}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="edit-password">Change Password</Label>
-              <Input
-                id="edit-password"
-                type="text"
-                placeholder="Enter New Password"
-                value={editPass}
-                onChange={(e) => setEditPass(e.target.value)}
-              />
-            </div>
-
-
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={saveEdit} disabled={editSaving}>
-              {editSaving && <LucideLoader2 className="size-3.5 mr-1.5 animate-spin" />}
-              Save changes
+            <Button onClick={submitForm} disabled={formSaving}>
+              {formSaving && <LucideLoader2 className="size-3.5 mr-1.5 animate-spin" />}
+              {formMode === "add" ? "Create user" : "Save changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
