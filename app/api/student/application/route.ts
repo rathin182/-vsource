@@ -40,6 +40,27 @@ export async function POST(req: NextRequest) {
             },
         });
 
+        const lead = await db.lead.findUnique({
+            where: {
+                id: leadId,
+            },
+            select: {
+                leadStage: true,
+            },
+        });
+
+        // Update stage only if it's currently INQUIRY
+        if (lead?.leadStage === "INQUIRY" || lead?.leadStage === "DOCUMENTS") {
+            await db.lead.update({
+                where: {
+                    id: leadId,
+                },
+                data: {
+                    leadStage: "APPLIED",
+                },
+            });
+        }
+
         return NextResponse.json({
             success: true,
             data: application,
@@ -117,6 +138,70 @@ export async function PATCH(req: NextRequest) {
             {
                 success: false,
                 message: "Failed to update application.",
+            },
+            {
+                status: 500,
+            }
+        );
+    }
+}
+
+export async function DELETE(req: NextRequest) {
+    try {
+        const id = req.nextUrl.searchParams.get("id");
+
+        if (!id) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Application ID is required.",
+                },
+                {
+                    status: 400,
+                }
+            );
+        }
+
+        const application = await db.studentCourses.findUnique({
+            where: {
+                id,
+            },
+        });
+
+        if (!application) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Application not found.",
+                },
+                {
+                    status: 404,
+                }
+            );
+        }
+
+        await db.studentCourses.delete({
+            where: {
+                id,
+            },
+        });
+
+        return NextResponse.json(
+            {
+                success: true,
+                message: "University application deleted successfully.",
+            },
+            {
+                status: 200,
+            }
+        );
+    } catch (error) {
+        console.error("DELETE APPLICATION ERROR:", error);
+
+        return NextResponse.json(
+            {
+                success: false,
+                message: "Failed to delete university application.",
             },
             {
                 status: 500,

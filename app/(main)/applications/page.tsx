@@ -16,7 +16,7 @@ const STAGES: { key: ApplicationStage; label: string; color: string }[] = [
   { key: "inquiry", label: "Inquiry", color: "bg-info/15 text-info" },
   { key: "documents", label: "Documents", color: "bg-warning/15 text-warning" },
   { key: "applied", label: "Applied", color: "bg-primary/10 text-primary" },
-  { key: "offer", label: "Offer Received", color: "bg-success/15 text-success" },
+  { key: "visa", label: "Visa Process", color: "bg-success/15 text-success" },
 ];
 
 // ── Required document checklist ─────────────────────────────────────────────
@@ -33,10 +33,9 @@ const REQUIRED_DOC_TYPES = [
   "LOR",
   "Financial Documents",
   "Visa Documents",
-  "Other Documents",
 ] as const;
 
-type CardColorState = "green" | "red" | "yellow" | "white";
+type CardColorState = "green" | "red" | "yellow" | "white" | "violet";
 
 // ── Admin filter state shape ──────────────────────────────────────────────────
 interface AdminFilters {
@@ -79,15 +78,22 @@ function getVisaStatus(visaDetail: any): string | null {
 }
 
 // ── Card color decision logic ───────────────────────────────────────────────
-// green  -> all required docs uploaded AND visa status APPROVED
-// red    -> all required docs uploaded AND visa status REJECTED
-// yellow -> any required doc missing (regardless of visa status)
-// white  -> all docs uploaded AND visa status is anything else / no record
-function getCardColorState(allPresent: boolean, visaStatus: string | null): CardColorState {
+// INQUIRY stage -> ALWAYS white, no matter what the docs or visa status are.
+// For every other stage:
+//   yellow -> any required doc missing (regardless of visa status)
+//   green  -> all required docs uploaded AND visa status APPROVED
+//   red    -> all required docs uploaded AND visa status REJECTED
+//   violet -> all required docs uploaded AND visa status is anything else / no record
+function getCardColorState(
+  allPresent: boolean,
+  visaStatus: string | null,
+  stage?: string | null
+): CardColorState {
+  if ((stage ?? "").toUpperCase() === "INQUIRY") return "white";
   if (!allPresent) return "yellow";
   if (visaStatus === "APPROVED") return "green";
   if (visaStatus === "REJECTED") return "red";
-  return "white";
+  return "violet";
 }
 
 function getCardColorClasses(state: CardColorState): string {
@@ -98,6 +104,8 @@ function getCardColorClasses(state: CardColorState): string {
       return "bg-red-50 dark:bg-red-950/30 border-red-300 hover:bg-red-100 dark:hover:bg-red-950/50";
     case "yellow":
       return "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-950/50";
+    case "violet":
+      return "bg-violet-50 dark:bg-violet-950/30 border-violet-300 hover:bg-violet-100 dark:hover:bg-violet-950/50";
     case "white":
     default:
       return "bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700";
@@ -112,6 +120,8 @@ function getStatusBadgeClasses(state: CardColorState): string {
       return "bg-red-100 text-red-700 border-red-300";
     case "yellow":
       return "bg-yellow-100 text-yellow-700 border-yellow-300";
+    case "violet":
+      return "bg-violet-100 text-violet-700 border-violet-300";
     case "white":
     default:
       return "bg-gray-100 text-gray-600 border-gray-300";
@@ -202,7 +212,7 @@ export default function ApplicationsPage() {
       const formatted = (leadData.data ?? []).map((lead: any) => {
         const { uploadedCount, totalCount, allPresent } = getDocCompleteness(lead.docs);
         const visaStatus = getVisaStatus(lead.visaDetail);
-        const colorState = getCardColorState(allPresent, visaStatus);
+        const colorState = getCardColorState(allPresent, visaStatus, lead.leadStage);
 
         return {
           id: lead.id,
@@ -353,7 +363,7 @@ export default function ApplicationsPage() {
               </select>
             )}
 
-            <Dialog open={open} onOpenChange={setOpen}>
+            {/* <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button size="sm">
                   <Plus className="size-4 mr-1.5" /> New Application
@@ -407,13 +417,13 @@ export default function ApplicationsPage() {
                   <Button onClick={add}>Create</Button>
                 </DialogFooter>
               </DialogContent>
-            </Dialog>
+            </Dialog> */}
           </div>
         }
       />
 
       {/* ── Legend ──────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-4 mb-3 text-[11px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-4 mb-3 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className="size-2.5 rounded-full bg-green-400" /> Docs complete + Visa approved
         </span>
@@ -424,7 +434,10 @@ export default function ApplicationsPage() {
           <span className="size-2.5 rounded-full bg-yellow-400" /> Docs missing
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="size-2.5 rounded-full bg-gray-300 border" /> Docs complete, visa pending/none
+          <span className="size-2.5 rounded-full bg-violet-400" /> Docs complete, visa pending/none
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full bg-gray-300 border" /> Inquiry stage (always white)
         </span>
       </div>
 
@@ -621,6 +634,7 @@ export default function ApplicationsPage() {
                               {colorState === "green" && <CheckCircle2 className="size-3.5 text-green-600" />}
                               {colorState === "red" && <XCircle className="size-3.5 text-red-600" />}
                               {colorState === "yellow" && <AlertTriangle className="size-3.5 text-yellow-600" />}
+                              {colorState === "violet" && <Circle className="size-3.5 text-violet-500" />}
                               {colorState === "white" && <Circle className="size-3.5 text-gray-300" />}
                             </div>
 
@@ -667,7 +681,7 @@ export default function ApplicationsPage() {
 function LeadDetailPanel({ lead }: { lead: any }) {
   const { checklist, uploadedCount, totalCount, allPresent } = getDocCompleteness(lead.docs);
   const visaStatus = getVisaStatus(lead.visaDetail);
-  const colorState = getCardColorState(allPresent, visaStatus);
+  const colorState = getCardColorState(allPresent, visaStatus, lead.leadStage);
   const visaRecord = Array.isArray(lead.visaDetail) ? lead.visaDetail[0] : lead.visaDetail;
 
   const fmtDate = (d: string | null | undefined) =>
@@ -689,7 +703,8 @@ function LeadDetailPanel({ lead }: { lead: any }) {
             {colorState === "green" && "Visa Approved"}
             {colorState === "red" && "Visa Rejected"}
             {colorState === "yellow" && "Docs Missing"}
-            {colorState === "white" && "In Progress"}
+            {colorState === "violet" && "Docs Complete · Visa Pending"}
+            {colorState === "white" && "Inquiry Stage"}
           </Badge>
         </SheetTitle>
         <SheetDescription>{lead.email ?? "No email on file"}</SheetDescription>
@@ -707,7 +722,7 @@ function LeadDetailPanel({ lead }: { lead: any }) {
       </section>
 
       {/* Academic info */}
-      {/* <section>
+      <section>
         <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5">Academic Background</h4>
         <Row label="10th %" value={lead.tenthPassingPercentage} />
         <Row label="10th Passing Year" value={lead.tenthPassingYear} />
@@ -720,10 +735,10 @@ function LeadDetailPanel({ lead }: { lead: any }) {
         <Row label="Backlogs" value={lead.backlogs} />
         <Row label="Gaps (if any)" value={lead.gapsIfAny} />
         <Row label="Work Experience" value={lead.workExperience} />
-      </section> */}
+      </section>
 
       {/* Test scores */}
-      {/* <section>
+      <section>
         <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5">Test Scores</h4>
         <Row label="English Test Type" value={lead.englishTestType} />
         <Row label="English Waiver" value={lead.englishWaiverType} />
@@ -736,7 +751,7 @@ function LeadDetailPanel({ lead }: { lead: any }) {
         <Row label="Verbal" value={lead.verbalScore} />
         <Row label="Quantitative" value={lead.quantitativeScore} />
         <Row label="Analytical Writing" value={lead.analyticalWritingScore} />
-      </section> */}
+      </section>
 
       {/* Application info */}
       <section>

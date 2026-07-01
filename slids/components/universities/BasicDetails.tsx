@@ -76,6 +76,65 @@ export default function BasicDetailsForm({ data, onChange, onNext }: Props) {
   useEffect(() => {
     getCountries()
   }, [])
+
+  // Raw file picked from the local device for the logo. Kept separately so
+  // it's ready to hand off to an upload endpoint later. `data.logo` keeps
+  // holding a string: a local preview URL while a file is selected, or the
+  // existing hosted URL if one was already saved.
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoError, setLogoError] = useState<string>("");
+
+  const MAX_LOGO_SIZE_MB = 5;
+  const ACCEPTED_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+
+  const revokeIfBlobUrl = (url?: string) => {
+    if (url && url.startsWith("blob:")) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // no-op
+      }
+    }
+  };
+
+  const handleLogoSelect = (file: File | null) => {
+    setLogoError("");
+
+    if (!file) return;
+
+    if (!ACCEPTED_LOGO_TYPES.includes(file.type)) {
+      setLogoError("Please upload a PNG, JPG, WEBP, or SVG file.");
+      return;
+    }
+
+    if (file.size > MAX_LOGO_SIZE_MB * 1024 * 1024) {
+      setLogoError(`File is too large. Max size is ${MAX_LOGO_SIZE_MB}MB.`);
+      return;
+    }
+
+    // Replace any previous local preview to avoid leaking object URLs
+    revokeIfBlobUrl(data.logo);
+
+    setLogoFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    set("logo", previewUrl);
+  };
+
+  const removeLogo = () => {
+    revokeIfBlobUrl(data.logo);
+    setLogoFile(null);
+    setLogoError("");
+    set("logo", "");
+  };
+
+  // Clean up any local preview URL when the component unmounts
+  useEffect(() => {
+    return () => {
+      revokeIfBlobUrl(data.logo);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const set = <K extends keyof BasicDetails>(
     key: K,
     value: BasicDetails[K],
@@ -176,7 +235,84 @@ export default function BasicDetailsForm({ data, onChange, onNext }: Props) {
             type: "url",
             placeholder: "https://university.edu",
           })}
-          {field("logo", "Logo URL", { placeholder: "https://..." })}
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">
+              Logo
+            </label>
+
+            {data.logo ? (
+              <div className="flex items-center gap-3 rounded-lg border border-slate-300 p-2">
+                <img
+                  src={data.logo}
+                  alt="University logo preview"
+                  className="h-12 w-12 shrink-0 rounded-md border border-slate-200 object-contain bg-white"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-slate-700">
+                    {logoFile ? logoFile.name : "Current logo"}
+                  </p>
+                  {logoFile && (
+                    <p className="text-xs text-slate-400">
+                      {(logoFile.size / 1024).toFixed(0)} KB
+                    </p>
+                  )}
+                </div>
+                <label className="cursor-pointer rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">
+                  Replace
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    className="hidden"
+                    onChange={(e) => handleLogoSelect(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={removeLogo}
+                  className="rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <label
+                className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed px-3 py-6 text-center transition
+                  ${logoError ? "border-red-300 bg-red-50" : "border-slate-300 hover:border-red-400 hover:bg-red-50/40"}
+                `}
+              >
+                <svg
+                  className="h-6 w-6 text-slate-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 16.5V4.5m0 0L7.5 9m4.5-4.5L16.5 9M4.5 16.5v1.8a2.7 2.7 0 002.7 2.7h9.6a2.7 2.7 0 002.7-2.7v-1.8"
+                  />
+                </svg>
+                <span className="text-sm font-medium text-slate-600">
+                  Click to upload a logo
+                </span>
+                <span className="text-xs text-slate-400">
+                  PNG, JPG, WEBP or SVG, up to {MAX_LOGO_SIZE_MB}MB
+                </span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="hidden"
+                  onChange={(e) => handleLogoSelect(e.target.files?.[0] ?? null)}
+                />
+              </label>
+            )}
+
+            {logoError && (
+              <p className="mt-1 text-xs text-red-500">{logoError}</p>
+            )}
+          </div>
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-slate-700">

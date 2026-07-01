@@ -184,7 +184,6 @@ function AddUniversityContent() {
       // Send scholarships; courseId may be local uuid (create) or real id (edit)
       scholarships: formData.scholarships,
     };
-
     try {
       const url = isEditMode
         ? `/api/universities/${editId}`

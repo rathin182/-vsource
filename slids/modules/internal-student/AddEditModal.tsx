@@ -5,6 +5,7 @@ import { X, Save, UserPlus, FileEdit, RefreshCcw, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import axios from 'axios';
+import { useRouter } from 'next/navigation';
 
 // ─── Enum mirrors ────────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ export interface Counselor {
 export interface StudentFormData {
   id?: string;
   firstName: string;
-  lastName:string;
+  lastName: string;
   studentNumber?: string;
   counselorId?: string;
   counselor?: Counselor | null;
@@ -135,6 +136,7 @@ function randomPassword(): string {
 interface AddEditModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onReload: () => void;
   isDarkMode?: boolean;
   studentToEdit?: StudentFormData | null;
   studentNames?: string;
@@ -153,11 +155,11 @@ export function AddEditModal({
   onSuccess,
 }: AddEditModalProps) {
   const isEditing = Boolean(studentToEdit?.id);
-
+  const router = useRouter();
   // ── form state ──
   const [studentName, setStudentName] = useState('');
-  const [firstName, setFirstname]= useState('');
-  const [lastName, setLastname]= useState('');
+  const [firstName, setFirstname] = useState('');
+  const [lastName, setLastname] = useState('');
   const [counselorId, setCounselorId] = useState('');
   const [selectedCounselor, setSelectedCounselor] = useState("");
   const [preferredCountry, setPreferredCountry] = useState('');
@@ -182,13 +184,13 @@ export function AddEditModal({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [counselors, setCounselors] = useState<any[]>([]);
-  
-  const [countries, setCountries] = useState<{id: string, name: string}[]>([]);
+
+  const [countries, setCountries] = useState<{ id: string, name: string }[]>([]);
 
   const getCountries = async () => {
     const res = await axios.get("/api/countries/all");
     if (res.status === 200) {
-      setCountries(res.data.data); 
+      setCountries(res.data.data);
     }
   }
 
@@ -215,7 +217,7 @@ export function AddEditModal({
     setError(null);
     setSuccess(false);
     fetchCounsellor();
-    
+
     if (studentToEdit) {
       setFirstname(studentToEdit.firstName ?? '');
       setStudentName(studentToEdit.studentName ?? '');
@@ -313,10 +315,11 @@ export function AddEditModal({
       const data: StudentFormData = await res.json();
       setSuccess(true);
       onSuccess?.(data);
-      setTimeout(() => {
-        setSuccess(false);
-        onClose();
-      }, 800);
+     router.push(`/visa`);
+      // setTimeout(() => {
+      //   setSuccess(false);
+      //   onClose();
+      // }, 800);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -395,20 +398,20 @@ export function AddEditModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div className='col-span-2 flex items-center justify-between'>
                     <div className="col-span-2">
-                    <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">
-                      Studebt Name<span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={studentName}
-                      onChange={e => setStudentName(e.target.value)}
-                      placeholder="Legal name as on passport"
-                      className={input}
-                      required
-                    />
-                  </div>
+                      <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">
+                        Studebt Name<span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={studentName}
+                        onChange={e => setStudentName(e.target.value)}
+                        placeholder="Legal name as on passport"
+                        className={input}
+                        required
+                      />
+                    </div>
 
-                  {/* <div className="col-span-2">
+                    {/* <div className="col-span-2">
                     <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">
                       Last Name <span className="text-red-500">*</span>
                     </label>
