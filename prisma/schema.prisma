@@ -216,6 +216,7 @@ model Lead {
   gender             Gender?
   source             String?
 
+  nextFollowup DateTime?
   // Academic Information 
   tenthPassingYear       Int?
   tenthPassingPercentage Float?
