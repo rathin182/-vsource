@@ -7,7 +7,8 @@ import { Button } from "@/slids/components/ui/button";
 import { Input } from "@/slids/components/ui/input";
 import { Label } from "@/slids/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/slids/components/ui/dialog";
-import { Plus, GripVertical, Search, ChevronDown, RotateCcw } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/slids/components/ui/sheet";
+import { Plus, GripVertical, Search, ChevronDown, RotateCcw, FileText, CheckCircle2, XCircle, AlertTriangle, Circle } from "lucide-react";
 import type { Application, ApplicationStage } from "@/slids/types";
 import { toast } from "sonner";
 
@@ -17,6 +18,25 @@ const STAGES: { key: ApplicationStage; label: string; color: string }[] = [
   { key: "applied", label: "Applied", color: "bg-primary/10 text-primary" },
   { key: "offer", label: "Offer Received", color: "bg-success/15 text-success" },
 ];
+
+// ── Required document checklist ─────────────────────────────────────────────
+// Adjust these labels to match exactly what `doc.type` values look like in your DB.
+const REQUIRED_DOC_TYPES = [
+  "Passport",
+  "10th Marks Memo",
+  "12th Marks Memo",
+  "Degree Certificates",
+  "MOI",
+  "IELTS",
+  "Resume",
+  "SOP",
+  "LOR",
+  "Financial Documents",
+  "Visa Documents",
+  "Other Documents",
+] as const;
+
+type CardColorState = "green" | "red" | "yellow" | "white";
 
 // ── Admin filter state shape ──────────────────────────────────────────────────
 interface AdminFilters {
@@ -33,10 +53,75 @@ function unique<T>(arr: T[]): T[] {
   return Array.from(new Set(arr));
 }
 
+// ── Determine which required docs are present for a lead ───────────────────
+function getDocCompleteness(docs: any[] = []) {
+  const presentTypes = new Set(
+    docs.map((d) => (d?.type ?? "").trim().toLowerCase())
+  );
+
+  const checklist = REQUIRED_DOC_TYPES.map((type) => ({
+    type,
+    uploaded: presentTypes.has(type.trim().toLowerCase()),
+  }));
+
+  const uploadedCount = checklist.filter((c) => c.uploaded).length;
+  const totalCount = REQUIRED_DOC_TYPES.length;
+  const allPresent = uploadedCount === totalCount;
+
+  return { checklist, uploadedCount, totalCount, allPresent };
+}
+
+// ── Determine the visa status for a lead (visaDetail can be array or single object) ─
+function getVisaStatus(visaDetail: any): string | null {
+  if (!visaDetail) return null;
+  const record = Array.isArray(visaDetail) ? visaDetail[0] : visaDetail;
+  return record?.status ?? null;
+}
+
+// ── Card color decision logic ───────────────────────────────────────────────
+// green  -> all required docs uploaded AND visa status APPROVED
+// red    -> all required docs uploaded AND visa status REJECTED
+// yellow -> any required doc missing (regardless of visa status)
+// white  -> all docs uploaded AND visa status is anything else / no record
+function getCardColorState(allPresent: boolean, visaStatus: string | null): CardColorState {
+  if (!allPresent) return "yellow";
+  if (visaStatus === "APPROVED") return "green";
+  if (visaStatus === "REJECTED") return "red";
+  return "white";
+}
+
+function getCardColorClasses(state: CardColorState): string {
+  switch (state) {
+    case "green":
+      return "bg-green-50 dark:bg-green-950/30 border-green-300 hover:bg-green-100 dark:hover:bg-green-950/50";
+    case "red":
+      return "bg-red-50 dark:bg-red-950/30 border-red-300 hover:bg-red-100 dark:hover:bg-red-950/50";
+    case "yellow":
+      return "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-950/50";
+    case "white":
+    default:
+      return "bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700";
+  }
+}
+
+function getStatusBadgeClasses(state: CardColorState): string {
+  switch (state) {
+    case "green":
+      return "bg-green-100 text-green-700 border-green-300";
+    case "red":
+      return "bg-red-100 text-red-700 border-red-300";
+    case "yellow":
+      return "bg-yellow-100 text-yellow-700 border-yellow-300";
+    case "white":
+    default:
+      return "bg-gray-100 text-gray-600 border-gray-300";
+  }
+}
+
 export default function ApplicationsPage() {
   const [apps, setApps] = useState<Application[]>([]);
 
-  // Raw lead data kept so we can derive dropdown options without extra API calls
+  // Raw lead data kept so we can derive dropdown options + doc/visa info without extra API calls
   const [rawLeads, setRawLeads] = useState<any[]>([]);
 
   const [dragId, setDragId] = useState<string | null>(null);
@@ -46,6 +131,10 @@ export default function ApplicationsPage() {
   const [form, setForm] = useState(empty);
   const [role, setRole] = useState("");
   const [isloading, setIsloading] = useState(false);
+
+  // ── Sidebar (detail drawer) state ───────────────────────────────────────────
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ── Admin filter values ─────────────────────────────────────────────────────
   const [adminFilters, setAdminFilters] = useState<AdminFilters>({
@@ -107,23 +196,33 @@ export default function ApplicationsPage() {
 
       const leadData = await leadRes.json();
 
-      // Keep the full raw array for dropdown derivation
+      // Keep the full raw array for dropdown derivation + doc/visa lookups
       setRawLeads(leadData.data ?? []);
 
-      const formatted = (leadData.data ?? []).map((lead: any) => ({
-        id: lead.id,
-        stage: lead.leadStage,
-        studentName: `${lead.studentName} ${lead.lastName ?? ""}`.trim(),
-        university: lead.preferredCountry ?? "Not Selected",
-        program: lead.preferredCourse ?? "Not Selected",
-        intake: lead.intakeSeason ?? "N/A",
-        counselor: lead.counselor?.id ?? "N/A",
-        counselorName: lead.counselor?.name ?? "N/A",
-        branch: lead.branch?.id ?? lead.branchId ?? "N/A",
-        branchName: lead.branch?.name ?? "N/A",
-        createdAt: lead.createdAt,
-      }));
-console.log(leadData, "leadData");
+      const formatted = (leadData.data ?? []).map((lead: any) => {
+        const { uploadedCount, totalCount, allPresent } = getDocCompleteness(lead.docs);
+        const visaStatus = getVisaStatus(lead.visaDetail);
+        const colorState = getCardColorState(allPresent, visaStatus);
+
+        return {
+          id: lead.id,
+          stage: lead.leadStage,
+          studentName: `${lead.studentName} ${lead.lastName ?? ""}`.trim(),
+          university: lead.preferredCountry ?? "Not Selected",
+          program: lead.preferredCourse ?? "Not Selected",
+          intake: lead.intakeSeason ?? "N/A",
+          counselor: lead.counselor?.id ?? "N/A",
+          counselorName: lead.counselor?.name ?? "N/A",
+          branch: lead.branch?.id ?? lead.branchId ?? "N/A",
+          branchName: lead.branch?.name ?? "N/A",
+          createdAt: lead.createdAt,
+          docsUploadedCount: uploadedCount,
+          docsTotalCount: totalCount,
+          docsComplete: allPresent,
+          visaStatus,
+          colorState,
+        };
+      });
 
       setApps(formatted);
     } catch (error) {
@@ -217,24 +316,13 @@ console.log(leadData, "leadData");
 
   const hasActiveAdminFilters = Object.values(adminFilters).some(Boolean);
 
-  const getStageCardStyle = (stage: string) => {
-    switch (stage?.toUpperCase()) {
-      case "INQUIRY":
-        return "bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700";
-
-      case "DOCUMENTS":
-        return "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-950/50";
-
-      case "APPLIED":
-        return "bg-red-50 dark:bg-red-950/30 border-red-300 hover:bg-red-100 dark:hover:bg-red-950/50";
-
-      case "OFFER":
-        return "bg-green-50 dark:bg-green-950/30 border-green-300 hover:bg-green-100 dark:hover:bg-green-950/50";
-
-      default:
-        return "bg-card";
-    }
+  // ── Sidebar open handler ────────────────────────────────────────────────────
+  const openLeadDetail = (id: string) => {
+    setSelectedLeadId(id);
+    setSidebarOpen(true);
   };
+
+  const selectedLead = rawLeads.find((l) => l.id === selectedLeadId) ?? null;
 
   // ── Loading state ───────────────────────────────────────────────────────────
   if (isloading) {
@@ -264,7 +352,6 @@ console.log(leadData, "leadData");
                 <option value="all">All</option>
               </select>
             )}
-
 
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
@@ -325,7 +412,22 @@ console.log(leadData, "leadData");
         }
       />
 
-      {/* ── Admin filter bar ─────────────────────────────────────────────────── */}
+      {/* ── Legend ──────────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-4 mb-3 text-[11px] text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full bg-green-400" /> Docs complete + Visa approved
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full bg-red-400" /> Docs complete + Visa rejected
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full bg-yellow-400" /> Docs missing
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-2.5 rounded-full bg-gray-300 border" /> Docs complete, visa pending/none
+        </span>
+      </div>
+
       {/* ── Admin filter bar ─────────────────────────────────────────────────── */}
       {isAdmin && (
         <div className="mb-4 rounded-xl border border-border bg-card p-4">
@@ -476,44 +578,66 @@ console.log(leadData, "leadData");
               </div>
 
               <div className="space-y-2">
-                {items.map((a) => (
-                  <Card
-                    key={a.id}
-                    draggable
-                    onDragStart={() => setDragId(a.id)}
-                    onDragEnd={() => setDragId(null)}
-                    className={` cursor-grab active:cursor-grabbing hover:shadow-md transition-all border ${getStageCardStyle(a.stage)}`}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-start gap-1.5">
-                        <GripVertical className="size-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-semibold truncate">{a.studentName}</div>
-                          <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-                            {a.university}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground truncate">
-                            {a.program}
-                          </div>
-                          {/* Show branch name for admin */}
-                          {isAdmin && (a as any).branchName && (a as any).branchName !== "N/A" && (
-                            <div className="text-[10px] text-muted-foreground truncate">
-                              🏢 {(a as any).branchName}
+                {items.map((a) => {
+                  const colorState: CardColorState = (a as any).colorState ?? "white";
+                  const docsUploadedCount = (a as any).docsUploadedCount ?? 0;
+                  const docsTotalCount = (a as any).docsTotalCount ?? REQUIRED_DOC_TYPES.length;
+
+                  return (
+                    <Card
+                      key={a.id}
+                      draggable
+                      onDragStart={() => setDragId(a.id)}
+                      onDragEnd={() => setDragId(null)}
+                      onClick={() => openLeadDetail(a.id)}
+                      className={`cursor-pointer active:cursor-grabbing hover:shadow-md transition-all border ${getCardColorClasses(colorState)}`}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-start gap-1.5">
+                          <GripVertical className="size-3.5 text-muted-foreground mt-0.5 shrink-0 cursor-grab" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-semibold truncate">{a.studentName}</div>
+                            <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+                              {a.university}
                             </div>
-                          )}
-                          <div className="flex items-center justify-between mt-2">
-                            <Badge variant="outline" className="text-[9px]">{a.intake}</Badge>
-                            <span className="text-[10px] text-muted-foreground">
-                              {isAdmin
-                                ? (a as any).counselorName?.split(" ")[0]
-                                : a.counselor.split(" ")[0]}
-                            </span>
+                            <div className="text-[11px] text-muted-foreground truncate">
+                              {a.program}
+                            </div>
+                            {/* Show branch name for admin */}
+                            {isAdmin && (a as any).branchName && (a as any).branchName !== "N/A" && (
+                              <div className="text-[10px] text-muted-foreground truncate">
+                                🏢 {(a as any).branchName}
+                              </div>
+                            )}
+
+                            {/* Doc count + status pill */}
+                            <div className="flex items-center justify-between mt-2">
+                              <span
+                                className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full border ${getStatusBadgeClasses(colorState)}`}
+                              >
+                                <FileText className="size-3" />
+                                {docsUploadedCount}/{docsTotalCount} docs
+                              </span>
+                              {colorState === "green" && <CheckCircle2 className="size-3.5 text-green-600" />}
+                              {colorState === "red" && <XCircle className="size-3.5 text-red-600" />}
+                              {colorState === "yellow" && <AlertTriangle className="size-3.5 text-yellow-600" />}
+                              {colorState === "white" && <Circle className="size-3.5 text-gray-300" />}
+                            </div>
+
+                            <div className="flex items-center justify-between mt-2">
+                              <Badge variant="outline" className="text-[9px]">{a.intake}</Badge>
+                              <span className="text-[10px] text-muted-foreground">
+                                {isAdmin
+                                  ? (a as any).counselorName?.split(" ")[0]
+                                  : a.counselor.split(" ")[0]}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
                 {items.length === 0 && (
                   <div className="text-center text-[11px] text-muted-foreground py-8">
                     Drop here
@@ -524,6 +648,185 @@ console.log(leadData, "leadData");
           );
         })}
       </div>
+
+      {/* ── Lead detail sidebar ─────────────────────────────────────────────── */}
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          {selectedLead ? (
+            <LeadDetailPanel lead={selectedLead} />
+          ) : (
+            <div className="p-6 text-sm text-muted-foreground">No lead selected.</div>
+          )}
+        </SheetContent>
+      </Sheet>
     </PageTransition>
+  );
+}
+
+// ── Sidebar content: everything NOT already shown on the card ──────────────
+function LeadDetailPanel({ lead }: { lead: any }) {
+  const { checklist, uploadedCount, totalCount, allPresent } = getDocCompleteness(lead.docs);
+  const visaStatus = getVisaStatus(lead.visaDetail);
+  const colorState = getCardColorState(allPresent, visaStatus);
+  const visaRecord = Array.isArray(lead.visaDetail) ? lead.visaDetail[0] : lead.visaDetail;
+
+  const fmtDate = (d: string | null | undefined) =>
+    d ? new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "—";
+
+  const Row = ({ label, value }: { label: string; value: any }) => (
+    <div className="flex items-start justify-between gap-4 py-1.5 border-b border-border/50 last:border-0">
+      <span className="text-xs text-muted-foreground shrink-0">{label}</span>
+      <span className="text-xs font-medium text-right break-words">{value ?? "—"}</span>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-5">
+      <SheetHeader>
+        <SheetTitle className="flex items-center gap-2">
+          {lead.studentName} {lead.lastName ?? ""}
+          <Badge className={`text-[10px] ${getStatusBadgeClasses(colorState)}`}>
+            {colorState === "green" && "Visa Approved"}
+            {colorState === "red" && "Visa Rejected"}
+            {colorState === "yellow" && "Docs Missing"}
+            {colorState === "white" && "In Progress"}
+          </Badge>
+        </SheetTitle>
+        <SheetDescription>{lead.email ?? "No email on file"}</SheetDescription>
+      </SheetHeader>
+
+      {/* Contact & personal info */}
+      <section>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5">Contact & Personal</h4>
+        <Row label="Phone" value={lead.phone} />
+        <Row label="Father's Name" value={lead.fatherName} />
+        <Row label="Gender" value={lead.gender} />
+        <Row label="Date of Birth" value={fmtDate(lead.dob)} />
+        <Row label="Status" value={lead.status} />
+        <Row label="Source" value={lead.source} />
+      </section>
+
+      {/* Academic info */}
+      {/* <section>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5">Academic Background</h4>
+        <Row label="10th %" value={lead.tenthPassingPercentage} />
+        <Row label="10th Passing Year" value={lead.tenthPassingYear} />
+        <Row label="12th %" value={lead.twelfthPercentage} />
+        <Row label="12th Passing Year" value={lead.twelfthYearOfPassing} />
+        <Row label="Bachelor's University" value={lead.bachelorsUniversityName} />
+        <Row label="Bachelor's Course" value={lead.bachelorsCourse} />
+        <Row label="Bachelor's %" value={lead.bachelorsPercentage} />
+        <Row label="Bachelor's Passing Year" value={lead.bachelorsYearOfPassing} />
+        <Row label="Backlogs" value={lead.backlogs} />
+        <Row label="Gaps (if any)" value={lead.gapsIfAny} />
+        <Row label="Work Experience" value={lead.workExperience} />
+      </section> */}
+
+      {/* Test scores */}
+      {/* <section>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5">Test Scores</h4>
+        <Row label="English Test Type" value={lead.englishTestType} />
+        <Row label="English Waiver" value={lead.englishWaiverType} />
+        <Row label="IELTS Score" value={lead.ieltsScore} />
+        <Row label="Listening" value={lead.listeningScore} />
+        <Row label="Reading" value={lead.readingScore} />
+        <Row label="Writing" value={lead.writingScore} />
+        <Row label="Speaking" value={lead.speakingScore} />
+        <Row label="GRE/GMAT" value={lead.greGmatScore} />
+        <Row label="Verbal" value={lead.verbalScore} />
+        <Row label="Quantitative" value={lead.quantitativeScore} />
+        <Row label="Analytical Writing" value={lead.analyticalWritingScore} />
+      </section> */}
+
+      {/* Application info */}
+      <section>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5">Application</h4>
+        <Row label="Application Type" value={lead.applicationType} />
+        <Row label="Application Date" value={fmtDate(lead.applicationDate)} />
+        <Row label="Current Stage" value={lead.currentStage} />
+        <Row label="Preferred Intake" value={lead.preferredIntake} />
+        <Row label="Preferred Tiers" value={lead.preferredTiers?.join(", ")} />
+        <Row label="Budget" value={lead.budget} />
+        <Row label="University Start" value={fmtDate(lead.universityStart)} />
+        <Row label="Admission Date" value={fmtDate(lead.admissionDate)} />
+      </section>
+
+      {/* Passport & immigration */}
+      <section>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5">Passport & Immigration</h4>
+        <Row label="Passport Number" value={lead.passport} />
+        <Row label="Passport Expiry" value={fmtDate(lead.passportExpireDate)} />
+        <Row label="Immigration Portal Password" value={lead.immigrationPortalPassword ? "••••••••" : "—"} />
+      </section>
+
+      {/* Visa details */}
+      <section>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5">Visa Details</h4>
+        {visaRecord ? (
+          <>
+            <Row label="Visa Status" value={visaRecord.status} />
+            <Row label="Deposit Status" value={visaRecord.depositStatus} />
+            <Row label="Deposit Deadline" value={fmtDate(visaRecord.depositDeadline)} />
+            <Row label="IHS Status" value={visaRecord.ihsStatus} />
+            <Row label="Visa Fee Status" value={visaRecord.visaFeeStatus} />
+            <Row label="CAS Status" value={visaRecord.casStatus} />
+            <Row label="CAS Deadline" value={fmtDate(visaRecord.casDeadline)} />
+            <Row label="University Start Date" value={fmtDate(visaRecord.universityStartDate)} />
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">No visa record yet.</p>
+        )}
+        <Row label="Visa Stage" value={lead.visaStage} />
+      </section>
+
+      {/* Notes */}
+      {lead.notes && (
+        <section>
+          <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5">Notes</h4>
+          <p className="text-xs whitespace-pre-wrap">{lead.notes}</p>
+        </section>
+      )}
+
+      {/* Document checklist */}
+      <section>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1.5">
+          Documents ({uploadedCount}/{totalCount})
+        </h4>
+        <div className="grid gap-1.5">
+          {checklist.map((c) => {
+            const matchedDoc = (lead.docs ?? []).find(
+              (d: any) => (d?.type ?? "").trim().toLowerCase() === c.type.trim().toLowerCase()
+            );
+            return (
+              <div
+                key={c.type}
+                className={`flex items-center justify-between px-2.5 py-1.5 rounded-md border text-xs ${
+                  c.uploaded
+                    ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-950/20"
+                    : "bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-950/20"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  {c.uploaded ? <CheckCircle2 className="size-3.5" /> : <AlertTriangle className="size-3.5" />}
+                  {c.type}
+                </span>
+                {matchedDoc ? (
+                  <a
+                    href={matchedDoc.address}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline underline-offset-2 hover:opacity-80"
+                  >
+                    View
+                  </a>
+                ) : (
+                  <span className="text-[10px] opacity-70">Missing</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
   );
 }

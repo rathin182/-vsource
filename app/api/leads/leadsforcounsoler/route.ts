@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
           counselorId: counselorId ?? undefined,
         },
         include: {
+          docs:true,
+          visaDetail: true,
           branch: {
             select: {
               id: true,
@@ -60,8 +62,6 @@ export async function GET(req: NextRequest) {
                 docs:true,
             },
       });
-
-
 
     return NextResponse.json({
       success: true,
