@@ -50,7 +50,7 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
   }
 }
 
-// Next.js 15 App Router: `params` is a Promise and must be awaited
+
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function PUT(req: NextRequest, context: RouteContext) {
@@ -66,6 +66,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body = await req.json();
 
+    
     const lead = await db.lead.update({
       where: { id },
       data: {
@@ -93,7 +94,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
         backlogs: body.backlogs,
         gapsIfAny: body.gapsIfAny,
         workExperience: body.workExperience,
-
+        nextFollowup: body.nextFollowup ? new Date(body.nextFollowup) : null,
         // ── English Test ──────────────────────────────────────────────────────
         englishTestType: body.englishTestType,
         listeningScore: body.listeningScore,

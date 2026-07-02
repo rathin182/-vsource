@@ -98,6 +98,7 @@ type EditForm = {
   passport: string;
   passportExpireDate: string;
   counsellingDate: string;
+  nextFollowup: string;
 
   tenthPercentage: string;
   tenthYearOfPassing: string;
@@ -142,6 +143,7 @@ const leadToEditForm = (lead: any): EditForm => ({
   passport: lead.passport ?? "",
   passportExpireDate: lead.passportExpireDate ?? "",
   counsellingDate: lead.applicationDate ?? "",
+  nextFollowup: new Date(lead.nextFollowup).toISOString() ?? "",
 
   tenthPercentage: String(lead.tenthPassingPercentage ?? ""),
   tenthYearOfPassing: String(lead.tenthPassingYear ?? ""),
@@ -372,6 +374,8 @@ export default function AllLeadsPage() {
       setIsLoading(true);
       const { data } = await axios.get("/api/leads", { withCredentials: true });
       setLeads(Array.isArray(data?.data) ? data.data : []);
+      console.log(data.data);
+      
     } catch (err) {
       console.error(err);
       toast.error("Failed to load leads");
@@ -487,6 +491,7 @@ export default function AllLeadsPage() {
         backlogs: toNumberOrUndef(editForm.backlogs),
         gapsIfAny: strOrUndef(editForm.gapsIfAny),
         workExperience: strOrUndef(editForm.workExperience),
+        nextFollowup: strOrUndef(editForm.nextFollowup),
 
         englishTestType: strOrUndef(editForm.englishTestType),
         listeningScore: toNumberOrUndef(editForm.listeningScore),
@@ -1156,7 +1161,7 @@ export default function AllLeadsPage() {
     </DialogHeader>
     {editForm && (
       <div className="space-y-4">
-        {/* ── Status ── */}
+        <div className="flex justify-start gap-4 items-center">
         <div className="w-48">
           <FieldLabel>Status</FieldLabel>
           <Select value={editForm.status} onValueChange={(v) => setField("status", v)}>
@@ -1172,6 +1177,18 @@ export default function AllLeadsPage() {
             </SelectContent>
           </Select>
         </div>
+
+                <div className="w-48">
+          <FieldLabel>Next Follow up</FieldLabel>
+          <Input 
+          type="date"
+          value={new Date(editForm.nextFollowup).toISOString().slice(0, 10)}
+          onChange={(e) => setField("nextFollowup", e.target.value as any)}
+          />
+        </div>
+        </div>
+
+        
 
         <SectionDivider label="Personal" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

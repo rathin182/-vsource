@@ -29,6 +29,8 @@ import {
   LucideArrowLeft,
   ChevronsUpDown,
   Check,
+  EyeOff,
+  Eye,
 } from "lucide-react";
 import axios from "axios";
 import { Select } from "@/slids/components/ui/select";
@@ -62,7 +64,7 @@ export default function Users() {
   const [target, setTarget] = useState(0);
   const [page, setPage] = useState(1);
   const [branches, setBranches] = useState<{ id: string; name: string; email: string }[]>([]);
-
+  const [showPassword, setShowPassword] = useState(false);
   const [branchOpen, setBranchOpen] = useState(false);
   // Edit state
   const [editOpen, setEditOpen] = useState(false);
@@ -87,6 +89,10 @@ export default function Users() {
   const [branchIds, setBranchIds] = useState<string[]>([]);
 
   const createCounsellor = async () => {
+    if (!name || !email || !phone || !password) {
+      toast.error("Please fill all required fields.");
+      return;
+    }
     try {
       setCreateLoading(true);
 
@@ -230,6 +236,41 @@ export default function Users() {
     }
   }, [createOpen, editOpen])
 
+
+  const blockInvalidNumberPaste = (
+    e: React.ClipboardEvent<HTMLInputElement>,
+  ) => {
+    const pasted = e.clipboardData.getData("text");
+    if (/[-+eE]/.test(pasted)) {
+      e.preventDefault();
+      document.execCommand("insertText", false, pasted.replace(/[-+eE]/g, ""));
+    }
+  };
+
+  const handlePhoneField = (v: string) => {
+    setPhone(v.replace(/[^0-9]/g, "").slice(0, 10));
+  };
+
+  const blockInvalidPhoneKeys = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (
+      [
+        "Backspace",
+        "Delete",
+        "Tab",
+        "ArrowLeft",
+        "ArrowRight",
+        "Home",
+        "End",
+      ].includes(e.key) ||
+      e.ctrlKey ||
+      e.metaKey
+    ) {
+      return;
+    }
+    if (!/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
   if (isPending) {
     return (
       <div className="w-[80vw] h-screen grid place-items-center">
@@ -395,17 +436,38 @@ export default function Users() {
               <Label>Phone</Label>
               <Input
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+              maxLength={10}
+              onChange={(e) => handlePhoneField(e.target.value)}
+              onKeyDown={blockInvalidPhoneKeys}
+              onPaste={blockInvalidNumberPaste}
+              placeholder="9876543210"
+                
               />
             </div>
-
+            
+            
             <div>
               <Label>Password</Label>
-              <Input
-                type="password"
+
+                <div className="relative">
+                <Input
+                  id="form-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder={"Type password"}
+                  className="pr-9"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-              />
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+
             </div>
 
             <div>

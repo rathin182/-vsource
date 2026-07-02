@@ -39,6 +39,7 @@ import {
 } from "@/slids/components/ui/select";
 import { CourseFormData } from "@/slids/types";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface University {
   id: string;
@@ -64,6 +65,8 @@ export default function CourseForm() {
         status: true,
       },
     });
+
+  const router = useRouter()
 
   const [universities, setUniversities] =
     useState<University[]>([]);
@@ -564,13 +567,22 @@ export default function CourseForm() {
           </div>
         </CardContent>
       </Card>
+      <div className="flex justify-between items-center">
+        <Button
+        onClick={() => router.back()}
+        size="lg"
+        variant={"outline"}
+        >
+        Cancel
+      </Button>
 
-      <Button
+            <Button
         type="submit"
         size="lg"
-      >
+        >
         Create Course
       </Button>
+        </div>
     </form>
   );
 }
