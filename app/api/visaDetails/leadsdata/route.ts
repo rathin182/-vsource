@@ -87,6 +87,7 @@ export async function GET(req: NextRequest) {
             const leads = await db.lead.findMany({
                 where: {
                     counselorId: payload.userId,
+                    status: "CONVERTED",
                 },
                 orderBy: {
                     createdAt: "desc",
@@ -114,6 +115,9 @@ export async function GET(req: NextRequest) {
         // ======================================================
 
         const leads = await db.lead.findMany({
+            where: {
+                status: "CONVERTED",
+            },
             orderBy: {
                 createdAt: "desc",
             },

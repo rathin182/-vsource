@@ -5,7 +5,7 @@ import { Button } from "@/slids/components/ui/button";
 import { Input } from "@/slids/components/ui/input";
 import { Badge } from "@/slids/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/slids/components/ui/avatar";
-import { Search, Mail, Phone, GraduationCap, Award } from "lucide-react";
+import { Search, Mail, Phone, GraduationCap, Award, ArrowRight } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/slids/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/slids/components/ui/tabs";
 import {
@@ -55,6 +55,35 @@ export default function StudentsPage() {
     const req = await axios.get("/api/branches/all");
     if (req.status === 200) {
       setBranches(req.data.data);
+    }
+  };
+
+  const createStudent = async () => {
+    console.log(sel, "sealll", form);
+    
+    try {
+      setIsCreating(true);
+      const response = await fetch('/api/student/converttostudent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(sel),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        toast.success('Student created successfully!');
+        setForm(empty);
+        setOpen(false);
+        allStudent();
+      } else {
+        toast.error(data.message || 'Failed to create student.');
+      }
+    } catch (error) {
+      // console.error('Error creating student:', error);
+      toast.error('An error occurred while creating the student.');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -227,10 +256,29 @@ export default function StudentsPage() {
                       >
                         View More
                       </Button>
+
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          createStudent()
+                        }
+                        className=" group h-10 rounded-xl bg-gradient-to-r from-red-500 via-red-600 to-red-700 px-5 font-semibold text-white shadow-md transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:from-red-600 hover:to-red-800 active:scale-95 " >
+                        <GraduationCap className="mr-2 h-4 w-4 transition-transform duration-300 group-hover:-rotate-6" />
+                        Convert to Student
+                        <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+                      </Button>
                     </div>
 
                     <SheetDescription>
-                      {(sel as any).admissionDate || "N/A"} ·{" "}
+                      {
+                        (sel as any).admissionDate
+                          ? new Date((sel as any).admissionDate).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })
+                          : "N/A"
+                      } ·{" "}
                       {(sel as any).preferredCountry || "N/A"} ·{" "}
                       {sel.status}
                     </SheetDescription>
