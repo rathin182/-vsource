@@ -9,8 +9,7 @@ import {
   IntakeSeason,
   LeadStatus,
 } from "@/lib/generated/prisma/client";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/jwt";
+
 
 export async function GET(req: NextRequest) {
   try {

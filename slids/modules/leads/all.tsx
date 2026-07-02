@@ -372,7 +372,7 @@ export default function AllLeadsPage() {
   const loadLeads = async () => {
     try {
       setIsLoading(true);
-      const { data } = await axios.get("/api/leads", { withCredentials: true });
+      const { data } = await axios.get(`/api/leads`, { withCredentials: true });
       setLeads(Array.isArray(data?.data) ? data.data : []);
       console.log(data.data);
       

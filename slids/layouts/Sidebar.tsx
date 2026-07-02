@@ -49,12 +49,6 @@ const items = [
       { to: "/leads/all", label: "All Walk-In" },
     ],
   },
-    {
-    to: "/leads/add",
-    label: "Add Lead",
-    icon: Plus,
-    roles: ["COUNSELLOR"],
-  },
   {
     to: "/visa",
     label: "Visa Applications",
