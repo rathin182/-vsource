@@ -75,12 +75,12 @@ const items = [
   },
 
   // Admin only
-  {
-    to: "/loans",
-    label: "Education Loans",
-    icon: Banknote,
-    roles: ["ADMIN", "SUPER ADMIN", "COUNSELLOR"],
-  },
+ // {
+   // to: "/loans",
+  //  label: "Education Loans",
+  //  icon: Banknote,
+  //  roles: ["ADMIN", "SUPER ADMIN", "COUNSELLOR"],
+ // },
   {
     to: "/branches",
     label: "Branches",
