@@ -101,15 +101,6 @@ export async function PUT(req: NextRequest, context: RouteContext) {
         readingScore: body.readingScore,
         writingScore: body.writingScore,
         speakingScore: body.speakingScore,
-        toeflScore:
-          body.englishTestType === "TOEFL" ? body.toeflScore : undefined,
-        pteScore: body.englishTestType === "PTE" ? body.pteScore : undefined,
-        duolingoScore:
-          body.englishTestType === "DUOLINGO" ? body.duolingoScore : undefined,
-
-        // Optional if you still support IELTS separately
-        ieltsScore:
-          body.englishTestType === "IELTS" ? body.ieltsScore : undefined,
 
         // ── GRE / GMAT ──────────────────────────────── ────────────────────────
         greGmatScore: body.greGmatScore,

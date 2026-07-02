@@ -525,6 +525,21 @@ export default function AllLeadsPage() {
         counselorId: editForm.counsellorId,
       };
 
+      const existU = universities.some(u => u.name.toLowerCase() === editForm.bachelorsUniversityName.toLowerCase());
+      const existD = degrees.some(d => d.name.toLowerCase() === editForm.bachelorsCourse.toLowerCase());
+      
+      if (editForm.bachelorsUniversityName && !existU) {
+        await axios.post("/api/lead-universities", {
+          name: strOrUndef(editForm.bachelorsUniversityName)
+        })
+      }
+
+      if (editForm.bachelorsCourse &&!existD) {
+        await axios.post("/api/lead-degrees", {
+          name: strOrUndef(editForm.bachelorsCourse)
+        })
+      }
+
       await axios.put(`/api/leads/${editingLead.id}`, payload, {
         withCredentials: true,
       });
@@ -1455,7 +1470,7 @@ export default function AllLeadsPage() {
             </Select>
           </div>
 
-          {editForm.englishTestType === "IELTS" && (
+          {/* {editForm.englishTestType === "IELTS" && (
             <>
               {(["listeningScore", "readingScore", "writingScore", "speakingScore"] as const).map(
                 (k) => (
@@ -1520,7 +1535,7 @@ export default function AllLeadsPage() {
                 placeholder="120"
               />
             </div>
-          )}
+          )} */}
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

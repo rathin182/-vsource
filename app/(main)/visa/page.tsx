@@ -257,7 +257,7 @@ export default function StudentsPage() {
                         View More
                       </Button>
 
-                      <Button
+                      {/* <Button
                         size="sm"
                         onClick={() =>
                           createStudent()
@@ -266,7 +266,7 @@ export default function StudentsPage() {
                         <GraduationCap className="mr-2 h-4 w-4 transition-transform duration-300 group-hover:-rotate-6" />
                         Convert to Student
                         <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                      </Button>
+                      </Button> */}
                     </div>
 
                     <SheetDescription>
