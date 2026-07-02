@@ -141,8 +141,8 @@ const leadToEditForm = (lead: any): EditForm => ({
   place: (lead as any).place ?? "",
   source: lead.source ?? "",
   passport: lead.passport ?? "",
-  passportExpireDate: lead.passportExpireDate ?? "",
-  counsellingDate: lead.applicationDate ?? "",
+  passportExpireDate: new Date(lead.passportExpireDate).toISOString() ?? "",
+  counsellingDate: new Date(lead.applicationDate).toISOString() ?? "",
   nextFollowup: new Date(lead.nextFollowup).toISOString() ?? "",
 
   tenthPercentage: String(lead.tenthPassingPercentage ?? ""),
@@ -1049,6 +1049,7 @@ export default function AllLeadsPage() {
                 <ViewRow label="Source" value={viewLead.source} />
                 <ViewRow label="Branch" value={viewLead.branch?.name} />
                 <ViewRow label="Status" value={viewLead.status} />
+                {/* <ViewRow label="Next Follow up" value={viewLead.nextFollowup.split("T")[0]} /> */}
                 <ViewRow
                   label="Application Date"
                   value={formatDate(viewLead.applicationDate)}
@@ -1152,7 +1153,7 @@ export default function AllLeadsPage() {
   open={Boolean(editingLead)}
   onOpenChange={() => {
     setEditingLead(null);
-    setEditForm(null);
+    // setEditForm(null);
   }}
 >
   <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -1258,15 +1259,15 @@ export default function AllLeadsPage() {
             <FieldLabel>Passport Expiry</FieldLabel>
             <EditInput
               type="date"
-              value={editForm.passportExpireDate}
+              value={new Date(editForm.passportExpireDate).toISOString().slice(0, 10)}
               onChange={(v) => setField("passportExpireDate", v)}
             />
           </div>
           <div>
             <FieldLabel>Application Date</FieldLabel>
             <EditInput
-              type="datetime-local"
-              value={editForm.counsellingDate}
+              type="date"
+              value={new Date(editForm.counsellingDate).toISOString().slice(0, 10)}
               onChange={(v) => setField("counsellingDate", v)}
             />
           </div>

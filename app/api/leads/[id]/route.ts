@@ -76,8 +76,8 @@ export async function PUT(req: NextRequest, context: RouteContext) {
         email: body.email,
         phone: String(body.phone),
         passport: body.passport,
-        passportExpireDate: body.passportExpireDate,
-        applicationDate: body.counsellingDate,
+        passportExpireDate: new Date(body.passportExpireDate),
+        applicationDate: new Date(body.counsellingDate),
         source: body.source,
 
         // ── Academic — Schooling ──────────────────────────────────────────────
@@ -111,7 +111,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
         ieltsScore:
           body.englishTestType === "IELTS" ? body.ieltsScore : undefined,
 
-        // ── GRE / GMAT ────────────────────────────────────────────────────────
+        // ── GRE / GMAT ──────────────────────────────── ────────────────────────
         greGmatScore: body.greGmatScore,
         quantitativeScore: body.quantitativeScore,
         verbalScore: body.verbalScore,
