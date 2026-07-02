@@ -53,6 +53,7 @@ export function DMSSection({
   const [uploadCategory, setUploadCategory] = useState('Passport');
   const [uploadName, setUploadName] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadingCategory, setUploadingCategory] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
@@ -149,7 +150,7 @@ export function DMSSection({
     if (!file) return;
 
     try {
-      setIsUploading(true);
+      setUploadingCategory(category);
       const formData = new FormData();
       formData.append('file', file);
       formData.append('name', `${category}_${studentName.replace(/\s+/g, '_')}`);
@@ -169,7 +170,7 @@ export function DMSSection({
       console.error(err);
       toast.error('Upload failed.');
     } finally {
-      setIsUploading(false);
+      setUploadingCategory(null);
       // reset so same file can be re-picked
       e.target.value = '';
     }
@@ -277,13 +278,12 @@ export function DMSSection({
               return (
                 <div
                   key={category}
-                  className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 text-xs ${
-                    file
+                  className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 text-xs ${file
                       ? selectedDoc?.id === file.id
                         ? 'border-red-500 bg-red-600/5 dark:bg-red-600/10'
                         : 'border-slate-200 dark:border-slate-800 bg-emerald-500/5 hover:border-red-600/40'
                       : 'border-slate-150 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800/40 opacity-75'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <FileText className={`h-4.5 w-4.5 shrink-0 ${file ? 'text-emerald-500' : 'text-slate-400'}`} />
@@ -358,12 +358,12 @@ export function DMSSection({
                           onChange={e => handleQuickUpload(e, category)}
                         />
                         <button
-                          disabled={isUploading}
+                          disabled={uploadingCategory === category}
                           onClick={() => document.getElementById(quickInputId)?.click()}
                           className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-0.5 uppercase tracking-wide transition-colors"
                         >
                           <Upload className="h-3 w-3" />
-                          {isUploading ? 'Uploading...' : 'Upload'}
+                          {uploadingCategory === category ? "Uploading..." : "Upload"}
                         </button>
                       </>
                     )}
@@ -411,11 +411,10 @@ export function DMSSection({
                 onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleWizardDrop}
-                className={`border-2 border-dashed rounded-2xl p-3.5 text-center transition-all relative group ${
-                  isDragging
+                className={`border-2 border-dashed rounded-2xl p-3.5 text-center transition-all relative group ${isDragging
                     ? 'border-red-500 bg-red-500/5 scale-[1.01]'
                     : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 hover:border-red-650'
-                }`}
+                  }`}
               >
                 <input
                   type="file"

@@ -328,16 +328,12 @@ export function AddEditModal({
   };
 
   // ── shared input classes ──
-  const input = `w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 transition-colors ${isDarkMode
-    ? 'bg-slate-950 border-slate-800 text-slate-100 placeholder:text-slate-600'
-    : 'bg-slate-50 border-slate-200 text-slate-800 placeholder:text-slate-400'
-    }`;
+  const input = `w-full px-3 py-2 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-red-600 transition-colors dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:placeholder:text-slate-600 bg-slate-50 border-slate-200 text-slate-800 placeholder:text-slate-400`;
 
   const select = `${input} appearance-none cursor-pointer`;
 
   const sectionLabel =
-    'text-[10px] uppercase font-black text-slate-400 tracking-widest border-b pb-1 ' +
-    (isDarkMode ? 'border-slate-800' : 'border-slate-200');
+    'text-[10px] uppercase font-black text-slate-400 tracking-widest border-b pb-1 dark:border-slate-800 border-slate-200 ';
 
   return (
     <AnimatePresence>
@@ -358,13 +354,10 @@ export function AddEditModal({
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: '30%', opacity: 0, scale: 0.96 }}
             transition={{ type: 'spring', damping: 28, stiffness: 210 }}
-            className={`fixed inset-x-4 bottom-4 sm:inset-x-auto sm:right-6 sm:top-6 sm:bottom-6 sm:w-[520px] z-[90] flex flex-col rounded-3xl shadow-2xl border overflow-hidden ${isDarkMode
-              ? 'bg-slate-900 border-slate-800 text-slate-100'
-              : 'bg-white border-slate-100 text-slate-800'
-              }`}
+            className={`fixed inset-x-4 bottom-4 sm:inset-x-auto sm:right-6 sm:top-6 sm:bottom-6 sm:w-[520px] z-[90] flex flex-col rounded-3xl shadow-2xl border overflow-hidden dark:bg-slate-900 dark:border-slate-800 dark:text-slate-100 bg-white border-slate-100 text-slate-800`}
           >
             {/* ── Header ── */}
-            <div className={`p-5 flex items-center justify-between border-b ${isDarkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+            <div className={`p-5 flex items-center justify-between border-b dark:border-slate-800 border-slate-100`}>
               <div className="flex items-center gap-2.5">
                 <div className="bg-red-600/10 p-2 rounded-xl text-red-600">
                   {isEditing ? <FileEdit className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
@@ -382,7 +375,7 @@ export function AddEditModal({
               </div>
               <button
                 onClick={onClose}
-                className={`p-1.5 rounded-xl transition-colors ${isDarkMode ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}
+                className={`p-1.5 rounded-xl transition-colors dark:hover:bg-slate-800 hover:bg-slate-100`}
               >
                 <X className="h-4.5 w-4.5 text-slate-400" />
               </button>
@@ -561,8 +554,7 @@ export function AddEditModal({
                         type="button"
                         onClick={() => setImmigrationPortalPassword(randomPassword())}
                         title="Regenerate password"
-                        className={`p-2 rounded-xl border transition-colors text-slate-400 hover:text-red-600 ${isDarkMode ? 'border-slate-800 hover:bg-slate-800' : 'border-slate-200 hover:bg-slate-100'
-                          }`}
+                        className={`p-2 rounded-xl border transition-colors text-slate-400 hover:text-red-600 dark:border-slate-800 dark:hover:bg-slate-800 border-slate-200 hover:bg-slate-100`}
                       >
                         <RefreshCcw className="h-3.5 w-3.5" />
                       </button>
@@ -571,7 +563,7 @@ export function AddEditModal({
                 </div>
 
                 {/* 3 · Timeline */}
-                <p className={sectionLabel}>Key Dates</p>
+                {/* <p className={sectionLabel}>Key Dates</p>
 
                 <div className="grid grid-cols-3 gap-3">
                   <div>
@@ -586,10 +578,10 @@ export function AddEditModal({
                     <label className="text-[10px] uppercase font-bold text-slate-400 mb-1 block">University Start</label>
                     <input type="date" value={universityStart} onChange={e => setUniversityStart(e.target.value)} className={input} />
                   </div>
-                </div>
+                </div> */}
 
                 {/* 4 · Status & Visa Stage */}
-                <p className={sectionLabel}>Status & Visa Stage</p>
+                {/* <p className={sectionLabel}>Status & Visa Stage</p>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -605,7 +597,7 @@ export function AddEditModal({
                       {VISA_STAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </div>
-                </div>
+                </div> */}
 
                 {/* Error banner */}
                 {error && (
@@ -618,15 +610,12 @@ export function AddEditModal({
             </div>
 
             {/* ── Footer ── */}
-            <div className={`p-4 flex gap-3 border-t ${isDarkMode ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50'}`}>
+            <div className={`p-4 flex gap-3 border-t dark:border-slate-800 dark:bg-slate-900/50 border-slate-100 bg-slate-50`}>
               <button
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className={`flex-1 py-2.5 rounded-xl border text-xs font-extrabold transition-colors ${isDarkMode
-                  ? 'border-slate-800 hover:bg-slate-800 text-slate-400'
-                  : 'border-slate-200 hover:bg-slate-100 text-slate-500'
-                  }`}
+                className={`flex-1 py-2.5 rounded-xl border text-xs font-extrabold transition-colors dark:border-slate-800 dark:hover:bg-slate-800 dark:text-slate-400 border-slate-200 hover:bg-slate-100 text-slate-500`}
               >
                 Cancel
               </button>

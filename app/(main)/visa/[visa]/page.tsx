@@ -15,6 +15,7 @@ export default function Page() {
   const params = useParams();
   const [student, setStudent] = useState({});
   const [loading, setLoading] = useState(true);
+  const [detailTab, setDetailTab] = useState<'info' | 'documents' | 'applications' | 'finance' | 'visa' | 'remarks'>('info');
   const selectedStudentId = params.visa as string;
 
   const studentfetch = async () => {
@@ -54,6 +55,8 @@ export default function Page() {
         <StudentData
           student={student}
           reloadStudent={studentfetch}
+          detailTab={detailTab}
+          setDetailTab={setDetailTab}
         />
       )}
     </div>

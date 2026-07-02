@@ -172,7 +172,7 @@ type StudentCourses = {
   updatedAt: string;
 };
 
-export default function StudentData({ student, reloadStudent, }: any) {
+export default function StudentData({ student, reloadStudent,  detailTab, setDetailTab, }: any) {
   const Router = useRouter();
   // Backwards compatible initial state mapped with extra credentials & local documents
   const [students, setStudents] = useState<LocalStudent[]>(() => {
@@ -221,7 +221,7 @@ export default function StudentData({ student, reloadStudent, }: any) {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   // Detail page state variables
-  const [detailTab, setDetailTab] = useState<'info' | 'documents' | 'applications' | 'finance' | 'visa' | 'remarks'>('info');
+  // const [detailTab, setDetailTab] = useState<'info' | 'documents' | 'applications' | 'finance' | 'visa' | 'remarks'>('info');
 
   // Search state
   const [globalSearch, setGlobalSearch] = useState<string>('');
