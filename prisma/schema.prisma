@@ -26,6 +26,7 @@ enum LeadStatus {
   QUALIFIED
   CONVERTED
   LOST
+  DRAFT
 }
 
 enum LeadStage {
