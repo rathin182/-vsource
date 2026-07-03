@@ -67,6 +67,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     const body = await req.json();
 
     
+    
     const lead = await db.lead.update({
       where: { id },
       data: {
@@ -116,7 +117,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
 
         // ── Lead meta ─────────────────────────────────────────────────────────
         status: body.status,
-        counselorId: body.counselorId,
+        counselorId: body.counselorId ?? null,
 
         // Keep these if they still exist in your schema
         branchId: body.branchId,

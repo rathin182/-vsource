@@ -522,7 +522,7 @@ export default function AllLeadsPage() {
         preferredIntake: strOrUndef(editForm.preferredIntake),
         preferredTiers: editForm.preferredTiers,
         status: editForm.status.toUpperCase(),
-        counselorId: editForm.counsellorId,
+        counselorId: strOrUndef(editForm.counsellorId),
       };
 
       const existU = universities.some(u => u.name.toLowerCase() === editForm.bachelorsUniversityName.toLowerCase());
