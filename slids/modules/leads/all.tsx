@@ -1180,7 +1180,7 @@ export default function AllLeadsPage() {
         <div className="flex justify-start gap-4 items-center">
         <div className="w-48">
           <FieldLabel>Status</FieldLabel>
-          <Select value={editForm.status} onValueChange={(v) => setField("status", v)}>
+          <Select value={editForm.status.toLowerCase()} onValueChange={(v) => setField("status", v)}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
